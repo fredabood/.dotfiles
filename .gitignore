@@ -1,5 +1,7 @@
-# Compiled Python files
+# Python files
 *.pyc
+.ipynb_checkpoints/*
+__pycache__/*
 
 # Folder view configuration files
 .DS_Store

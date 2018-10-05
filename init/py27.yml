@@ -1,0 +1,22 @@
+name: py27
+channels:
+  - defaults
+  - anaconda
+  - conda-forge
+  - r
+  - bokeh
+  - plotly
+  - blaze
+dependencies:
+  - python=2.7
+  - pip
+  - ipykernel
+  - numpy
+  - pandas
+  - pandas-profileing
+  - matplotlib
+  - seaborn
+  - tqdm
+  - flask
+  - sqlalchemy
+  - boto3

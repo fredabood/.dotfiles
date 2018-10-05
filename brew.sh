@@ -97,3 +97,16 @@ brew install zopfli
 
 # Remove outdated versions from the cellar.
 brew cleanup
+
+# Not Part of Mathias' brew.sh
+brew install stow
+
+# used for Jupyter R & JS kernels
+brew install cask
+brew cask install xquartz
+brew tap homebrew/science
+brew install r
+
+brew install pkg-config
+brew install node
+brew install zeromq
