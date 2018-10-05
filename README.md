@@ -1,8 +1,6 @@
 # Dotfiles
 
-My fork of [Mathias' Dotfiles](https://github.com/mathiasbynens/dotfiles).
-
-The [./remote.sh](./remote.sh) code came from [Jose Portilla's Tutorial](https://medium.com/@josemarcialportilla/getting-spark-python-and-jupyter-notebook-running-on-amazon-ec2-dec599e1c297).
+A fork of [Mathias' Dotfiles](https://github.com/mathiasbynens/dotfiles).
 
 [Miniconda Archive](https://repo.continuum.io/miniconda/) | [Jupyter Kernels](https://github.com/jupyter/jupyter/wiki/Jupyter-kernels)
 
@@ -13,7 +11,7 @@ The [./remote.sh](./remote.sh) code came from [Jose Portilla's Tutorial](https:/
 * [conda.sh](./conda.sh)
 * [init/py27.yml](./init/py27.yml)
 * [init/py36.yml](./init/py36.yml)
-* [remote.sh](./remote.sh)
+* [remote.sh](./remote.sh) (Mostly taken from [Jose Portilla's Tutorial](https://medium.com/@josemarcialportilla/getting-spark-python-and-jupyter-notebook-running-on-amazon-ec2-dec599e1c297))
 
 ### Files Modified From Mathias'
 * [.bash_profile](./.bash_profile)
