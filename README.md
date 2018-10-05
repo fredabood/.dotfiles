@@ -35,15 +35,15 @@ conda update conda;
 
 # If your conda channels don't match mine, not all of these will install with conda.
 conda install cython py4j \
-							jupyter jupyterlab ipykernel \
-							numpy pandas \
-							matplotlib seaborn plotly bokeh dash folium \
-							flask django \
-							sqlalchemy boto3 \
-							beautifulsoup4 scrapy \
-							pandas-datareader quandl \
-							praw google-api-python-client tweepy \
-							scikit-learn spacy tensorflow keras theano ;
+              jupyter jupyterlab ipykernel \
+              numpy pandas \
+              matplotlib seaborn plotly bokeh dash folium \
+              flask django \
+              sqlalchemy boto3 \
+              beautifulsoup4 scrapy \
+              pandas-datareader quandl \
+              praw google-api-python-client tweepy \
+              scikit-learn spacy tensorflow keras theano ;
 
 pip install nteract_on_jupyter vaderSentiment;
 
