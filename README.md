@@ -38,7 +38,7 @@ conda install cython py4j \
               jupyter jupyterlab ipykernel \
               numpy pandas pandas-profileing \
               matplotlib seaborn plotly \
-							bokeh dash folium \
+              bokeh dash folium \
               flask django \
               sqlalchemy boto3 tqdm \
               beautifulsoup4 scrapy \
