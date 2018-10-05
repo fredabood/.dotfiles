@@ -2,7 +2,7 @@
 
 My fork of [Mathias' Dotfiles](https://github.com/mathiasbynens/dotfiles).
 
-The [./spark.sh](./spark.sh) and [./jupyter.sh](./jupyter.sh) code came from [Jose Portilla's Tutorial](https://medium.com/@josemarcialportilla/getting-spark-python-and-jupyter-notebook-running-on-amazon-ec2-dec599e1c297).
+The [./remote.sh](./remote.sh) code came from [Jose Portilla's Tutorial](https://medium.com/@josemarcialportilla/getting-spark-python-and-jupyter-notebook-running-on-amazon-ec2-dec599e1c297).
 
 [Miniconda Archive](https://repo.continuum.io/miniconda/) | [Jupyter Kernels](https://github.com/jupyter/jupyter/wiki/Jupyter-kernels)
 
@@ -21,7 +21,7 @@ The [./spark.sh](./spark.sh) and [./jupyter.sh](./jupyter.sh) code came from [Jo
 * [README.md](./README.md)
 * [bootstrap.sh](./bootstrap.sh)
 * [brew.sh](./brew.sh)
-* [init/Solarized Dark.itermcolors](./init/Solarized Dark.itermcolors)
+* [init/SolarizedDark.itermcolors](./init/SolarizedDark.itermcolors)
 
 ### Files Deleted From Mathias'
 * [.gitattributes](./.gitattributes)
