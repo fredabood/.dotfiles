@@ -17,17 +17,16 @@ rm $HOME/miniconda.sh && \
 source $HOME/.bash_profile
 
 pip install --upgrade pip && conda update conda && \
-conda install jupyter jupyterlab ipykernel && \
-conda install numpy pandas pandas-profiling && \
-conda install matplotlib seaborn plotly && \
-conda install tqdm && \
-conda install flask && \
-conda install sqlalchemy && \
-conda install boto3 && \
-conda install sparkmagic;
+conda install jupyter jupyterlab ipykernel \
+              numpy pandas pandas-profiling \
+              matplotlib seaborn plotly \
+              tqdm \
+              flask \
+              sqlalchemy \
+              boto3
 
 if [ "${KERNEL:0:6}" = "Darwin" ]; then
-  conda install pyzmq nodejs r-essentials mro-base
+  conda install pyzmq nodejs r-essentials mro-base sparkmagic
 
   # Renaming Root Python Kernel to differentiate from Environments
   python -m ipykernel install --user --display-name "Python [root]"
