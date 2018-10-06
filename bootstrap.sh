@@ -13,14 +13,14 @@ unset file;
 # Taken from https://github.com/CodyReichert/dotfiles/blob/master/install.sh
 for folder in `ls .`; do
   if [ -d "$folder" ]; then
-    for file in "ls -a $folder/"; do
-      if [ -r "$HOME/$file" ] && [ -f "$HOME/$file" ]; then
-        rm "$HOME/$file"
-      elif [ -r "$HOME/$file" ] && [ -d "$HOME/$file" ]; then
-        rm -r "$HOME/$file"
+    for file in `ls -a $folder/`; do
+      if [ -f "$HOME/$file" ]; then
+        rm ~/$file
+      elif [ -d "$HOME/$file" ] && [ $file != "." ] && [ $file != ".." ]; then
+        rm -r ~/$file
       fi
     done
-    ( stow $folder )
+    ( stow -R $folder )
   fi
 done
 
