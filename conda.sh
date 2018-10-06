@@ -8,7 +8,7 @@ fi
 bash $HOME/miniconda.sh -b -p $HOME/.conda && \
 echo export PATH="$HOME/.conda/bin:$PATH" >> $HOME/.extra && \
 rm $HOME/miniconda.sh && \
-source $HOME/.bash_profile;
+source $HOME/.dotfiles/.bash_profile;
 
 conda install jupyter jupyterlab ipykernel \
 							numpy pandas pandas-profiling \
