@@ -1,28 +1,26 @@
 # Dotfiles
 
-A fork of [Mathias' Dotfiles](https://github.com/mathiasbynens/dotfiles).
+Forked from [Mathias Bynen's Dotfiles](https://github.com/mathiasbynens/dotfiles), modified using [Cody Reichert's](https://github.com/CodyReichert/dotfiles) install.sh to utilize stow.
 
 [Miniconda Archive](https://repo.continuum.io/miniconda/) | [Jupyter Kernels](https://github.com/jupyter/jupyter/wiki/Jupyter-kernels)
 
 ```bash
-git clone https://github.com/fredabood/.dotfiles.git && cd .dotfiles && bash bootstrap.sh; Y; Y;
+git clone https://github.com/fredabood/.dotfiles.git && cd .dotfiles && bash bootstrap.sh;
 ```
 
 ### New Files Not Included in Mathias':
-* [.condarc](./.condarc)
-* [.extra](./.extra)
-* [atom.sh](./atom.sh)
-* [conda.sh](./conda.sh)
-* [init/py27.yml](./init/py27.yml)
-* [init/py36.yml](./init/py36.yml)
-* [remote.sh](./remote.sh) (Mostly taken from [Jose Portilla's Tutorial](https://medium.com/@josemarcialportilla/getting-spark-python-and-jupyter-notebook-running-on-amazon-ec2-dec599e1c297))
+* [.condarc](./conda/.condarc) - For default conda config
+* [.extra](./bash/.extra) (see [Mathias' dotfiles](https://github.com/mathiasbynens/dotfiles))
+* [conda.sh](./conda.sh) - Installs Miniconda, Python packages, conda environments, Spark, Jupyter (with kernels and/or remote access)
+* [packages.sh](./packages.sh) (largely stems from [Mathias' brew.sh](https://github.com/mathiasbynens/dotfiles/blob/master/brew.sh))
+* [init/py27.yml](./bash/init/py27.yml) - For conda env creation
+* [init/py36.yml](./bash/init/py36.yml) - For conda env creation
 
 ### Files Modified From Mathias'
-* [.bash_profile](./.bash_profile)
-* [.gitignore](./.gitignore)
+* [.gitignore](./.gitignore) - Added .ipynb_checkpoints and __pycache__
 * [README.md](./README.md)
-* [bootstrap.sh](./bootstrap.sh)
-* [brew.sh](./brew.sh)
+* [bootstrap.sh](./bootstrap.sh) - Used [Cody Reichert's install.sh](https://github.com/CodyReichert/dotfiles/blob/master/install.sh) to utilize stow.
+* [brew.sh](./brew.sh) - Rolled into [packages.sh](./packages.sh)
 * [init/SolarizedDark.itermcolors](./init/SolarizedDark.itermcolors)
 
 ### Files Deleted From Mathias'

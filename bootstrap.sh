@@ -1,28 +1,19 @@
 #!/usr/bin/env bash
-mkdir $HOME/.dotfiles
-
 cd "$(dirname "${BASH_SOURCE}")";
 
 git pull origin master;
 
-function doIt() {
-	rsync --exclude ".git/" \
-		--exclude ".DS_Store" \
-		--exclude ".osx" \
-		--exclude "bootstrap.sh" \
-		--exclude "README.md" \
-		--exclude "LICENSE-MIT.txt" \
-		-avh --no-perms . ~/.dotfiles;
-	source ~/.dotfiles/.bash_profile;
-}
+# Personal Git Config
+git config --global user.name "Fred Abood";
+git config --global user.email fred@fredabood.com;
 
-if [ "$1" == "--force" -o "$1" == "-f" ]; then
-	doIt;
-else
-	read -p "This may overwrite existing files in your home directory. Are you sure? (y/n) " -n 1;
-	echo "";
-	if [[ $REPLY =~ ^[Yy]$ ]]; then
-		doIt;
-	fi;
-fi;
-unset doIt;
+bash packages.sh
+
+# Taken from https://github.com/CodyReichert/dotfiles/blob/master/install.sh
+for d in `ls .`;
+do
+  ( stow $d )
+done
+
+bash conda.sh
+bash ssh.sh
