@@ -8,7 +8,7 @@ bash packages.sh
 # Taken from https://github.com/CodyReichert/dotfiles/blob/master/install.sh
 for d in `ls .`;
 do
-  ( stow $d )
+  ( stow -R $d )
 done
 
 source ~/.bash_profile
@@ -17,5 +17,10 @@ source ~/.bash_profile
 git config --global user.name "Fred Abood";
 git config --global user.email fred@fredabood.com;
 
-bash conda.sh
-bash ssh.sh
+if [ ! -d "$HOME/conda/.conda" ]; then
+  bash conda.sh
+fi
+
+if [ ! -f "$HOME/.ssh/id_rsa" ]; then
+  bash ssh.sh
+fi
