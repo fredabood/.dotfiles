@@ -19,12 +19,11 @@ conda install jupyter jupyterlab ipykernel \
 							boto3 \
               pyzmq nodejs \
               sparkmagic \
-              bash_kernel \
               argcomplete -y ;
 
 eval "$(register-python-argcomplete conda)";
 
-python -m bash_kernel.install;
+pip install bash_kernel && python -m bash_kernel.install;
 python -m ipykernel install --user --display-name "Python [root]";
 
 conda env create -f ./init/py27.yml && \
