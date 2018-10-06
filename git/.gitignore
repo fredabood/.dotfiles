@@ -1,5 +1,3 @@
-~/.dotfiles/data/.conda/*
-
 # Python files
 *.pyc
 .ipynb_checkpoints/*

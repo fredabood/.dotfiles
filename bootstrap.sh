@@ -5,31 +5,46 @@ git pull origin master;
 
 bash packages.sh
 
-for file in ~/.{path,bash_prompt,exports,aliases,functions,extra}; do
-	[ -r "$file" ] && [ -f "$file" ] && rm "$file";
-done;
-unset file;
-
-# Taken from https://github.com/CodyReichert/dotfiles/blob/master/install.sh
 for folder in `ls .`; do
   if [ -d "$folder" ]; then
     for file in `ls -a $folder/`; do
-      if [ -f "$HOME/$file" ]; then
+      if [ -r "$HOME/$file" ] && [ -f "$HOME/$file" ]; then
         rm ~/$file
-      elif [ -d "$HOME/$file" ] && [ $file != "." ] && [ $file != ".." ]; then
+      elif [ -r "$HOME/$file" ] && [ -d "$HOME/$file" ] && [ $file != "." ] && [ $file != ".." ]; then
         rm -r ~/$file
       fi
     done
+    unset file
     ( stow -R $folder )
   fi
 done
-
-# Personal Git Config
-git config --global user.name "Fred Abood";
-git config --global user.email fred@fredabood.com;
+unset folder
 
 bash conda.sh
 
+# Setup SSH Key for Git & Personal Git Config
+
+git config --global user.name "Fred Abood";
+git config --global user.email fred@fredabood.com;
+
 if [ ! -f "$HOME/.ssh/id_rsa" ]; then
-  bash ssh.sh
+  ssh-keygen -f $HOME/.ssh/id_rsa -t rsa -b 4096 -C "fred@fredabood.com";
+
+  echo "
+  Host github.com
+    HostName github.com
+    User git
+    IdentityFile $HOME/.ssh/id_rsa
+
+  Host gitlab.com
+    HostName gitlab.com
+    User git
+    PubkeyAuthentication yes
+    IdentityFile $HOME/.ssh/id_rsa
+
+  Host nu.bootcampcontent.com
+    HostName nu.bootcampcontent.com
+    User git
+    IdentityFile $HOME/.ssh/id_rsa
+  " >> ~/.ssh/config
 fi
