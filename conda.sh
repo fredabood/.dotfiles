@@ -1,8 +1,8 @@
 KERNEL=$(uname -a)
 if [ "${KERNEL:0:6}" = "Darwin" ]; then
-  wget https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh -O $HOME/miniconda.sh;
+  wget https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh -O $HOME/miniconda.sh
 elif [ "${KERNEL:0:5}" = "Linux" ]; then
-  wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O $HOME/miniconda.sh;
+  wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O $HOME/miniconda.sh
 fi
 
 bash $HOME/miniconda.sh -b -p $HOME/.conda && \
