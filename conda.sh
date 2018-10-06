@@ -10,9 +10,10 @@ if [ ! -d "$HOME/.dotfiles/data/.conda" ]; then
 else; then
   bash $HOME/miniconda.sh -b -p -u $HOME/.dotfiles/data/.conda
 fi
-cd $HOME/.dotfiles && stow -R data
-echo export PATH="$HOME/.conda/bin:$PATH" >> $HOME/.extra
-rm $HOME/miniconda.sh
+
+cd $HOME/.dotfiles && stow -R data && \
+echo export PATH="$HOME/.conda/bin:$PATH" >> $HOME/.extra && \
+rm $HOME/miniconda.sh && \
 source $HOME/.bash_profile
 
 pip install --upgrade pip && conda update conda && \
