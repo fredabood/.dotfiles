@@ -11,12 +11,12 @@ else
   bash $HOME/miniconda.sh -b -p -u $HOME/.dotfiles/data/.conda
 fi
 
-cd $HOME/.dotfiles && stow -R data && \
-echo export PATH="$HOME/.conda/bin:$PATH" >> $HOME/.extra && \
-rm $HOME/miniconda.sh && \
+cd $HOME/.dotfiles && stow -R data
+echo export PATH="$HOME/.conda/bin:$PATH" >> $HOME/.extra
+rm $HOME/miniconda.sh
 source $HOME/.bash_profile
 
-pip install --upgrade pip && conda update conda && \
+pip install --upgrade pip && conda update conda
 conda install jupyter jupyterlab ipykernel \
               numpy pandas pandas-profiling \
               matplotlib seaborn plotly \
@@ -73,7 +73,7 @@ elif [ "${KERNEL:0:5}" = "Linux" ]; then
   # Setup Jupyter for Remote Access
   jupyter notebook --generate-config
 
-  mkdir $HOME/.jupyter/certs && \
+  mkdir $HOME/.jupyter/certs
   sudo openssl req -x509 -nodes -days 365 -newkey rsa:1024 -keyout $HOME/.jupyter/certs/jupyter_cert.pem -out $HOME/.jupyter/certs/jupyter_cert.pem
 
   echo "c = get_config()" >> $HOME/.jupyter/jupyter_notebook_config.py
@@ -91,10 +91,10 @@ elif [ "${KERNEL:0:5}" = "Linux" ]; then
   # Spark Installation
   conda install py4j
 
-  wget http://www-us.apache.org/dist/spark/spark-2.3.2/spark-2.3.2-bin-hadoop2.7.tgz && \
-  tar xf spark-2.3.2-bin-hadoop2.7.tgz && \
-  mv spark-2.3.2-bin-hadoop2.7 $HOME/.dotfiles/data/.spark && \
-  rm spark-2.3.2-bin-hadoop2.7.tgz && \
+  wget http://www-us.apache.org/dist/spark/spark-2.3.2/spark-2.3.2-bin-hadoop2.7.tgz
+  tar xf spark-2.3.2-bin-hadoop2.7.tgz
+  mv spark-2.3.2-bin-hadoop2.7 $HOME/.dotfiles/data/.spark
+  rm spark-2.3.2-bin-hadoop2.7.tgz
   cd $HOME/.dotfiles && stow -R data
 
   echo export SPARK_PATH="$HOME/.spark" >> $HOME/.extra
