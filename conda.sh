@@ -5,21 +5,25 @@ elif [ "${KERNEL:0:5}" = "Linux" ]; then
   wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O $HOME/miniconda.sh
 fi
 
-bash $HOME/miniconda.sh -b -p $HOME/.dotfiles/data/.conda
+if [ ! -d "$HOME/.dotfiles/data/.conda" ]; then
+  bash $HOME/miniconda.sh -b -p $HOME/.dotfiles/data/.conda
+else; then
+  bash $HOME/miniconda.sh -b -p -u $HOME/.dotfiles/data/.conda
+fi
 cd $HOME/.dotfiles && stow -R data
 echo export PATH="$HOME/.conda/bin:$PATH" >> $HOME/.extra
 rm $HOME/miniconda.sh
 source $HOME/.bash_profile
 
 pip install --upgrade pip && conda update conda && \
-conda install jupyter jupyterlab ipykernel \
-              numpy pandas pandas-profiling \
-              matplotlib seaborn plotly \
-              tqdm \
-              flask \
-              sqlalchemy \
-              boto3 \
-              sparkmagic;
+conda install jupyter jupyterlab ipykernel && \
+conda install numpy pandas pandas-profiling && \
+conda install matplotlib seaborn plotly && \
+conda install tqdm && \
+conda install flask && \
+conda install sqlalchemy && \
+conda install boto3 && \
+conda install sparkmagic;
 
 if [ "${KERNEL:0:6}" = "Darwin" ]; then
   conda install pyzmq nodejs r-essentials mro-base
@@ -97,6 +101,6 @@ elif [ "${KERNEL:0:5}" = "Linux" ]; then
 
   echo export SPARK_PATH="$HOME/.spark" >> $HOME/.extra
   echo export PATH="$PATH:$HOME/.spark/bin" >> $HOME/.extra
-  echo export PYTHONPATH="$HOME/.spark/python:$PYTHONPATH" >> $HOME/.extra
+  # echo export PYTHONPATH="$HOME/.spark/python:$PYTHONPATH" >> $HOME/.extra
 
 fi

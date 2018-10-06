@@ -17,7 +17,7 @@ source $HOME/.bash_profile
 git config --global user.name "Fred Abood";
 git config --global user.email fred@fredabood.com;
 
-if [ ! -d "$HOME/conda/.conda" ]; then
+if [ ! -d "$HOME/data/.conda" ]; then
   bash conda.sh
 fi
 
