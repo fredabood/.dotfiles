@@ -7,8 +7,6 @@ if [ "${KERNEL:0:5}" = "Linux" ]; then
 	sudo apt-get upgrade && \
 	sudo apt-get install -y stow && \
   sudo apt install python-pip && \
-  sudo apt-get install default-jre && \
-  sudo apt-get install scala
 
 elif [ "${KERNEL:0:6}" = "Darwin" ]; then
   xcode-select --install

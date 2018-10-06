@@ -11,11 +11,11 @@ echo export PATH="$HOME/.conda/bin:$PATH" >> $HOME/.extra
 rm $HOME/miniconda.sh
 source $HOME/.bash_profile
 
-pip install --upgrade pip && conda update conda && \
+pip install --upgrade pip && conda update conda -y && \
 conda install jupyter jupyterlab ipykernel \
               numpy pandas pandas-profiling \
               matplotlib seaborn plotly \
-              tqdm flask sqlalchemy boto3
+              tqdm flask sqlalchemy boto3 -y
 
 if [ "${KERNEL:0:6}" = "Darwin" ]; then
   conda install pyzmq nodejs r-essentials mro-base sparkmagic
@@ -81,6 +81,8 @@ elif [ "${KERNEL:0:5}" = "Linux" ]; then
 
 
   # Spark Installation
+  sudo apt-get install default-jre && \
+  sudo apt-get install scala && \
   conda install py4j
 
   wget http://www-us.apache.org/dist/spark/spark-2.3.2/spark-2.3.2-bin-hadoop2.7.tgz
