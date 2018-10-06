@@ -10,14 +10,10 @@ function doIt() {
 		--exclude ".DS_Store" \
 		--exclude ".osx" \
 		--exclude "bootstrap.sh" \
-		# --exclude "atom.sh" \
-		# --exclude "conda.sh" \
-		# --exclude "remote.sh" \
-		# --exclude "brew.sh" \
 		--exclude "README.md" \
 		--exclude "LICENSE-MIT.txt" \
-		-avh --no-perms . $HOME/.dotfiles;
-	source ~/.dotfiles/.bash_profile;
+		-avh --no-perms . ~;
+	source ~/.bash_profile;
 }
 
 if [ "$1" == "--force" -o "$1" == "-f" ]; then
