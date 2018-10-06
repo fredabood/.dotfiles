@@ -12,8 +12,8 @@ function doIt() {
 		--exclude "bootstrap.sh" \
 		--exclude "README.md" \
 		--exclude "LICENSE-MIT.txt" \
-		-avh --no-perms . ~;
-	source ~/.bash_profile;
+		-avh --no-perms . ~/.dotfiles;
+	source ~/.dotfiles/.bash_profile;
 }
 
 if [ "$1" == "--force" -o "$1" == "-f" ]; then
