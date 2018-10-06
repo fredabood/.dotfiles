@@ -5,9 +5,9 @@ elif [ "${KERNEL:0:5}" = "Linux" ]; then
   wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O $HOME/miniconda.sh
 fi
 
-bash $HOME/miniconda.sh -b -p $HOME/.conda && \
-echo export PATH="$HOME/.conda/bin:$PATH" >> $HOME/.extra && \
-rm $HOME/miniconda.sh && \
+bash $HOME/miniconda.sh -b -p $HOME/.conda
+echo export PATH="$HOME/.conda/bin:$PATH" >> $HOME/.extra
+rm $HOME/miniconda.sh
 source $HOME/.bash_profile
 
 pip install --upgrade pip && conda update conda
