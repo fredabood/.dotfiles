@@ -10,7 +10,7 @@ if [ -d "$HOME/.dotfiles/data/.conda" ]; then
   rm -r $HOME/.dotfiles/data/.conda
 fi
 
-bash $HOME/miniconda.sh -b -p $HOME/data/.conda
+bash $HOME/miniconda.sh -b -p $HOME/.dotfiles/data/.conda
 echo export PATH="$HOME/.conda/bin:$PATH" >> $HOME/.extra
 rm $HOME/miniconda.sh
 cd $HOME/.dotfiles && stow -R data
@@ -68,7 +68,7 @@ elif [ "${KERNEL:0:5}" = "Linux" ]; then
   # Mostly taken from [Jose Portilla's Tutorial (https://medium.com/@josemarcialportilla/getting-spark-python-and-jupyter-notebook-running-on-amazon-ec2-dec599e1c297)
 
   # Setup Jupyter for Remote Access
-  jupyter notebook --generate-config 
+  jupyter notebook --generate-config
 
   mkdir $HOME/.jupyter/certs
   sudo openssl req -x509 -nodes -days 365 -newkey rsa:1024 -keyout $HOME/.jupyter/certs/jupyter_cert.pem -out $HOME/.jupyter/certs/jupyter_cert.pem
@@ -93,10 +93,10 @@ elif [ "${KERNEL:0:5}" = "Linux" ]; then
   wget http://www-us.apache.org/dist/spark/spark-2.3.2/spark-2.3.2-bin-hadoop2.7.tgz
   tar xf spark-2.3.2-bin-hadoop2.7.tgz && rm spark-2.3.2-bin-hadoop2.7.tgz
 
-  mv spark-2.3.2-bin-hadoop2.7 $HOME/data/.spark
+  mv spark-2.3.2-bin-hadoop2.7 $HOME/.dotfiles/data/.spark
 
   echo export PATH="$PATH:$HOME/.spark/bin" >> $HOME/.extra
   cd $HOME/.dotfiles && stow -R data
-  # echo export PYTHONPATH="$HOME/data/.spark/python:$PYTHONPATH" >> $HOME/.extra
+  # echo export PYTHONPATH="$HOME/.dotfiles/data/.spark/python:$PYTHONPATH" >> $HOME/.extra
 
 fi
