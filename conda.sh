@@ -74,7 +74,7 @@ elif [ "${KERNEL:0:5}" = "Linux" ]; then
 
   cd $HOME/.jupyter
 
-  echo c = get_config() >> jupyter_notebook_config.py
+  echo "c = get_config()" >> jupyter_notebook_config.py
 
   # Notebook config this is where you saved your pem cert
   echo c.NotebookApp.certfile = u'$HOME/.certs/jupyter_cert.pem' >> jupyter_notebook_config.py
@@ -88,6 +88,8 @@ elif [ "${KERNEL:0:5}" = "Linux" ]; then
 
   # Spark Installation
   conda install py4j
+
+  cd $HOME
 
   wget http://www-us.apache.org/dist/spark/spark-2.3.2/spark-2.3.2-bin-hadoop2.7.tgz && \
   tar xf spark-2.3.2-bin-hadoop2.7.tgz && \
