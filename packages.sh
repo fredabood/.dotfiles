@@ -6,7 +6,7 @@ if [ "${KERNEL:0:5}" = "Linux" ]; then
   sudo apt-get update && \
 	sudo apt-get upgrade && \
 	sudo apt-get install -y stow && \
-  sudo apt install python-pip && \
+  sudo apt install python-pip
 
 elif [ "${KERNEL:0:6}" = "Darwin" ]; then
   xcode-select --install
