@@ -38,16 +38,16 @@ python -m ipykernel install --user --display-name "Python [root]"
 # python -m ipykernel install --user --name py36 --display-name "Python [py36]" && \
 # source deactivate
 
-# Setup Spark Magic (Spark, PySpark2/3, SparkR)
-# https://github.com/jupyter-incubator/sparkmagic
-jupyter nbextension enable --py --sys-prefix widgetsnbextension
-jupyter-kernelspec install $CONDA_PATH/lib/python3.6/site-packages/sparkmagic/kernels/sparkkernel
-jupyter-kernelspec install $CONDA_PATH/lib/python3.6/site-packages/sparkmagic/kernels/pysparkkernel
-jupyter-kernelspec install $CONDA_PATH/lib/python3.6/site-packages/sparkmagic/kernels/pyspark3kernel
-jupyter-kernelspec install $CONDA_PATH/lib/python3.6/site-packages/sparkmagic/kernels/sparkrkernel
-jupyter serverextension enable --py sparkmagic
-
-pip install bash_kernel && python -m bash_kernel.install
+# # Setup Spark Magic (Spark, PySpark2/3, SparkR)
+# # https://github.com/jupyter-incubator/sparkmagic
+# jupyter nbextension enable --py --sys-prefix widgetsnbextension
+# jupyter-kernelspec install $CONDA_PATH/lib/python3.6/site-packages/sparkmagic/kernels/sparkkernel
+# jupyter-kernelspec install $CONDA_PATH/lib/python3.6/site-packages/sparkmagic/kernels/pysparkkernel
+# jupyter-kernelspec install $CONDA_PATH/lib/python3.6/site-packages/sparkmagic/kernels/pyspark3kernel
+# jupyter-kernelspec install $CONDA_PATH/lib/python3.6/site-packages/sparkmagic/kernels/sparkrkernel
+# jupyter serverextension enable --py sparkmagic
+# 
+# pip install bash_kernel && python -m bash_kernel.install
 
 # # Install the Javascript kernel for Jupyter
 # # https://github.com/n-riesco/ijavascript
