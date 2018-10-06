@@ -41,14 +41,14 @@ elif [ "${KERNEL:0:5}" = "Linux" ]; then
 	sudo apt-get update && \
 	sudo apt-get upgrade && \
 	sudo apt-get install -y stow && \
-	sudo apt-get install -y r-base && \
-	sudo apt-get install -y nodejs && \
+	# sudo apt-get install -y r-base && \
+	# sudo apt-get install -y nodejs && \
 	sudo apt install python-pip && \
 	bash conda.sh && \
 	bash remote.sh;
 fi
 
 for folder in ./
-	do [[ -f $folder ]] && stow -R $folder
-  do [[ -d $folder ]] && stow -R $folder
+	do [[ -f $folder ]] && stow $folder
+  do [[ -d $folder ]] && stow $folder
 done

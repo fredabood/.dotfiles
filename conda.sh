@@ -21,6 +21,7 @@ conda install jupyter jupyterlab ipykernel \
 							boto3 \
               pyzmq nodejs \
               sparkmagic \
+              r-essentials mro-base \
               argcomplete -y
 
 eval "$(register-python-argcomplete conda)"
@@ -38,16 +39,16 @@ source activate py36 && \
 python -m ipykernel install --user --name py36 --display-name "Python [py36]" && \
 source deactivate
 
-# Install the Javascript kernel for Jupyter
-# https://github.com/n-riesco/ijavascript
-npm install -g ijavascript
-ijsinstall
-
-# Setup the R kernel for Jupyter - This should be executed in R.
-# https://irkernel.github.io/
-R -e "install.packages(c('repr', 'IRdisplay', 'evaluate', 'crayon', 'pbdZMQ', 'devtools', 'uuid', 'digest'))"
-R -e "devtools::install_github('IRkernel/IRkernel')"
-R -e "IRkernel::installspec()"
+# # Install the Javascript kernel for Jupyter
+# # https://github.com/n-riesco/ijavascript
+# npm install -g ijavascript
+# ijsinstall
+#
+# # Setup the R kernel for Jupyter - This should be executed in R.
+# # https://irkernel.github.io/
+# sudo R -e "install.packages(c('repr', 'IRdisplay', 'evaluate', 'crayon', 'pbdZMQ', 'devtools', 'uuid', 'digest'))"
+# sudo R -e "devtools::install_github('IRkernel/IRkernel')"
+# sudo R -e "IRkernel::installspec()"
 
 # Setup Spark Magic (Spark, PySpark2/3, SparkR)
 # https://github.com/jupyter-incubator/sparkmagic
