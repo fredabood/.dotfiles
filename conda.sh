@@ -8,7 +8,9 @@ fi
 bash $HOME/miniconda.sh -b -p $HOME/.conda && \
 echo export PATH="$HOME/.conda/bin:$PATH" >> $HOME/.extra && \
 rm $HOME/miniconda.sh && \
-source $HOME/.dotfiles/.bash_profile;
+source $HOME/.dotfiles/.bash_profile
+
+pip install --upgrade pip && conda update conda
 
 conda install jupyter jupyterlab ipykernel \
 							numpy pandas pandas-profiling \
@@ -19,39 +21,39 @@ conda install jupyter jupyterlab ipykernel \
 							boto3 \
               pyzmq nodejs \
               sparkmagic \
-              argcomplete -y ;
+              argcomplete -y
 
-eval "$(register-python-argcomplete conda)";
+eval "$(register-python-argcomplete conda)"
 
-pip install bash_kernel && python -m bash_kernel.install;
-python -m ipykernel install --user --display-name "Python [root]";
+pip install bash_kernel && python -m bash_kernel.install
+python -m ipykernel install --user --display-name "Python [root]"
 
 conda env create -f ./init/py27.yml && \
 source activate py27 && \
 python -m ipykernel install --user --name py27 --display-name "Python [py27]" && \
-source deactivate;
+source deactivate
 
 conda env create -f ./init/py36.yml && \
 source activate py36 && \
 python -m ipykernel install --user --name py36 --display-name "Python [py36]" && \
-source deactivate;
+source deactivate
 
 # Install the Javascript kernel for Jupyter
 # https://github.com/n-riesco/ijavascript
-npm install -g ijavascript;
-ijsinstall;
+npm install -g ijavascript
+ijsinstall
 
 # Setup the R kernel for Jupyter - This should be executed in R.
 # https://irkernel.github.io/
-R -e "install.packages(c('repr', 'IRdisplay', 'evaluate', 'crayon', 'pbdZMQ', 'devtools', 'uuid', 'digest'))";
-R -e "devtools::install_github('IRkernel/IRkernel')";
-R -e "IRkernel::installspec()";
+R -e "install.packages(c('repr', 'IRdisplay', 'evaluate', 'crayon', 'pbdZMQ', 'devtools', 'uuid', 'digest'))"
+R -e "devtools::install_github('IRkernel/IRkernel')"
+R -e "IRkernel::installspec()"
 
 # Setup Spark Magic (Spark, PySpark2/3, SparkR)
 # https://github.com/jupyter-incubator/sparkmagic
-jupyter nbextension enable --py --sys-prefix widgetsnbextension;
-jupyter-kernelspec install $CONDA_PATH/lib/python3.6/site-packages/sparkmagic/kernels/sparkkernel;
-jupyter-kernelspec install $CONDA_PATH/lib/python3.6/site-packages/sparkmagic/kernels/pysparkkernel;
-jupyter-kernelspec install $CONDA_PATH/lib/python3.6/site-packages/sparkmagic/kernels/pyspark3kernel;
-jupyter-kernelspec install $CONDA_PATH/lib/python3.6/site-packages/sparkmagic/kernels/sparkrkernel;
-jupyter serverextension enable --py sparkmagic;
+jupyter nbextension enable --py --sys-prefix widgetsnbextension
+jupyter-kernelspec install $CONDA_PATH/lib/python3.6/site-packages/sparkmagic/kernels/sparkkernel
+jupyter-kernelspec install $CONDA_PATH/lib/python3.6/site-packages/sparkmagic/kernels/pysparkkernel
+jupyter-kernelspec install $CONDA_PATH/lib/python3.6/site-packages/sparkmagic/kernels/pyspark3kernel
+jupyter-kernelspec install $CONDA_PATH/lib/python3.6/site-packages/sparkmagic/kernels/sparkrkernel
+jupyter serverextension enable --py sparkmagic
