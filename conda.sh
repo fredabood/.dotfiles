@@ -5,14 +5,13 @@ elif [ "${KERNEL:0:5}" = "Linux" ]; then
   wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O $HOME/miniconda.sh
 fi
 
-bash $HOME/miniconda.sh -b -p $HOME/.dotfiles/conda/.conda
-cd $HOME/.dotfiles && stow -R conda
+bash $HOME/miniconda.sh -b -p $HOME/.dotfiles/data/.conda
+cd $HOME/.dotfiles && stow -R data
 echo export PATH="$HOME/.conda/bin:$PATH" >> $HOME/.extra
 rm $HOME/miniconda.sh
 source $HOME/.bash_profile
 
-pip install --upgrade pip && conda update conda
-
+pip install --upgrade pip && conda update conda && \
 conda install jupyter jupyterlab ipykernel \
               numpy pandas pandas-profiling \
               matplotlib seaborn plotly \
@@ -20,7 +19,7 @@ conda install jupyter jupyterlab ipykernel \
               flask \
               sqlalchemy \
               boto3 \
-              sparkmagic -y;
+              sparkmagic;
 
 if [ "${KERNEL:0:6}" = "Darwin" ]; then
   conda install pyzmq nodejs r-essentials mro-base
@@ -90,15 +89,14 @@ elif [ "${KERNEL:0:5}" = "Linux" ]; then
   # Spark Installation
   conda install py4j
 
-  cd $HOME
-
   wget http://www-us.apache.org/dist/spark/spark-2.3.2/spark-2.3.2-bin-hadoop2.7.tgz && \
   tar xf spark-2.3.2-bin-hadoop2.7.tgz && \
-  mv spark-2.3.2-bin-hadoop2.7.tgz .spark && \
-  rm spark-2.3.2-bin-hadoop2.7.tgz
+  mv spark-2.3.2-bin-hadoop2.7 $HOME/.dotfiles/data/.spark && \
+  rm spark-2.3.2-bin-hadoop2.7.tgz && \
+  cd $HOME/.dotfiles && stow -R data
 
   echo export SPARK_PATH="$HOME/.spark" >> $HOME/.extra
-  echo export PATH="$PATH:$SPARK_PATH" >> $HOME/.extra
-  echo export PYTHONPATH="$SPARK_PATH/python:$PYTHONPATH" >> $HOME/.extra
+  echo export PATH="$PATH:$HOME/.spark/bin" >> $HOME/.extra
+  echo export PYTHONPATH="$HOME/.spark/python:$PYTHONPATH" >> $HOME/.extra
 
 fi
