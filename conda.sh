@@ -20,7 +20,7 @@ conda install jupyter jupyterlab ipykernel \
               flask \
               sqlalchemy \
               boto3 \
-              sparkmagic -y
+              sparkmagic -y;
 
 if [ "${KERNEL:0:6}" = "Darwin" ]; then
   conda install pyzmq nodejs r-essentials mro-base

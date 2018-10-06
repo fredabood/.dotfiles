@@ -11,7 +11,7 @@ do
   ( stow -R $d )
 done
 
-source ~/.bash_profile
+source $HOME/.bash_profile
 
 # Personal Git Config
 git config --global user.name "Fred Abood";
