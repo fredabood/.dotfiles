@@ -8,7 +8,7 @@ bash packages.sh
 # Taken from https://github.com/CodyReichert/dotfiles/blob/master/install.sh
 for d in `ls .`;
 do
-  ( stow -R $d )
+    ( stow $d )
 done
 
 source $HOME/.bash_profile
