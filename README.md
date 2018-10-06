@@ -4,6 +4,10 @@ A fork of [Mathias' Dotfiles](https://github.com/mathiasbynens/dotfiles).
 
 [Miniconda Archive](https://repo.continuum.io/miniconda/) | [Jupyter Kernels](https://github.com/jupyter/jupyter/wiki/Jupyter-kernels)
 
+```bash
+git clone https://github.com/fredabood/.dotfiles.git && cd .dotfiles && bash bootstrap.sh; Y; Y;
+```
+
 ### New Files Not Included in Mathias':
 * [.condarc](./.condarc)
 * [.extra](./.extra)
@@ -42,7 +46,9 @@ conda install cython py4j \
               beautifulsoup4 scrapy \
               pandas-datareader quandl \
               praw google-api-python-client tweepy \
-              scikit-learn spacy tensorflow keras theano ;
+              scikit-learn spacy tensorflow keras theano \
+              r-essentials mro-base \
+              argcomplete -y
 
 pip install nteract_on_jupyter vaderSentiment;
 
