@@ -2,7 +2,6 @@ update_dependencies: True
 
 channels:
   - defaults
-  - anaconda
   - conda-forge
   - r
   - bokeh
@@ -23,6 +22,3 @@ create_default_packages:
   - flask
   - sqlalchemy
   - boto3
-  - pyzmq
-  - nodejs
-  - sparkmagic

@@ -7,8 +7,6 @@ fi
 
 if [ ! -d "$HOME/.dotfiles/data/.conda" ]; then
   bash $HOME/miniconda.sh -b -p $HOME/.dotfiles/data/.conda
-else
-  bash $HOME/miniconda.sh -b -p -u $HOME/.dotfiles/data/.conda
 fi
 
 cd $HOME/.dotfiles && stow -R data
