@@ -5,13 +5,24 @@ git pull origin master;
 
 bash packages.sh
 
-# Taken from https://github.com/CodyReichert/dotfiles/blob/master/install.sh
-for d in `ls .`;
-do
-    ( stow $d )
-done
+for file in ~/.{path,bash_prompt,exports,aliases,functions,extra}; do
+	[ -r "$file" ] && [ -f "$file" ] && rm "$file";
+done;
+unset file;
 
-source $HOME/.bash_profile
+# Taken from https://github.com/CodyReichert/dotfiles/blob/master/install.sh
+for folder in `ls .`; do
+  if [ -d "$folder" ]; then
+    for file in "ls -a $folder/"; do
+      if [ -r "$HOME/$file" ] && [ -f "$HOME/$file" ]; then
+        rm "$HOME/$file"
+      elif [ -r "$HOME/$file" ] && [ -d "$HOME/$file" ]; then
+        rm -r "$HOME/$file"
+      fi
+    done
+    ( stow $folder )
+  fi
+done
 
 # Personal Git Config
 git config --global user.name "Fred Abood";

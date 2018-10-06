@@ -5,10 +5,11 @@ elif [ "${KERNEL:0:5}" = "Linux" ]; then
   wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O $HOME/miniconda.sh
 fi
 
-if [ ! -d "$HOME/.dotfiles/data/.conda" ]; then
-  bash $HOME/miniconda.sh -b -p $HOME/.dotfiles/data/.conda
+if [ -r "$HOME/.dotfiles/data/.conda" ] && [ -d "$HOME/.dotfiles/data/.conda" ]; then
+  rm -r $HOME/.dotfiles/data/.conda
 fi
 
+bash $HOME/miniconda.sh -b -p $HOME/.dotfiles/data/.conda
 cd $HOME/.dotfiles && stow -R data
 echo export PATH="$HOME/.conda/bin:$PATH" >> $HOME/.extra
 rm $HOME/miniconda.sh
@@ -90,12 +91,15 @@ elif [ "${KERNEL:0:5}" = "Linux" ]; then
   conda install py4j
 
   wget http://www-us.apache.org/dist/spark/spark-2.3.2/spark-2.3.2-bin-hadoop2.7.tgz
-  tar xf spark-2.3.2-bin-hadoop2.7.tgz
+  tar xf spark-2.3.2-bin-hadoop2.7.tgz && rm spark-2.3.2-bin-hadoop2.7.tgz
+
+  if [ -r "$HOME/.dotfiles/data/.spark" ] && [ -d "$HOME/.dotfiles/data/.spark" ]; then
+    rm -r $HOME/.dotfiles/data/.spark
+  fi
+
   mv spark-2.3.2-bin-hadoop2.7 $HOME/.dotfiles/data/.spark
-  rm spark-2.3.2-bin-hadoop2.7.tgz
   cd $HOME/.dotfiles && stow -R data
 
-  echo export SPARK_PATH="$HOME/.spark" >> $HOME/.extra
   echo export PATH="$PATH:$HOME/.spark/bin" >> $HOME/.extra
   # echo export PYTHONPATH="$HOME/.spark/python:$PYTHONPATH" >> $HOME/.extra
 
