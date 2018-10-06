@@ -76,18 +76,16 @@ elif [ "${KERNEL:0:5}" = "Linux" ]; then
   mkdir $HOME/.jupyter/certs && \
   sudo openssl req -x509 -nodes -days 365 -newkey rsa:1024 -keyout $HOME/.jupyter/certs/jupyter_cert.pem -out $HOME/.jupyter/certs/jupyter_cert.pem
 
-  cd $HOME/.jupyter
-
-  echo "c = get_config()" >> jupyter_notebook_config.py
+  echo "c = get_config()" >> $HOME/.jupyter/jupyter_notebook_config.py
 
   # Notebook config this is where you saved your pem cert
-  echo c.NotebookApp.certfile = u'$HOME/.certs/jupyter_cert.pem' >> jupyter_notebook_config.py
+  echo c.NotebookApp.certfile = u'$HOME/.certs/jupyter_cert.pem' >> $HOME/.jupyter/jupyter_notebook_config.py
   # Run on all IP addresses of your instance
-  echo c.NotebookApp.ip = '*' >> jupyter_notebook_config.py
+  echo c.NotebookApp.ip = '*' >> $HOME/.jupyter/jupyter_notebook_config.py
   # Don't open browser by default
-  echo c.NotebookApp.open_browser = False >> jupyter_notebook_config.py
+  echo c.NotebookApp.open_browser = False >> $HOME/.jupyter/jupyter_notebook_config.py
   # Fix port to 8888
-  echo c.NotebookApp.port = 8888 >> jupyter_notebook_config.py
+  echo c.NotebookApp.port = 8888 >> $HOME/.jupyter/jupyter_notebook_config.py
 
 
   # Spark Installation
