@@ -1,5 +1,3 @@
-sudo apt-get update && \
-sudo apt-get install stow && \
 sudo apt-get install default-jre && \
 sudo apt-get install scala && \
 conda install py4j;
