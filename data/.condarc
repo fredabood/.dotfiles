@@ -3,6 +3,7 @@ update_dependencies: True
 channels:
   - defaults
   - conda-forge
+  - anaconda
   - r
   - bokeh
   - plotly
