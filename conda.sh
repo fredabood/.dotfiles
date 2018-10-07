@@ -70,11 +70,11 @@ if [ "${KERNEL:0:6}" = "Darwin" ]; then
 
 elif [ "${KERNEL:0:5}" = "Linux" ]; then
 
-  # Mostly taken from [Jose Portilla's Tutorial (https://medium.com/@josemarcialportilla/getting-spark-python-and-jupyter-notebook-running-on-amazon-ec2-dec599e1c297)
+  # Mostly taken from Jose Portilla's Tutorial (https://medium.com/@josemarcialportilla/getting-spark-python-and-jupyter-notebook-running-on-amazon-ec2-dec599e1c297)
 
-  sudo apt-get install default-jre && \
-  sudo apt-get install scala && \
-  conda install py4j
+  sudo apt-get install default-jre -Y && \
+  sudo apt-get install scala -Y && \
+  conda install py4j -y
 
   if [ ! -f "$HOME/.jupyter/jupyter_notebook_config.py" ]; then
     # Setup Jupyter for Remote Access

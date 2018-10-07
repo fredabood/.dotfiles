@@ -7,10 +7,10 @@ KERNEL=$(uname -a)
 if [ "${KERNEL:0:6}" = "Darwin" ]; then
   bash brew.sh
 elif [ "${KERNEL:0:5}" = "Linux" ]; then
-  sudo apt-get update && \
-  sudo apt-get upgrade && \
-  sudo apt-get install -y stow && \
-  sudo apt install python-pip
+  sudo apt-get update -Y && \
+  sudo apt-get upgrade -Y && \
+  sudo apt-get install stow -Y && \
+  sudo apt install python-pip -Y
 fi
 
 for folder in `ls .`; do
