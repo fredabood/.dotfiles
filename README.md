@@ -11,7 +11,7 @@ git clone https://github.com/fredabood/.dotfiles.git && cd .dotfiles && bash boo
 ### New Files Not Included in Mathias':
 * [.condarc](./conda/.condarc) - For default conda config
 * [.extra](./bash/.extra) (see [Mathias' dotfiles](https://github.com/mathiasbynens/dotfiles))
-* [conda.sh](./conda.sh) - Installs Miniconda, Python packages, conda environments, Spark, Jupyter (with kernels and/or remote access)
+* [conda.sh](./conda.sh) - Miniconda + packages + envs, Spark, Jupyter + kernels
 * [init/py27.yml](./bash/init/py27.yml) - For conda env creation
 * [init/py36.yml](./bash/init/py36.yml) - For conda env creation
 
