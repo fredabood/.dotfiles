@@ -5,7 +5,7 @@ git pull origin master;
 
 KERNEL=$(uname -a)
 if [ "${KERNEL:0:6}" = "Darwin" ]; then
-  bash packages.sh
+  bash brew.sh
 elif [ "${KERNEL:0:5}" = "Linux" ]; then
   sudo apt-get update && \
   sudo apt-get upgrade && \
