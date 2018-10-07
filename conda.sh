@@ -9,7 +9,7 @@ fi
 if [ ! -d "$HOME/.dotfiles/data/.conda" ]; then
 
   bash $HOME/miniconda.sh -b -p $HOME/.dotfiles/data/.conda
-  echo export PATH="$PATH:$HOME/.conda/bin" >> $HOME/.extra
+  echo export PATH="$HOME/.conda/bin:$PATH:" >> $HOME/.extra
   rm $HOME/miniconda.sh
   cd $HOME/.dotfiles && stow -R data
   source $HOME/.bash_profile
