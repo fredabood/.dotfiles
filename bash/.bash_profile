@@ -5,7 +5,7 @@ export PATH="$HOME/bin:$PATH";
 # * ~/.path can be used to extend `$PATH`.
 # * ~/.extra can be used for other settings you don’t want to commit.
 for file in ~/.{path,bash_prompt,exports,aliases,functions,extra}; do
-	source "$file";
+	[ -r "$file" ] && [ -L "$file" ] && source "$file";
 done;
 unset file;
 
