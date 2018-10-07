@@ -24,14 +24,14 @@ conda install jupyter jupyterlab ipykernel \
 
 if [ "${KERNEL:0:6}" = "Darwin" ]; then
 
-  conda install pyzmq nodejs r-essentials mro-base sparkmagic
+  conda install pyzmq nodejs r-essentials mro-base sparkmagic -y
 
   # Renaming Root Python Kernel to differentiate from Environments
   python -m ipykernel install --user --display-name "Python [root]"
 
   if [ ! -d "$HOME/.conda/envs/py27"]; then
     # Create Python 2.7 environment & install Jupyter kernel
-    conda env create -f ./init/py27.yml && \
+    conda env create -f $HOME/init/py27.yml && \
     source activate py27 && \
     python -m ipykernel install --user --name py27 --display-name "Python [py27]" && \
     source deactivate
@@ -39,7 +39,7 @@ if [ "${KERNEL:0:6}" = "Darwin" ]; then
 
   if [ ! -d "$HOME/.conda/envs/py36"]; then
     # Create Python 3.6 environment & install Jupyter kernel
-    conda env create -f ./init/py36.yml && \
+    conda env create -f $HOME/init/py36.yml && \
     source activate py36 && \
     python -m ipykernel install --user --name py36 --display-name "Python [py36]" && \
     source deactivate
@@ -76,7 +76,7 @@ elif [ "${KERNEL:0:5}" = "Linux" ]; then
   sudo apt-get install scala && \
   conda install py4j
 
-  if [ ! -f "$HOME/.jupyter/jupyter_notebook_config.py"]; then
+  if [ ! -f "$HOME/.jupyter/jupyter_notebook_config.py" ]; then
     # Setup Jupyter for Remote Access
     jupyter notebook --generate-config
 
