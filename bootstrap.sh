@@ -33,3 +33,5 @@ bash conda.sh
 # Personal Git Config
 git config --global user.name "Fred Abood";
 git config --global user.email fred@fredabood.com;
+
+source $HOME/.bash_profile
