@@ -13,7 +13,6 @@ elif [ "${KERNEL:0:5}" = "Linux" ]; then
   sudo apt install python-pip
 fi
 
-
 for folder in `ls .`; do
   if [ -d "$folder" ]; then
     for file in `ls -a $folder/`; do
@@ -30,13 +29,6 @@ done
 unset folder
 
 bash conda.sh
-
-KERNEL=$(uname -a)
-if [ "${KERNEL:0:6}" = "Darwin" ]; then
-  bash local.sh
-elif [ "${KERNEL:0:5}" = "Linux" ]; then
-  bash remote.sh
-fi
 
 # Personal Git Config
 git config --global user.name "Fred Abood";

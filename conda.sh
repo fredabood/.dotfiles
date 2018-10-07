@@ -6,15 +6,15 @@ elif [ "${KERNEL:0:5}" = "Linux" ]; then
   wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O $HOME/miniconda.sh
 fi
 
-if [ -d "$HOME/.dotfiles/data/.conda" ]; then
-  rm -r $HOME/.dotfiles/data/.conda
-fi
+if [ ! -d "$HOME/.dotfiles/data/.conda" ]; then
 
-bash $HOME/miniconda.sh -b -p $HOME/.dotfiles/data/.conda
-echo export PATH="$HOME/.conda/bin:$PATH" >> $HOME/.extra
-rm $HOME/miniconda.sh
-cd $HOME/.dotfiles && stow -R data
-source $HOME/.bash_profile
+  bash $HOME/miniconda.sh -b -p $HOME/.dotfiles/data/.conda
+  echo export PATH="$PATH:$HOME/.conda/bin" >> $HOME/.extra
+  rm $HOME/miniconda.sh
+  cd $HOME/.dotfiles && stow -R data
+  source $HOME/.bash_profile
+
+fi
 
 pip install --upgrade pip && conda update conda -y && \
 conda install jupyter jupyterlab ipykernel \
@@ -23,22 +23,27 @@ conda install jupyter jupyterlab ipykernel \
               tqdm flask sqlalchemy boto3 -y
 
 if [ "${KERNEL:0:6}" = "Darwin" ]; then
+
   conda install pyzmq nodejs r-essentials mro-base sparkmagic
 
   # Renaming Root Python Kernel to differentiate from Environments
   python -m ipykernel install --user --display-name "Python [root]"
 
-  # Create Python 2.7 environment & install Jupyter kernel
-  conda env create -f ./init/py27.yml && \
-  source activate py27 && \
-  python -m ipykernel install --user --name py27 --display-name "Python [py27]" && \
-  source deactivate
+  if [ ! -d "$HOME/.conda/envs/py27"]; then
+    # Create Python 2.7 environment & install Jupyter kernel
+    conda env create -f ./init/py27.yml && \
+    source activate py27 && \
+    python -m ipykernel install --user --name py27 --display-name "Python [py27]" && \
+    source deactivate
+  fi
 
-  # Create Python 3.6 environment & install Jupyter kernel
-  conda env create -f ./init/py36.yml && \
-  source activate py36 && \
-  python -m ipykernel install --user --name py36 --display-name "Python [py36]" && \
-  source deactivate
+  if [ ! -d "$HOME/.conda/envs/py36"]; then
+    # Create Python 3.6 environment & install Jupyter kernel
+    conda env create -f ./init/py36.yml && \
+    source activate py36 && \
+    python -m ipykernel install --user --name py36 --display-name "Python [py36]" && \
+    source deactivate
+  fi
 
   # # Setup Spark Magic (Spark, PySpark2/3, SparkR)
   # # https://github.com/jupyter-incubator/sparkmagic
@@ -64,37 +69,42 @@ if [ "${KERNEL:0:6}" = "Darwin" ]; then
   # R -e "IRkernel::installspec()"
 
 elif [ "${KERNEL:0:5}" = "Linux" ]; then
+
   # Mostly taken from [Jose Portilla's Tutorial (https://medium.com/@josemarcialportilla/getting-spark-python-and-jupyter-notebook-running-on-amazon-ec2-dec599e1c297)
 
   sudo apt-get install default-jre && \
   sudo apt-get install scala && \
   conda install py4j
 
-  # Setup Jupyter for Remote Access
-  jupyter notebook --generate-config
+  if [ ! -f "$HOME/.jupyter/jupyter_notebook_config.py"]; then
+    # Setup Jupyter for Remote Access
+    jupyter notebook --generate-config
 
-  mkdir $HOME/.jupyter/certs
-  sudo openssl req -x509 -nodes -days 365 -newkey rsa:1024 -keyout $HOME/.jupyter/certs/jupyter_cert.pem -out $HOME/.jupyter/certs/jupyter_cert.pem
+    mkdir $HOME/.jupyter/certs
+    sudo openssl req -x509 -nodes -days 365 -newkey rsa:1024 -keyout $HOME/.jupyter/certs/jupyter_cert.pem -out $HOME/.jupyter/certs/jupyter_cert.pem
 
-  echo "c = get_config()" >> $HOME/.jupyter/jupyter_notebook_config.py
+    echo "c = get_config()" >> $HOME/.jupyter/jupyter_notebook_config.py
 
-  # Notebook config this is where you saved your pem cert
-  echo c.NotebookApp.certfile = u'$HOME/.certs/jupyter_cert.pem' >> $HOME/.jupyter/jupyter_notebook_config.py
-  # Run on all IP addresses of your instance
-  echo c.NotebookApp.ip = '*' >> $HOME/.jupyter/jupyter_notebook_config.py
-  # Don't open browser by default
-  echo c.NotebookApp.open_browser = False >> $HOME/.jupyter/jupyter_notebook_config.py
-  # Fix port to 8888
-  echo c.NotebookApp.port = 8888 >> $HOME/.jupyter/jupyter_notebook_config.py
+    # Notebook config this is where you saved your pem cert
+    echo c.NotebookApp.certfile = u'$HOME/.certs/jupyter_cert.pem' >> $HOME/.jupyter/jupyter_notebook_config.py
+    # Run on all IP addresses of your instance
+    echo c.NotebookApp.ip = '*' >> $HOME/.jupyter/jupyter_notebook_config.py
+    # Don't open browser by default
+    echo c.NotebookApp.open_browser = False >> $HOME/.jupyter/jupyter_notebook_config.py
+    # Fix port to 8888
+    echo c.NotebookApp.port = 8888 >> $HOME/.jupyter/jupyter_notebook_config.py
+  fi
 
-  # Spark Installation
-  wget http://www-us.apache.org/dist/spark/spark-2.3.2/spark-2.3.2-bin-hadoop2.7.tgz
-  tar xf spark-2.3.2-bin-hadoop2.7.tgz && rm spark-2.3.2-bin-hadoop2.7.tgz
+  if [ ! -d "$HOME/.spark" ]; then
+    # Spark Installation
+    wget http://www-us.apache.org/dist/spark/spark-2.3.2/spark-2.3.2-bin-hadoop2.7.tgz
+    tar xf spark-2.3.2-bin-hadoop2.7.tgz && rm spark-2.3.2-bin-hadoop2.7.tgz
 
-  mv spark-2.3.2-bin-hadoop2.7 $HOME/.dotfiles/data/.spark
+    mv spark-2.3.2-bin-hadoop2.7 $HOME/.dotfiles/data/.spark
 
-  echo export PATH="$PATH:$HOME/.spark/bin" >> $HOME/.extra
-  cd $HOME/.dotfiles && stow -R data
-  # echo export PYTHONPATH="$HOME/.dotfiles/data/.spark/python:$PYTHONPATH" >> $HOME/.extra
+    echo export PATH="$PATH:$HOME/.spark/bin" >> $HOME/.extra
+    cd $HOME/.dotfiles && stow -R data
+    # echo export PYTHONPATH="$HOME/.dotfiles/data/.spark/python:$PYTHONPATH" >> $HOME/.extra
+  fi
 
 fi
