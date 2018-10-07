@@ -7,14 +7,14 @@ Forked from [Mathias Bynen's Dotfiles](https://github.com/mathiasbynens/dotfiles
 cd $HOME && git clone https://github.com/fredabood/.dotfiles.git && cd .dotfiles && bash bootstrap.sh;
 ```
 
-#### New Files Not Included in Mathias':
+### New Files Not Included in Mathias':
 * [.condarc](./conda/.condarc) - For default conda config
 * [.extra](./bash/.extra) (see [Mathias' dotfiles](https://github.com/mathiasbynens/dotfiles))
 * [conda.sh](./conda.sh) - Miniconda + packages + envs, Spark, Jupyter + kernels
 * [init/py27.yml](./bash/init/py27.yml) - For conda env creation
 * [init/py36.yml](./bash/init/py36.yml) - For conda env creation
 
-#### Files Modified From Mathias'
+### Files Modified From Mathias'
 * [.bash_profile](./bash/.bash_profile) - Tweaked to work with symlinks
 * [.gitignore](./.gitignore) - Added .ipynb_checkpoints and __pycache__
 * [README.md](./README.md)
@@ -22,7 +22,7 @@ cd $HOME && git clone https://github.com/fredabood/.dotfiles.git && cd .dotfiles
 * [brew.sh](./brew.sh)
 * [init/SolarizedDark.itermcolors](./init/SolarizedDark.itermcolors)
 
-#### Files Deleted From Mathias'
+### Files Deleted From Mathias'
 * [.gitattributes](./.gitattributes)
 * [.hgignore](./.hgignore)
 * [.tmux.conf](./.tmux.conf)
