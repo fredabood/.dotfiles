@@ -12,7 +12,6 @@ git clone https://github.com/fredabood/.dotfiles.git && cd .dotfiles && bash boo
 * [.condarc](./conda/.condarc) - For default conda config
 * [.extra](./bash/.extra) (see [Mathias' dotfiles](https://github.com/mathiasbynens/dotfiles))
 * [conda.sh](./conda.sh) - Installs Miniconda, Python packages, conda environments, Spark, Jupyter (with kernels and/or remote access)
-* [packages.sh](./packages.sh) (largely stems from [Mathias' brew.sh](https://github.com/mathiasbynens/dotfiles/blob/master/brew.sh))
 * [init/py27.yml](./bash/init/py27.yml) - For conda env creation
 * [init/py36.yml](./bash/init/py36.yml) - For conda env creation
 
@@ -20,7 +19,7 @@ git clone https://github.com/fredabood/.dotfiles.git && cd .dotfiles && bash boo
 * [.gitignore](./.gitignore) - Added .ipynb_checkpoints and __pycache__
 * [README.md](./README.md)
 * [bootstrap.sh](./bootstrap.sh) - Used [Cody Reichert's install.sh](https://github.com/CodyReichert/dotfiles/blob/master/install.sh) to utilize stow.
-* [brew.sh](./brew.sh) - Rolled into [packages.sh](./packages.sh)
+* [brew.sh](./brew.sh)
 * [init/SolarizedDark.itermcolors](./init/SolarizedDark.itermcolors)
 
 ### Files Deleted From Mathias'
