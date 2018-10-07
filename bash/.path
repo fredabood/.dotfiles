@@ -1,7 +1,8 @@
-export PSQL="$HOME/.postgres/pg10/bin"
 export MYSQL="/usr/local/.mysql/bin"
+export PSQL="$HOME/.postgres/pg10/bin"
 export CONDA="$HOME/.conda/bin"
-export SPARK="$HOME/.spark"
 export HOME_BIN="$HOME/bin"
+export SPARK="$HOME/.spark"
 
+export PYTHONPATH="$SPARK/python:$PYTHONPATH"
 export PATH="$MYSQL:$PSQL:$CONDA:$SPARK:$HOME_BIN:$PATH"

@@ -9,7 +9,6 @@ fi
 if [ ! -d "$HOME/.dotfiles/data/.conda" ]; then
 
   bash $HOME/miniconda.sh -b -p $HOME/.dotfiles/data/.conda
-  echo export PATH="$HOME/.conda/bin:$PATH:" >> $HOME/.extra
   rm $HOME/miniconda.sh
   cd $HOME/.dotfiles && stow -R data
   source $HOME/.bash_profile
@@ -94,17 +93,15 @@ elif [ "${KERNEL:0:5}" = "Linux" ]; then
   # sudo apt-get install default-jre -Y && \
   # sudo apt-get install scala -Y && \
   # conda install py4j -y
-  # 
+  #
   # if [ ! -d "$HOME/.spark" ]; then
   #   # Spark Installation
   #   wget http://www-us.apache.org/dist/spark/spark-2.3.2/spark-2.3.2-bin-hadoop2.7.tgz
   #   tar xf spark-2.3.2-bin-hadoop2.7.tgz && rm spark-2.3.2-bin-hadoop2.7.tgz
   #
   #   mv spark-2.3.2-bin-hadoop2.7 $HOME/.dotfiles/data/.spark
-  #
-  #   echo export PATH="$PATH:$HOME/.spark/bin" >> $HOME/.extra
+  #   source ~/.bash_profile
   #   cd $HOME/.dotfiles && stow -R data
-  #   # echo export PYTHONPATH="$HOME/.dotfiles/data/.spark/python:$PYTHONPATH" >> $HOME/.extra
   # fi
 
 fi
