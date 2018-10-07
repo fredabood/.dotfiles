@@ -2,21 +2,19 @@
 
 Forked from [Mathias Bynen's Dotfiles](https://github.com/mathiasbynens/dotfiles), modified using [Cody Reichert's](https://github.com/CodyReichert/dotfiles) install.sh to utilize stow.
 
+### Install Command
 ```bash
 cd $HOME && git clone https://github.com/fredabood/.dotfiles.git && cd .dotfiles && bash bootstrap.sh;
 ```
 
-[Miniconda Archive](https://repo.continuum.io/miniconda/) | [Jupyter Kernels](https://github.com/jupyter/jupyter/wiki/Jupyter-kernels)
-
-
-### New Files Not Included in Mathias':
+#### New Files Not Included in Mathias':
 * [.condarc](./conda/.condarc) - For default conda config
 * [.extra](./bash/.extra) (see [Mathias' dotfiles](https://github.com/mathiasbynens/dotfiles))
 * [conda.sh](./conda.sh) - Miniconda + packages + envs, Spark, Jupyter + kernels
 * [init/py27.yml](./bash/init/py27.yml) - For conda env creation
 * [init/py36.yml](./bash/init/py36.yml) - For conda env creation
 
-### Files Modified From Mathias'
+#### Files Modified From Mathias'
 * [.bash_profile](./bash/.bash_profile) - Tweaked to work with symlinks
 * [.gitignore](./.gitignore) - Added .ipynb_checkpoints and __pycache__
 * [README.md](./README.md)
@@ -24,7 +22,7 @@ cd $HOME && git clone https://github.com/fredabood/.dotfiles.git && cd .dotfiles
 * [brew.sh](./brew.sh)
 * [init/SolarizedDark.itermcolors](./init/SolarizedDark.itermcolors)
 
-### Files Deleted From Mathias'
+#### Files Deleted From Mathias'
 * [.gitattributes](./.gitattributes)
 * [.hgignore](./.hgignore)
 * [.tmux.conf](./.tmux.conf)
@@ -54,3 +52,5 @@ pip install nteract_on_jupyter vaderSentiment;
 python -m spacy download en_core_web_sm;
 python -m spacy download en_core_web_md;
 ```
+
+[Miniconda Archive](https://repo.continuum.io/miniconda/) | [Jupyter Kernels](https://github.com/jupyter/jupyter/wiki/Jupyter-kernels)
