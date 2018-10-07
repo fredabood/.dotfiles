@@ -16,6 +16,7 @@ git clone https://github.com/fredabood/.dotfiles.git && cd .dotfiles && bash boo
 * [init/py36.yml](./bash/init/py36.yml) - For conda env creation
 
 ### Files Modified From Mathias'
+* [.bash_profile](./bash/.bash_profile) - Tweaked to work with symlinks
 * [.gitignore](./.gitignore) - Added .ipynb_checkpoints and __pycache__
 * [README.md](./README.md)
 * [bootstrap.sh](./bootstrap.sh) - Used [Cody Reichert's install.sh](https://github.com/CodyReichert/dotfiles/blob/master/install.sh) to utilize stow.
