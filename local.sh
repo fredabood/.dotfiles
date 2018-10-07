@@ -1,3 +1,5 @@
+source $HOME/.bash_profile
+
 conda install pyzmq nodejs r-essentials mro-base sparkmagic
 
 # Renaming Root Python Kernel to differentiate from Environments

@@ -1,3 +1,5 @@
+source $HOME/.bash_profile
+
 # Mostly taken from [Jose Portilla's Tutorial (https://medium.com/@josemarcialportilla/getting-spark-python-and-jupyter-notebook-running-on-amazon-ec2-dec599e1c297)
 
 sudo apt-get install default-jre && \
