@@ -30,27 +30,4 @@ unset folder
 
 bash conda.sh
 
-# Personal Git Config
-git config --global user.name "Fred Abood";
-git config --global user.email fred@fredabood.com;
-
-if [ ! -f "$HOME/.ssh/id_rsa" ]; then
-  ssh-keygen -f $HOME/.ssh/id_rsa -t rsa -b 4096 -C "fred@fredabood.com";
-  echo "
-  Host github.com
-    HostName github.com
-    User git
-    IdentityFile $HOME/.ssh/id_rsa
-  Host gitlab.com
-    HostName gitlab.com
-    User git
-    PubkeyAuthentication yes
-    IdentityFile $HOME/.ssh/id_rsa
-  Host nu.bootcampcontent.com
-    HostName nu.bootcampcontent.com
-    User git
-    IdentityFile $HOME/.ssh/id_rsa
-  " >> ~/.ssh/config
-fi
-
 source $HOME/.bash_profile
