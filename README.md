@@ -2,11 +2,12 @@
 
 Forked from [Mathias Bynen's Dotfiles](https://github.com/mathiasbynens/dotfiles), modified using [Cody Reichert's](https://github.com/CodyReichert/dotfiles) install.sh to utilize stow.
 
-[Miniconda Archive](https://repo.continuum.io/miniconda/) | [Jupyter Kernels](https://github.com/jupyter/jupyter/wiki/Jupyter-kernels)
-
 ```bash
 git clone https://github.com/fredabood/.dotfiles.git && cd .dotfiles && bash bootstrap.sh;
 ```
+
+[Miniconda Archive](https://repo.continuum.io/miniconda/) | [Jupyter Kernels](https://github.com/jupyter/jupyter/wiki/Jupyter-kernels)
+
 
 ### New Files Not Included in Mathias':
 * [.condarc](./conda/.condarc) - For default conda config
