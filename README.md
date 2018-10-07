@@ -3,7 +3,7 @@
 Forked from [Mathias Bynen's Dotfiles](https://github.com/mathiasbynens/dotfiles), modified using [Cody Reichert's](https://github.com/CodyReichert/dotfiles) install.sh to utilize stow.
 
 ```bash
-git clone https://github.com/fredabood/.dotfiles.git && cd .dotfiles && bash bootstrap.sh;
+cd $HOME && git clone https://github.com/fredabood/.dotfiles.git && cd .dotfiles && bash bootstrap.sh;
 ```
 
 [Miniconda Archive](https://repo.continuum.io/miniconda/) | [Jupyter Kernels](https://github.com/jupyter/jupyter/wiki/Jupyter-kernels)
