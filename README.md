@@ -53,4 +53,4 @@ python -m spacy download en_core_web_sm;
 python -m spacy download en_core_web_md;
 ```
 
-[Miniconda Archive](https://repo.continuum.io/miniconda/) | [Jupyter Kernels](https://github.com/jupyter/jupyter/wiki/Jupyter-kernels)
+### [Miniconda Archive](https://repo.continuum.io/miniconda/) | [Jupyter Kernels](https://github.com/jupyter/jupyter/wiki/Jupyter-kernels)
