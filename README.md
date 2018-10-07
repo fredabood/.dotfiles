@@ -4,7 +4,11 @@ Forked from [Mathias Bynen's Dotfiles](https://github.com/mathiasbynens/dotfiles
 
 ### Install Command
 ```bash
-cd $HOME && git clone https://github.com/fredabood/.dotfiles.git && cd .dotfiles && bash bootstrap.sh;
+cd $HOME && \
+git clone https://github.com/fredabood/.dotfiles.git && \
+mv ./dotfiles $HOME/.dotfiles && \
+cd $HOME/.dotfiles && \
+bash bootstrap.sh;
 ```
 
 ### New Files Not Included in Mathias':
