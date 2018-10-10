@@ -7,6 +7,7 @@ elif [ "${KERNEL:0:5}" = "Linux" ]; then
 fi
 
 bash $HOME/miniconda.sh -b -p $HOME/.conda && rm $HOME/miniconda.sh && source $HOME/.bash_profile
+# cd $HOME/.dotfiles && stow -R data
 
 pip install --upgrade pip && conda update conda -y;
 conda install jupyter jupyterlab ipykernel \
@@ -84,7 +85,8 @@ elif [ "${KERNEL:0:5}" = "Linux" ]; then
   wget http://www-us.apache.org/dist/spark/spark-2.3.2/spark-2.3.2-bin-hadoop2.7.tgz
   tar xf spark-2.3.2-bin-hadoop2.7.tgz && rm spark-2.3.2-bin-hadoop2.7.tgz
 
-  mv spark-2.3.2-bin-hadoop2.7 $HOME/.spark
-  source $HOME/.bash_profile
+  mv spark-2.3.2-bin-hadoop2.7 $HOME/.dotfiles/data/.spark
+  source ~/.bash_profile
+  # cd $HOME/.dotfiles && stow -R data
 
 fi

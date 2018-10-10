@@ -9,8 +9,24 @@ if [ "${KERNEL:0:6}" = "Darwin" ]; then
 elif [ "${KERNEL:0:5}" = "Linux" ]; then
   sudo apt-get update -Y
   sudo apt-get upgrade -Y
+  # sudo apt-get install stow -Y
   sudo apt install python-pip -Y
 fi
+
+# for folder in `ls .`; do
+#   if [ -d "$folder" ]; then
+#     for file in `ls -a $folder/`; do
+#       if [ -r "$HOME/$file" ] && [ -f "$HOME/$file" ]; then
+#         rm ~/$file
+#       elif [ -r "$HOME/$file" ] && [ -d "$HOME/$file" ] && [ $file != "." ] && [ $file != ".." ]; then
+#         rm -r ~/$file
+#       fi
+#     done
+#     unset file
+#     ( stow -R $folder )
+#   fi
+# done
+# unset folder
 
 function doIt() {
 	rsync --exclude ".git/" \
@@ -33,6 +49,7 @@ else
 	fi;
 fi;
 unset doIt;
+
 
 # Personal Git Config
 git config --global user.name "Fred Abood";
