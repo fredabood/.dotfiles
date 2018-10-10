@@ -1,0 +1,12 @@
+export MYSQL="/usr/local/.mysql/bin"
+export PSQL="$HOME/.postgres/pg10/bin"
+export CONDA="$HOME/.conda/bin"
+export HOME_BIN="$HOME/bin"
+export SPARK="$HOME/.spark"
+
+if [ "${KERNEL:0:6}" = "Darwin" ]; then
+  export PATH="$PATH:$CONDA:$HOME_BIN:$MYSQL:$PSQL"
+elif [ "${KERNEL:0:5}" = "Linux" ]; then
+  export PYTHONPATH="$SPARK/python:$PYTHONPATH"
+  export PATH="$PATH:$SPARK:$CONDA:$HOME_BIN:$MYSQL:$PSQL"
+fi

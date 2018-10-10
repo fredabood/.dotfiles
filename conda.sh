@@ -15,7 +15,7 @@ if [ ! -d "$HOME/.dotfiles/data/.conda" ]; then
 
 fi
 
-pip install --upgrade pip && conda update conda -y && \
+pip install --upgrade pip && conda update conda -y;
 conda install jupyter jupyterlab ipykernel \
               numpy pandas pandas-profiling \
               matplotlib seaborn plotly \
