@@ -1,11 +1,11 @@
 # Dotfiles
 
-Forked from [Mathias Bynen's Dotfiles](https://github.com/mathiasbynens/dotfiles) with help from [Cody Reichert's](https://github.com/CodyReichert/dotfiles) install.sh to utilize stow and [Jose Portilla's tutorial](https://medium.com/@josemarcialportilla/getting-spark-python-and-jupyter-notebook-running-on-amazon-ec2-dec599e1c297) to install Spark, Java, and Spark.
+Forked from [Mathias Bynen's Dotfiles](https://github.com/mathiasbynens/dotfiles).
 
 ### Install Command
 ```bash
 cd $HOME && \
-git clone https://github.com/fredabood/.dotfiles.git && \
+git clone https://gitlab.com/fredabood/dotfiles.git && \
 mv ./dotfiles $HOME/.dotfiles && \
 cd $HOME/.dotfiles && \
 bash bootstrap.sh;

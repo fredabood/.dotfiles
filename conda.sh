@@ -6,14 +6,7 @@ elif [ "${KERNEL:0:5}" = "Linux" ]; then
   wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O $HOME/miniconda.sh
 fi
 
-if [ ! -d "$HOME/.dotfiles/data/.conda" ]; then
-
-  bash $HOME/miniconda.sh -b -p $HOME/.dotfiles/data/.conda
-  rm $HOME/miniconda.sh
-  cd $HOME/.dotfiles && stow -R data
-  source $HOME/.bash_profile
-
-fi
+bash $HOME/miniconda.sh -b -p $HOME/.conda && rm $HOME/miniconda.sh && source $HOME/.bash_profile
 
 pip install --upgrade pip && conda update conda -y;
 conda install jupyter jupyterlab ipykernel \
@@ -28,21 +21,16 @@ if [ "${KERNEL:0:6}" = "Darwin" ]; then
   # Renaming Root Python Kernel to differentiate from Environments
   python -m ipykernel install --user --display-name "Python [root]"
 
-  if [ ! -d "$HOME/.conda/envs/py27"]; then
-    # Create Python 2.7 environment & install Jupyter kernel
-    conda env create -f $HOME/init/py27.yml && \
-    source activate py27 && \
-    python -m ipykernel install --user --name py27 --display-name "Python [py27]" && \
-    source deactivate
-  fi
+  conda env create -f $HOME/init/py27.yml
+  source activate py27
+  python -m ipykernel install --user --name py27 --display-name "Python [py27]"
+  source deactivate
 
-  if [ ! -d "$HOME/.conda/envs/py36"]; then
-    # Create Python 3.6 environment & install Jupyter kernel
-    conda env create -f $HOME/init/py36.yml && \
-    source activate py36 && \
-    python -m ipykernel install --user --name py36 --display-name "Python [py36]" && \
-    source deactivate
-  fi
+  # Create Python 3.6 environment & install Jupyter kernel
+  conda env create -f $HOME/init/py36.yml
+  source activate py36
+  python -m ipykernel install --user --name py36 --display-name "Python [py36]"
+  source deactivate
 
   # # Setup Spark Magic (Spark, PySpark2/3, SparkR)
   # # https://github.com/jupyter-incubator/sparkmagic
@@ -71,37 +59,32 @@ elif [ "${KERNEL:0:5}" = "Linux" ]; then
 
   # Mostly taken from Jose Portilla's Tutorial (https://medium.com/@josemarcialportilla/getting-spark-python-and-jupyter-notebook-running-on-amazon-ec2-dec599e1c297)
 
-  if [ ! -f "$HOME/.jupyter/jupyter_notebook_config.py" ]; then
-    # Setup Jupyter for Remote Access
-    jupyter notebook --generate-config
+  # Setup Jupyter for Remote Access
+  jupyter notebook --generate-config
 
-    mkdir $HOME/.jupyter/certs
-    sudo openssl req -x509 -nodes -days 365 -newkey rsa:1024 -keyout $HOME/.jupyter/certs/jupyter_cert.pem -out $HOME/.jupyter/certs/jupyter_cert.pem
+  mkdir $HOME/.jupyter/certs
+  sudo openssl req -x509 -nodes -days 365 -newkey rsa:1024 -keyout $HOME/.jupyter/certs/jupyter_cert.pem -out $HOME/.jupyter/certs/jupyter_cert.pem
 
-    echo "c = get_config()" >> $HOME/.jupyter/jupyter_notebook_config.py
+  echo "c = get_config()" >> $HOME/.jupyter/jupyter_notebook_config.py
 
-    # Notebook config this is where you saved your pem cert
-    echo c.NotebookApp.certfile = u'$HOME/.certs/jupyter_cert.pem' >> $HOME/.jupyter/jupyter_notebook_config.py
-    # Run on all IP addresses of your instance
-    echo c.NotebookApp.ip = '*' >> $HOME/.jupyter/jupyter_notebook_config.py
-    # Don't open browser by default
-    echo c.NotebookApp.open_browser = False >> $HOME/.jupyter/jupyter_notebook_config.py
-    # Fix port to 8888
-    echo c.NotebookApp.port = 8888 >> $HOME/.jupyter/jupyter_notebook_config.py
-  fi
+  # Notebook config this is where you saved your pem cert
+  echo c.NotebookApp.certfile = u'$HOME/.certs/jupyter_cert.pem' >> $HOME/.jupyter/jupyter_notebook_config.py
+  # Run on all IP addresses of your instance
+  echo c.NotebookApp.ip = '*' >> $HOME/.jupyter/jupyter_notebook_config.py
+  # Don't open browser by default
+  echo c.NotebookApp.open_browser = False >> $HOME/.jupyter/jupyter_notebook_config.py
+  # Fix port to 8888
+  echo c.NotebookApp.port = 8888 >> $HOME/.jupyter/jupyter_notebook_config.py
 
-  # sudo apt-get install default-jre -Y && \
-  # sudo apt-get install scala -Y && \
-  # conda install py4j -y
-  #
-  # if [ ! -d "$HOME/.spark" ]; then
-  #   # Spark Installation
-  #   wget http://www-us.apache.org/dist/spark/spark-2.3.2/spark-2.3.2-bin-hadoop2.7.tgz
-  #   tar xf spark-2.3.2-bin-hadoop2.7.tgz && rm spark-2.3.2-bin-hadoop2.7.tgz
-  #
-  #   mv spark-2.3.2-bin-hadoop2.7 $HOME/.dotfiles/data/.spark
-  #   source ~/.bash_profile
-  #   cd $HOME/.dotfiles && stow -R data
-  # fi
+  sudo apt-get install default-jre -Y
+  sudo apt-get install scala -Y
+  conda install py4j -y
+
+  # Spark Installation
+  wget http://www-us.apache.org/dist/spark/spark-2.3.2/spark-2.3.2-bin-hadoop2.7.tgz
+  tar xf spark-2.3.2-bin-hadoop2.7.tgz && rm spark-2.3.2-bin-hadoop2.7.tgz
+
+  mv spark-2.3.2-bin-hadoop2.7 $HOME/.spark
+  source $HOME/.bash_profile
 
 fi
