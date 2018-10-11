@@ -9,7 +9,7 @@ fi
 bash $HOME/miniconda.sh -b -p $HOME/.conda && rm $HOME/miniconda.sh && source $HOME/.bash_profile
 # cd $HOME/.dotfiles && stow -R data
 
-pip install --upgrade pip && conda update conda -y;
+# pip install --upgrade pip && conda update conda -y;
 conda install jupyter jupyterlab ipykernel \
               numpy pandas pandas-profiling \
               matplotlib seaborn plotly \
