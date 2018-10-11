@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 if [ "${KERNEL:0:5}" = "Linux" ]; then
   sudo apt-get update -y
   sudo apt-get upgrade -y
@@ -18,8 +20,6 @@ if [ "${KERNEL:0:5}" = "Linux" ]; then
     xclip
 
 elif [ "${KERNEL:0:6}" = "Darwin" ]; then
-
-  #!/usr/bin/env bash
   xcode-select --install
 
   ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"

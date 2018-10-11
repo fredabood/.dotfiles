@@ -3,7 +3,7 @@ cd "$(dirname "${BASH_SOURCE}")";
 
 git pull origin master;
 
-bash brew.sh
+bash brew.sh;
 
 function doIt() {
 	for file in `ls -a ./home/`; do
