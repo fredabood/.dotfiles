@@ -10,10 +10,10 @@ bash $HOME/miniconda.sh -b -p $HOME/.conda && rm $HOME/miniconda.sh && source $H
 # cd $HOME/.dotfiles && stow -R data
 
 # pip install --upgrade pip && conda update conda -y;
-conda install jupyter jupyterlab ipykernel \
-              numpy pandas pandas-profiling \
-              matplotlib seaborn plotly \
-              tqdm flask sqlalchemy boto3 -y
+conda install jupyter jupyterlab ipykernel -y
+conda install numpy pandas pandas-profiling -y
+conda install matplotlib seaborn plotly -y
+conda install tqdm flask sqlalchemy boto3 -y
 
 if [ "${KERNEL:0:6}" = "Darwin" ]; then
 
