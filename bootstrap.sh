@@ -44,7 +44,10 @@ else
 fi;
 unset doIt;
 
-bash conda.sh
+
+if [ ! -d $HOME/.conda ]; then
+	bash conda.sh
+fi
 
 # Personal Git Config
 git config --global user.name "Fred Abood";
