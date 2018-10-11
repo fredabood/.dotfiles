@@ -3,6 +3,8 @@ cd "$(dirname "${BASH_SOURCE}")";
 
 git pull origin master;
 
+bash brew.sh
+
 function doIt() {
 	for file in `ls -a ./home/`; do
 	  if [ -r "$HOME/$file" ] && [ -f "$HOME/$file" ]; then
@@ -40,7 +42,7 @@ else
 fi;
 unset doIt;
 
-bash brew.sh && bash conda.sh
+bash conda.sh
 
 # Personal Git Config
 git config --global user.name "Fred Abood";
