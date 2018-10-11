@@ -87,7 +87,7 @@ elif [ "${KERNEL:0:5}" = "Linux" ]; then
   tar xf spark-2.3.2-bin-hadoop2.7.tgz && rm spark-2.3.2-bin-hadoop2.7.tgz
 
   mv spark-2.3.2-bin-hadoop2.7 $HOME/.spark
-  source ~/.bash_profile
+  source $HOME/.bash_profile
   # cd $HOME/.dotfiles && stow -R data
 
 fi

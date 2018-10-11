@@ -3,31 +3,31 @@ cd "$(dirname "${BASH_SOURCE}")";
 
 git pull origin master;
 
-# for folder in `ls .`; do
-#   if [ -d "$folder" ]; then
-#     for file in `ls -a $folder/`; do
-#       if [ -r "$HOME/$file" ] && [ -f "$HOME/$file" ]; then
-#         rm ~/$file
-#       elif [ -r "$HOME/$file" ] && [ -d "$HOME/$file" ] && [ $file != "." ] && [ $file != ".." ]; then
-#         rm -r ~/$file
-#       fi
-#     done
-#     unset file
-#     ( stow -R $folder )
-#   fi
-# done
-# unset folder
-
 function doIt() {
-	rsync --exclude ".git/" \
-		--exclude ".DS_Store" \
-		--exclude ".osx" \
-		--exclude "bootstrap.sh" \
-		--exclude "README.md" \
-		--exclude "LICENSE-MIT.txt" \
-		-avh --no-perms . ~;
+	for file in `ls -a ./home/`; do
+	  if [ -r "$HOME/$file" ] && [ -f "$HOME/$file" ]; then
+	    rm $HOME/$file
+	  elif [ -r "$HOME/$file" ] && [ -d "$HOME/$file" ] && [ $file != "." ] && [ $file != ".." ]; then
+	    rm -r $HOME/$file
+	  fi
+	done
+	unset file
+	( stow -R home )
 	source $HOME/.bash_profile;
 }
+
+# function doIt() {
+# 	rsync --exclude ".git/" \
+# 		--exclude ".DS_Store" \
+# 		--exclude ".osx" \
+# 		--exclude "bootstrap.sh" \
+# 		--exclude "README.md" \
+# 		--exclude "LICENSE-MIT.txt" \
+# 		--exclude "brew.sh" \
+# 		--exclude "conda.sh" \
+# 		-avh --no-perms . ~;
+# 	source $HOME/.bash_profile;
+# }
 
 if [ "$1" == "--force" -o "$1" == "-f" ]; then
 	doIt;
@@ -40,8 +40,7 @@ else
 fi;
 unset doIt;
 
-bash $HOME/brew.sh
-bash $HOME/conda.sh
+bash brew.sh && bash conda.sh
 
 # Personal Git Config
 git config --global user.name "Fred Abood";
