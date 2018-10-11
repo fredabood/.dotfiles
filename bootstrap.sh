@@ -9,7 +9,7 @@ if [ "${KERNEL:0:6}" = "Darwin" ]; then
 elif [ "${KERNEL:0:5}" = "Linux" ]; then
   sudo apt-get update -y
   sudo apt-get upgrade -y
-  # sudo apt-get install stow -Y
+  # sudo apt-get install stow -y
   sudo apt install python-pip -y
 fi
 
