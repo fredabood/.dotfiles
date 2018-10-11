@@ -16,6 +16,7 @@ if [ "${KERNEL:0:5}" = "Linux" ]; then
     pkg-config \
     ca-certificates \
     xclip
+    
 elif [ "${KERNEL:0:6}" = "Darwin" ]; then
 
   #!/usr/bin/env bash
