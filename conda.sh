@@ -9,7 +9,8 @@ fi
 bash $HOME/miniconda.sh -b -p $HOME/.conda && rm $HOME/miniconda.sh && source $HOME/.bash_profile
 # cd $HOME/.dotfiles && stow -R data
 
-# pip install --upgrade pip && conda update conda -y;
+# Installing all packages at once causes a memory overload on a micro EC2 instance
+pip install --upgrade pip && conda update conda -y
 conda install jupyter jupyterlab ipykernel -y
 conda install numpy pandas pandas-profiling -y
 conda install matplotlib seaborn plotly -y
@@ -77,8 +78,8 @@ elif [ "${KERNEL:0:5}" = "Linux" ]; then
   # Fix port to 8888
   echo c.NotebookApp.port = 8888 >> $HOME/.jupyter/jupyter_notebook_config.py
 
-  sudo apt-get install default-jre -Y
-  sudo apt-get install scala -Y
+  sudo apt-get install default-jre -y
+  sudo apt-get install scala -y
   conda install py4j -y
 
   # Spark Installation

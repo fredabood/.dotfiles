@@ -3,16 +3,6 @@ cd "$(dirname "${BASH_SOURCE}")";
 
 git pull origin master;
 
-KERNEL=$(uname -a)
-if [ "${KERNEL:0:6}" = "Darwin" ]; then
-  bash brew.sh
-elif [ "${KERNEL:0:5}" = "Linux" ]; then
-  sudo apt-get update -y
-  sudo apt-get upgrade -y
-  # sudo apt-get install stow -y
-  sudo apt install python-pip -y
-fi
-
 # for folder in `ls .`; do
 #   if [ -d "$folder" ]; then
 #     for file in `ls -a $folder/`; do
@@ -50,29 +40,31 @@ else
 fi;
 unset doIt;
 
+bash $HOME/brew.sh
+bash $HOME/conda.sh
 
-# # Personal Git Config
-# git config --global user.name "Fred Abood";
-# git config --global user.email fred@fredabood.com;
-# git config --global --unset commit.gpgsign;
-#
-# if [ ! -f "$HOME/.ssh/id_rsa" ]; then
-#   ssh-keygen -f $HOME/.ssh/id_rsa -t rsa -b 4096 -C "fred@fredabood.com";
-#   echo "
-#   Host github.com
-#     HostName github.com
-#     User git
-#     IdentityFile $HOME/.ssh/id_rsa
-#   Host gitlab.com
-#     HostName gitlab.com
-#     User git
-#     PubkeyAuthentication yes
-#     IdentityFile $HOME/.ssh/id_rsa
-#   Host nu.bootcampcontent.com
-#     HostName nu.bootcampcontent.com
-#     User git
-#     IdentityFile $HOME/.ssh/id_rsa
-#   " >> ~/.ssh/config
-# fi
+# Personal Git Config
+git config --global user.name "Fred Abood";
+git config --global user.email fred@fredabood.com;
+git config --global --unset commit.gpgsign;
+
+if [ ! -f "$HOME/.ssh/id_rsa" ]; then
+  ssh-keygen -f $HOME/.ssh/id_rsa -t rsa -b 4096 -C "fred@fredabood.com";
+  echo "
+  Host github.com
+    HostName github.com
+    User git
+    IdentityFile $HOME/.ssh/id_rsa
+  Host gitlab.com
+    HostName gitlab.com
+    User git
+    PubkeyAuthentication yes
+    IdentityFile $HOME/.ssh/id_rsa
+  Host nu.bootcampcontent.com
+    HostName nu.bootcampcontent.com
+    User git
+    IdentityFile $HOME/.ssh/id_rsa
+  " >> ~/.ssh/config
+fi
 
 source $HOME/.bash_profile
