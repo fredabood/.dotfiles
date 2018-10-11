@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+KERNEL=$(uname -a)
 
 if [ "${KERNEL:0:5}" = "Linux" ]; then
   sudo apt-get update -y

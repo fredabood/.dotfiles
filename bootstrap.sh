@@ -5,17 +5,18 @@ git pull origin master;
 
 bash brew.sh;
 
-
-for file in `ls -a ./home/`; do
-	 if [ -r "$HOME/$file" ] && [ -f "$HOME/$file" ]; then
-	   rm $HOME/$file
-	 elif [ -r "$HOME/$file" ] && [ -d "$HOME/$file" ] && [ $file != "." ] && [ $file != ".." ]; then
-	   rm -r $HOME/$file
-	 fi
-done
-unset file
-( stow -R home )
-source $HOME/.bash_profile;
+function doIt() {
+	for file in `ls -a ./home/`; do
+	  if [ -r "$HOME/$file" ] && [ -f "$HOME/$file" ]; then
+	    rm $HOME/$file
+	  elif [ -r "$HOME/$file" ] && [ -d "$HOME/$file" ] && [ $file != "." ] && [ $file != ".." ]; then
+	    rm -r $HOME/$file
+	  fi
+	done
+	unset file
+	( stow -R home )
+	source $HOME/.bash_profile;
+}
 
 # function doIt() {
 # 	rsync --exclude ".git/" \
@@ -29,17 +30,17 @@ source $HOME/.bash_profile;
 # 		-avh --no-perms . ~;
 # 	source $HOME/.bash_profile;
 # }
-# 
-# if [ "$1" == "--force" -o "$1" == "-f" ]; then
-# 	doIt;
-# else
-# 	read -p "This may overwrite existing files in your home directory. Are you sure? (y/n) " -n 1;
-# 	echo "";
-# 	if [[ $REPLY =~ ^[Yy]$ ]]; then
-# 		doIt;
-# 	fi;
-# fi;
-# unset doIt;
+
+if [ "$1" == "--force" -o "$1" == "-f" ]; then
+	doIt;
+else
+	read -p "This may overwrite existing files in your home directory. Are you sure? (y/n) " -n 1;
+	echo "";
+	if [[ $REPLY =~ ^[Yy]$ ]]; then
+		doIt;
+	fi;
+fi;
+unset doIt;
 
 bash conda.sh
 
