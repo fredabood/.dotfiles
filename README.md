@@ -2,12 +2,17 @@
 
 Forked from [Mathias Bynen's Dotfiles](https://github.com/mathiasbynens/dotfiles) and modified with inspiration from [Cody Reichert](https://github.com/CodyReichert/dotfiles/blob/master/install.sh) to use stow instead of rsync.
 
-### Install Command
+### Install or Update
 ```bash
 cd $HOME && \
 git clone https://gitlab.com/fredabood/dotfiles.git && \
-bash bootstrap.sh && \
-bash brew.sh && bash conda.sh
+bash bootstrap.sh
+```
+
+### Brew + Conda Install
+```bash
+bash brew.sh && \
+bash conda.sh
 ```
 
 ### New Files Not Included in Mathias':
