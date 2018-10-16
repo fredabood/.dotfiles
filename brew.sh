@@ -4,6 +4,7 @@ KERNEL=$(uname -a)
 if [ "${KERNEL:0:5}" = "Linux" ]; then
   sudo apt-get update -y
   sudo apt-get upgrade -y
+  sudo apt-get install stow -y
   sudo apt install python-pip -y
   apt-get --no-install-recommends -yqq install \
     bash-completion \
@@ -86,6 +87,8 @@ elif [ "${KERNEL:0:6}" = "Darwin" ]; then
   brew install ssh-copy-id
   brew install tree
 
+  brew install stow
+  
   # used for Jupyter R & JS kernels
   brew install cask
   brew cask install xquartz

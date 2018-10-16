@@ -2,7 +2,11 @@
 
 Forked from [Mathias Bynen's Dotfiles](https://github.com/mathiasbynens/dotfiles) and modified (with inspiration from [Cody Reichert](https://github.com/CodyReichert/dotfiles/blob/master/install.sh)) to use stow instead of rsync.
 
-To install simply navigate to the directory where you keep projects/repositories, and run:
+## Installation
+
+**Warning:** If you want to give these dotfiles a try, you should first fork this repository, review the code, and remove things you don’t want or need. Don’t blindly use my settings unless you know what that entails. Use at your own risk!
+
+To install simply navigate to the directory where you wish to keep the repository, and run:
 ```bash
 git clone https://gitlab.com/fredabood/dotfiles.git && cd dotfiles && bash bootstrap.sh
 ```

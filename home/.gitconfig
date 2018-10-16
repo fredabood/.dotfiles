@@ -184,6 +184,3 @@
 [url "git://gist.github.com/"]
 
 	insteadOf = "gist:"
-[user]
-	name = Fred Abood
-	email = fred@fredabood.com

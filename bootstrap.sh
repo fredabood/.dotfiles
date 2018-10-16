@@ -5,14 +5,10 @@ cd "$(dirname "${BASH_SOURCE}")";
 
 git pull origin master;
 
-
-KERNEL=$(uname -a)
-if [ "${KERNEL:0:5}" = "Linux" ]; then
-	sudo apt-get install stow -y
-elif [ "${KERNEL:0:6}" = "Darwin" ]; then
-  brew install stow
+# Only auto-runs brew.sh if the ~/.bash_profile isn't a symlink
+if [ ! -L $HOME/.bash_profile ]; then
+	bash brew.sh
 fi
-unset KERNEL
 
 function doIt() {
 	for file in `ls -a ./home/`; do
@@ -51,9 +47,31 @@ else
 fi;
 unset doIt;
 
-# Personal Git Config
-git config --global user.name "Fred Abood";
-git config --global user.email fred@fredabood.com;
+# Only auto-runs conda.sh if the ~/.conda direcotry doesn't exist
+if [ ! -d $HOME/.conda ]; then
+	bash conda.sh
+fi
+
+# Git Config
+
+USERNAME=$(git config --global user.name)
+if [ "$USERNAME"="" ]; then
+	echo What is your Git username i.e. Mona Lisa?
+	read FIRST LAST
+	git config --global user.name "$FIRST $LAST";
+	unset FIRST; unset LAST;
+fi
+unset USERNAME;
+
+EMAIL=$(git config --global user.email)
+if [ "$USERNAME"="" ]; then
+	echo What is your Git email i.e. name@example.com?
+	read GIT_EMAIL
+	git config --global user.email $GIT_EMAIL;
+	unset GIT_EMAIL;
+fi
+unset EMAIL;
+
 git config --global --unset commit.gpgsign;
 
 source $HOME/.bash_profile
