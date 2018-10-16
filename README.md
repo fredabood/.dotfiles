@@ -5,20 +5,14 @@ Forked from [Mathias Bynen's Dotfiles](https://github.com/mathiasbynens/dotfiles
 ## RUN IT!!!
 
 ### Install or Update
-First navigate to the directory where you store your projects or repositories, then run:
+Navigate to the directory where you keep projects/repositories, then run:
 ```bash
 git clone https://gitlab.com/fredabood/dotfiles.git && cd dotfiles && bash bootstrap.sh
 ```
-
 ### Uninstall
 Navigate into the dotfiles repo, then run:
 ```bash
 stow -D home -t $HOME
-```
-
-### Brew + Conda Install
-```bash
-bash brew.sh && bash conda.sh
 ```
 
 ## Deviations from Mathias
