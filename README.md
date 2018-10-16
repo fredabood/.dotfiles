@@ -2,8 +2,6 @@
 
 Forked from [Mathias Bynen's Dotfiles](https://github.com/mathiasbynens/dotfiles) and modified (with inspiration from [Cody Reichert](https://github.com/CodyReichert/dotfiles/blob/master/install.sh)) to use stow instead of rsync.
 
-## RUN IT!!!
-
 ### Install or Update
 Navigate to the directory where you keep projects/repositories, then run:
 ```bash
