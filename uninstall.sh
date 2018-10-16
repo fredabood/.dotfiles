@@ -1,0 +1,30 @@
+sudo rm -r .aliases \
+           .bash_profile \
+           .bash_prompt \
+           .bashrc \
+           .conda \
+           .condarc \
+           .curlrc \
+           .editorconfig \
+           .exports \
+           .extra \
+           .functions \
+           .gdbinit \
+           .gitconfig \
+           .gvimrc \
+           .hushlogin \
+           init \
+           .inputrc \
+           .macos \
+           .osx \
+           .spark \
+           .screenrc \
+           .vim \
+           .vimrc \
+           .wgetrc \
+           .gnupg \
+           .jupyter \
+           .rnd \
+           .viminfo \
+           ~/.dotfiles/data/.conda \
+           ~/.dotfiles/data/.spark
