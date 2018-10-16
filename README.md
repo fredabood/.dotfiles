@@ -2,13 +2,11 @@
 
 Forked from [Mathias Bynen's Dotfiles](https://github.com/mathiasbynens/dotfiles) and modified (with inspiration from [Cody Reichert](https://github.com/CodyReichert/dotfiles/blob/master/install.sh)) to use stow instead of rsync.
 
-### Install or Update
-Navigate to the directory where you keep projects/repositories, then run:
+To install simply navigate to the directory where you keep projects/repositories, and run:
 ```bash
 git clone https://gitlab.com/fredabood/dotfiles.git && cd dotfiles && bash bootstrap.sh
 ```
-### Uninstall
-Navigate into the dotfiles repo, then run:
+Uninstall is equally simple. Simply run the command below from inside the repo.
 ```bash
 stow -D home -t $HOME
 ```
