@@ -14,8 +14,7 @@ stow -D home -t $HOME
 ```
 
 ## Useful Python Packages
-This list is inclusive of the packages installed in [conda.sh](./conda.sh) plus some others not included in that script.  
-Without the channels in my [.condarc](./home/.condarc), not all of these can be installed with conda.
+This list is inclusive of the packages installed in [conda.sh](./conda.sh) plus some others not included in that script. Without the channels in my [.condarc](./home/.condarc), not all of these can be installed with conda.
 ```bash
 pip install --upgrade pip && conda update conda -y;
 
