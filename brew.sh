@@ -6,19 +6,19 @@ if [ "${KERNEL:0:5}" = "Linux" ]; then
   sudo apt-get upgrade -y
   sudo apt-get install stow -y
   sudo apt install python-pip -y
-  apt-get --no-install-recommends -yqq install \
-    bash-completion \
-    build-essential \
-    cmake \
-    libcurl4  \
-    libcurl4-openssl-dev  \
-    libssl-dev  \
-    libxml2 \
-    libxml2-dev  \
-    libssl1.1 \
-    pkg-config \
-    ca-certificates \
-    xclip
+  # apt-get --no-install-recommends -yqq install \
+  #   bash-completion \
+  #   build-essential \
+  #   cmake \
+  #   libcurl4  \
+  #   libcurl4-openssl-dev  \
+  #   libssl-dev  \
+  #   libxml2 \
+  #   libxml2-dev  \
+  #   libssl1.1 \
+  #   pkg-config \
+  #   ca-certificates \
+  #   xclip
 
 elif [ "${KERNEL:0:6}" = "Darwin" ]; then
   xcode-select --install
@@ -88,7 +88,7 @@ elif [ "${KERNEL:0:6}" = "Darwin" ]; then
   brew install tree
 
   brew install stow
-  
+
   # used for Jupyter R & JS kernels
   brew install cask
   brew cask install xquartz
