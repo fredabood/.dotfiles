@@ -1,30 +1,28 @@
 # Dotfiles
 
-Forked from [Mathias Bynen's Dotfiles](https://github.com/mathiasbynens/dotfiles).
+Forked from [Mathias Bynen's Dotfiles](https://github.com/mathiasbynens/dotfiles) and modified with inspiration from [Cody Reichert](https://github.com/CodyReichert/dotfiles/blob/master/install.sh) to use stow instead of rsync.
 
 ### Install Command
 ```bash
 cd $HOME && \
 git clone https://gitlab.com/fredabood/dotfiles.git && \
-mv ./dotfiles $HOME/.dotfiles && \
-cd $HOME/.dotfiles && \
-bash bootstrap.sh;
+bash bootstrap.sh && \
+bash brew.sh && bash conda.sh
 ```
 
 ### New Files Not Included in Mathias':
 * [.condarc](./conda/.condarc) - For default conda config
-* [.extra](./bash/.extra) (see [Mathias' dotfiles](https://github.com/mathiasbynens/dotfiles))
 * [conda.sh](./conda.sh) - Miniconda + packages + envs, Spark, Jupyter + kernels
 * [init/py27.yml](./bash/init/py27.yml) - For conda env creation
 * [init/py36.yml](./bash/init/py36.yml) - For conda env creation
 
 ### Files Modified From Mathias'
 * [.bash_profile](./bash/.bash_profile) - Tweaked to work with symlinks
-* [.gitignore](./.gitignore) - Added .ipynb_checkpoints and __pycache__
+* [.gitignore](./.gitignore) - Added .ipynb_checkpoints/* and __pycache__/*
 * [README.md](./README.md)
-* [bootstrap.sh](./bootstrap.sh) - Used [Cody Reichert's install.sh](https://github.com/CodyReichert/dotfiles/blob/master/install.sh) to utilize stow.
+* [bootstrap.sh](./bootstrap.sh)
 * [brew.sh](./brew.sh)
-* [init/SolarizedDark.itermcolors](./init/SolarizedDark.itermcolors)
+* [init/SolarizedDark.itermcolors](./init/SolarizedDark.itermcolors) - Foreground Color = rgb(0.49725341796875, 0.98527109622955322, 1)
 
 ### Files Deleted From Mathias'
 * [.gitattributes](./.gitattributes)
