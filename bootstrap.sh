@@ -14,7 +14,6 @@ elif [ "${KERNEL:0:6}" = "Darwin" ]; then
 fi
 unset KERNEL
 
-
 function doIt() {
 	for file in `ls -a ./home/`; do
 	  if [ -r "$HOME/$file" ] && [ -f "$HOME/$file" ]; then
@@ -28,6 +27,18 @@ function doIt() {
 	source $HOME/.bash_profile;
 }
 
+# function doIt() {
+# 	rsync --exclude ".git/" \
+# 		--exclude ".DS_Store" \
+# 		--exclude ".osx" \
+# 		--exclude "bootstrap.sh" \
+# 		--exclude "README.md" \
+# 		--exclude "LICENSE-MIT.txt" \
+# 		--exclude "brew.sh" \
+# 		--exclude "conda.sh" \
+# 		-avh --no-perms . ~;
+# 	source $HOME/.bash_profile;
+# }
 
 if [ "$1" == "--force" -o "$1" == "-f" ]; then
 	doIt;
@@ -40,11 +51,9 @@ else
 fi;
 unset doIt;
 
-
 # Personal Git Config
 git config --global user.name "Fred Abood";
 git config --global user.email fred@fredabood.com;
 git config --global --unset commit.gpgsign;
-
 
 source $HOME/.bash_profile
