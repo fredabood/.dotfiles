@@ -6,7 +6,11 @@ elif [ "${KERNEL:0:5}" = "Linux" ]; then
   wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O $HOME/miniconda.sh
 fi
 
-bash $HOME/miniconda.sh -b -p $HOME/.conda && rm $HOME/miniconda.sh && source $HOME/.bash_profile
+bash $HOME/miniconda.sh -b -p $HOME/.conda && \
+rm $HOME/miniconda.sh && \
+echo export $CONDA=$HOME/.conda/bin >> $HOME/.path && \
+echo export $PATH=$PATH:$CONDA >> $HOME/.path &&\
+source $HOME/.bash_profile
 # cd $HOME/.dotfiles && stow -R data
 
 # Installing all packages at once causes a memory overload on a micro EC2 instance
@@ -88,6 +92,8 @@ elif [ "${KERNEL:0:5}" = "Linux" ]; then
   tar xf spark-2.3.2-bin-hadoop2.7.tgz && rm spark-2.3.2-bin-hadoop2.7.tgz
 
   mv spark-2.3.2-bin-hadoop2.7 $HOME/.spark
+  echo export $SPARK=$HOME/.spark/bin >> $HOME/.path && \
+  echo export $PATH=$PATH:$SPARK >> $HOME/.path &&\
   source $HOME/.bash_profile
   # cd $HOME/.dotfiles && stow -R data
 
