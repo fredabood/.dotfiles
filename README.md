@@ -58,6 +58,7 @@ python -m spacy download en_core_web_md;
 * [bootstrap.sh](./bootstrap.sh)
 * [brew.sh](./brew.sh)
 * [init/SolarizedDark.itermcolors](./init/SolarizedDark.itermcolors) - Foreground Color = rgb(0.49725341796875, 0.98527109622955322, 1)
+* [.functions](./home/.functions) - Added a function that recursively traverses all the folders in the CWD and git pulls in all the repos.
 
 #### Deleted
 * [.gitattributes](https://github.com/mathiasbynens/dotfiles/blob/master/.gitattributes)
