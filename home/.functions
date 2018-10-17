@@ -179,7 +179,7 @@ function git_pull() {
       if [ -d ".git" ]; then
         git pull --rebase;
       else
-        loop_cwd;
+        git_pull;
       fi
       cd ..;
     fi
