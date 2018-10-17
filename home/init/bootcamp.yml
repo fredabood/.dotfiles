@@ -1,0 +1,17 @@
+name: bootcamp
+channels:
+  - anaconda
+  - conda-forge
+  - plotly
+  - defaults
+dependencies:
+  - python=3.6.5
+  - pip
+  - anaconda
+  - gunicorn
+  - flask-sqlalchemy
+  - gmaps
+  - census
+  - plotly
+  - keras
+  - MRJob
