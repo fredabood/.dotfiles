@@ -5,19 +5,20 @@ cd "$(dirname "${BASH_SOURCE}")";
 
 USERNAME=$(git config --global user.name)
 if [ "$USERNAME"="" ]; then
-	read -p "What is your Git username i.e. Mona Lisa?" $USERNAME
+	unset USERNAME
+	read -p "What is your Git username i.e. Mona Lisa? " USERNAME
 fi
 
 EMAIL=$(git config --global user.email)
 if [ "$EMAIL"="" ]; then
-	read -p "What is your Git email i.e. name@example.com?" $EMAIL
+	unset EMAIL
+	read -p "What is your Git email i.e. name@example.com? " EMAIL
 fi
 
 git pull origin master;
 
-git config --global user.name "$USERNAME";
-git config --global user.email "$EMAIL";
-git config --global --unset commit.gpgsign;
+git config --global user.name "$USERNAME"; unset USERNAME;
+git config --global user.email "$EMAIL"; unset EMAIL;
 
 # Only auto-runs brew.sh if the ~/.bash_profile isn't a symlink
 if [ ! -L $HOME/.bash_profile ]; then

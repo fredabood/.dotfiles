@@ -169,3 +169,19 @@ function o() {
 function tre() {
 	tree -aC -I '.git|node_modules|bower_components' --dirsfirst "$@" | less -FRNX;
 }
+
+# Recursively traverse all folders in CWD and do a git pull in all repos
+function git_pull() {
+  for file in `ls ./`; do
+    if [ -d "$file" ] && [ $file != "." ] && [ $file != ".." ] && [ $file != ".git" ]; then
+      echo $file;
+      cd $file;
+      if [ -d ".git" ]; then
+        git pull --rebase;
+      else
+        loop_cwd;
+      fi
+      cd ..;
+    fi
+  done
+}
