@@ -38,19 +38,6 @@ function doIt() {
 	source $HOME/.bash_profile;
 }
 
-# function doIt() {
-# 	rsync --exclude ".git/" \
-# 		--exclude ".DS_Store" \
-# 		--exclude ".osx" \
-# 		--exclude "bootstrap.sh" \
-# 		--exclude "README.md" \
-# 		--exclude "LICENSE-MIT.txt" \
-# 		--exclude "brew.sh" \
-# 		--exclude "conda.sh" \
-# 		-avh --no-perms . ~;
-# 	source $HOME/.bash_profile;
-# }
-
 if [ "$1" == "--force" -o "$1" == "-f" ]; then
 	doIt;
 else
@@ -61,10 +48,5 @@ else
 	fi;
 fi;
 unset doIt;
-
-# # Only auto-runs conda.sh if the ~/.conda direcotry doesn't exist
-# if [ ! -d $HOME/.conda ]; then
-# 	bash conda.sh
-# fi
 
 source $HOME/.bash_profile

@@ -2,8 +2,7 @@
 KERNEL=$(uname -a)
 
 if [ "${KERNEL:0:5}" = "Linux" ]; then
-  sudo apt-get update -y
-  sudo apt-get upgrade -y
+  sudo apt-get update && sudo apt-get upgrade -y
   sudo apt-get install stow -y
   sudo apt install python-pip -y
   # apt-get --no-install-recommends -yqq install \
@@ -67,49 +66,17 @@ elif [ "${KERNEL:0:6}" = "Darwin" ]; then
   brew install grep
   brew install openssh
   brew install screen
-  brew install homebrew/php/php56 --with-gmp
-
-  # Install font tools.
-  brew tap bramstein/webfonttools
-  brew install sfnt2woff
-  brew install sfnt2woff-zopfli
-  brew install woff2
-
-  # Install some CTF tools; see https://github.com/ctfs/write-ups.
-  brew install bfg
-  brew install binutils
 
   # Install other useful binaries.
-  brew install ack
   brew install git
   brew install git-lfs
   brew install p7zip
   brew install ssh-copy-id
-  brew install tree
 
   brew install stow
 
-  # used for Jupyter R & JS kernels
-  brew install cask
-  brew cask install xquartz
-  brew tap homebrew/science
-  brew install r
-
-  brew install pkg-config
-
-  # Install/Update Node/NPM
-  brew install node
-  npm install npm -g
-  npm update -g
-  brew install zeromq
-
-  # Install SQL
-  brew install mongodb --devel
-  brew install mysql
-  brew install postgresql
-  brew install sqlite3
-
   # Installing Software
+  brew cask install docker
   brew cask install google-chrome
   brew cask install spotify
   brew cask install slack
