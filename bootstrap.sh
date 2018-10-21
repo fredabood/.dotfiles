@@ -62,9 +62,9 @@ else
 fi;
 unset doIt;
 
-# Only auto-runs conda.sh if the ~/.conda direcotry doesn't exist
-if [ ! -d $HOME/.conda ]; then
-	bash conda.sh
-fi
+# # Only auto-runs conda.sh if the ~/.conda direcotry doesn't exist
+# if [ ! -d $HOME/.conda ]; then
+# 	bash conda.sh
+# fi
 
 source $HOME/.bash_profile

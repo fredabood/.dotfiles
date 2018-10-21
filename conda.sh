@@ -8,8 +8,8 @@ fi
 
 bash $HOME/miniconda.sh -b -p $HOME/.conda && \
 rm $HOME/miniconda.sh && \
-echo export $CONDA=$HOME/.conda/bin >> $HOME/.path && \
-echo export $PATH=$PATH:$CONDA >> $HOME/.path &&\
+echo export CONDA="$HOME"/.conda/bin >> $HOME/.path && \
+echo export PATH="$PATH":"$CONDA" >> $HOME/.path &&\
 source $HOME/.bash_profile
 # cd $HOME/.dotfiles && stow -R data
 
@@ -92,8 +92,8 @@ elif [ "${KERNEL:0:5}" = "Linux" ]; then
   tar xf spark-2.3.2-bin-hadoop2.7.tgz && rm spark-2.3.2-bin-hadoop2.7.tgz
 
   mv spark-2.3.2-bin-hadoop2.7 $HOME/.spark
-  echo export $SPARK=$HOME/.spark/bin >> $HOME/.path && \
-  echo export $PATH=$PATH:$SPARK >> $HOME/.path &&\
+  echo export SPARK="$HOME"/.spark/bin >> $HOME/.path && \
+  echo export PATH="$PATH":"$SPARK" >> $HOME/.path &&\
   source $HOME/.bash_profile
   # cd $HOME/.dotfiles && stow -R data
 
