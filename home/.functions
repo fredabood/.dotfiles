@@ -177,7 +177,7 @@ function git_pull() {
       echo $file;
       cd $file;
       if [ -d ".git" ]; then
-        git pull "$1";
+        git pull --rebase;
       else
         git_pull;
       fi
