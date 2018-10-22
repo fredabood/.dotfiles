@@ -2,7 +2,7 @@
 KERNEL=$(uname -a)
 
 if [ "${KERNEL:0:5}" = "Linux" ]; then
-  sudo apt-get update && sudo apt-get upgrade -y
+  sudo apt-get update -y
   sudo apt-get install stow -y
   sudo apt install python-pip -y
   # apt-get --no-install-recommends -yqq install \
