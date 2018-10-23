@@ -19,8 +19,10 @@ conda install jupyter jupyterlab ipykernel -y
 conda install numpy pandas pandas-profiling matplotlib seaborn -y
 conda install flask sqlalchemy flask-sqlalchemy -y
 conda install tqdm boto3 -y
+conda install cython pyspark -y
 
 if [ "${KERNEL:0:5}" = "Linux" ]; then
+  mkdir $HOME/.jupyter/certs && \
   sudo openssl req -x509 -nodes -days 365 -newkey rsa:1024 -keyout $HOME/.jupyter/certs/jupyter_cert.pem -out $HOME/.jupyter/certs/jupyter_cert.pem
 
 elif [ "${KERNEL:0:6}" = "Darwin" ]; then
