@@ -24,20 +24,3 @@ conda install cython pyspark -y
 if [ "${KERNEL:0:5}" = "Linux" ]; then
   mkdir $HOME/.jupyter/certs && \
   sudo openssl req -x509 -nodes -days 365 -newkey rsa:1024 -keyout $HOME/.jupyter/certs/jupyter_cert.pem -out $HOME/.jupyter/certs/jupyter_cert.pem
-
-elif [ "${KERNEL:0:6}" = "Darwin" ]; then
-  # Renaming Root Python Kernel to differentiate from Environments
-  python -m ipykernel install --user --display-name "Python [root]"
-
-  conda env create -f $HOME/init/py27.yml
-  source activate py27
-  python -m ipykernel install --user --name py27 --display-name "Python [py27]"
-  source deactivate
-
-  # Create Python 3.6 environment & install Jupyter kernel
-  conda env create -f $HOME/init/py36.yml
-  source activate py36
-  python -m ipykernel install --user --name py36 --display-name "Python [py36]"
-  source deactivate
-
-fi

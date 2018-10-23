@@ -14,6 +14,21 @@ Uninstall is equally simple. Simply run the command below from inside the repo.
 ```bash
 stow -D home -t $HOME
 ```
+## Environments for Python Versions
+```bash
+python -m ipykernel install --user --display-name "Python [root]"
+
+conda env create -f $HOME/init/py27.yml
+source activate py27
+python -m ipykernel install --user --name py27 --display-name "Python [py27]"
+source deactivate
+
+# Create Python 3.6 environment & install Jupyter kernel
+conda env create -f $HOME/init/py36.yml
+source activate py36
+python -m ipykernel install --user --name py36 --display-name "Python [py36]"
+source deactivate
+```
 
 ## Useful Python Packages
 This list is inclusive of the packages installed in [conda.sh](./conda.sh) plus some others not included in that script. Without the channels in my [.condarc](./home/.condarc), some of these will have to be installed with pip rather than conda.
