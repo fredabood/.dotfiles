@@ -8,9 +8,7 @@ elif [ "${KERNEL:0:5}" = "Linux" ]; then
   wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O $HOME/conda.sh
 fi
 
-bash $HOME/conda.sh -b -p $HOME/.conda && rm $HOME/conda.sh
-# echo export CONDA="$HOME"/.conda/bin >> $HOME/.path && \
-# echo export PATH="$PATH":"$CONDA" >> $HOME/.path &&\
+bash $HOME/conda.sh -b -p $HOME/.conda && rm $HOME/conda.sh 
 source $HOME/.bash_profile
 
 # Installing all packages at once causes a memory overload on a micro EC2 instance
