@@ -1,13 +1,9 @@
 update_dependencies: True
 
 channels:
-  - defaults
   - anaconda
   - conda-forge
-  - r
-  - bokeh
-  - plotly
-  - blaze
+  - defaults
 
 fred: https://conda.anaconda.org/fredabood
 
