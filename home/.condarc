@@ -1,21 +1,7 @@
-update_dependencies: True
-
 channels:
+  - plotly
+  - bokeh
+  - blaze
   - anaconda
   - conda-forge
   - defaults
-
-fred: https://conda.anaconda.org/fredabood
-
-create_default_packages:
-  - pip
-  - ipykernel
-  - numpy
-  - pandas
-  - pandas-profiling
-  - matplotlib
-  - seaborn
-  - tqdm
-  - flask
-  - sqlalchemy
-  - boto3

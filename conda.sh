@@ -3,32 +3,23 @@
 KERNEL=$(uname -a)
 
 if [ "${KERNEL:0:6}" = "Darwin" ]; then
-  wget https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh -O $HOME/miniconda.sh
+  wget https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh -O $HOME/conda.sh
 elif [ "${KERNEL:0:5}" = "Linux" ]; then
-  wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O $HOME/miniconda.sh
+  wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O $HOME/conda.sh
 fi
 
-bash $HOME/miniconda.sh -b -p $HOME/.conda && rm $HOME/miniconda.sh && \
+bash $HOME/conda.sh -b -p $HOME/.conda && rm $HOME/conda.sh && \
 # echo export CONDA="$HOME"/.conda/bin >> $HOME/.path && \
 # echo export PATH="$PATH":"$CONDA" >> $HOME/.path &&\
 source $HOME/.bash_profile
 
 # Installing all packages at once causes a memory overload on a micro EC2 instance
 pip install --upgrade pip && conda update conda -y
-conda install -c anaconda \
-                  jupyter \
-                  ipykernel \
-                  numpy \
-                  pandas \
-                  seaborn \
-                  sqlalchemy \
-                  boto3 \
-                  cython -y
-conda install -c conda-forge \
-                  jupyterlab \
-                  pandas-profiling \
-                  matplotlib \
-                  pyspark -y
+conda install jupyter jupyterlab ipykernel -y
+conda install numpy pandas pandas-profiling -y
+conda install matplotlib seaborn plotly -y
+conda install tqdm flask sqlalchemy boto3 -y
+conda install py4j cython pyspark -y
 
 if [ "${KERNEL:0:5}" = "Linux" ]; then
   sudo openssl req -x509 -nodes -days 365 -newkey rsa:1024 -keyout $HOME/.jupyter/certs/jupyter_cert.pem -out $HOME/.jupyter/certs/jupyter_cert.pem
