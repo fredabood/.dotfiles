@@ -1,7 +1,0 @@
-channels:
-  - plotly
-  - bokeh
-  - blaze
-  - anaconda
-  - conda-forge
-  - defaults
