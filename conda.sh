@@ -15,11 +15,20 @@ source $HOME/.bash_profile
 
 # Installing all packages at once causes a memory overload on a micro EC2 instance
 pip install --upgrade pip && conda update conda -y
-conda install jupyter jupyterlab ipykernel -y
-conda install numpy pandas pandas-profiling -y
-conda install matplotlib seaborn -y
-conda install sqlalchemy boto3 -y
-conda install cython pyspark -y
+conda install -c anaconda \
+                  jupyter \
+                  ipykernel \
+                  numpy \
+                  pandas \
+                  seaborn \
+                  sqlalchemy \
+                  boto3 \
+                  cython -y
+conda install -c conda-forge \
+                  jupyterlab \
+                  pandas-profiling \
+                  matplotlib \
+                  pyspark -y
 
 if [ "${KERNEL:0:5}" = "Linux" ]; then
   sudo openssl req -x509 -nodes -days 365 -newkey rsa:1024 -keyout $HOME/.jupyter/certs/jupyter_cert.pem -out $HOME/.jupyter/certs/jupyter_cert.pem
