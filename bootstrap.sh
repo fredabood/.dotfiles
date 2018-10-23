@@ -7,7 +7,17 @@ git pull origin master;
 
 # Only auto-runs brew.sh if the ~/.bash_profile isn't a symlink
 KERNEL=$(uname -a)
-if [ ! -L $HOME/.bash_profile ] && [ "${KERNEL:0:6}" = "Darwin" ]; then
+ME=$(whoami)
+if [ ! -L $HOME/.bash_profile ] && [ "${KERNEL:0:5}" = "Linux" ]; then
+	if [ $ME = "root" ]; then
+		apt-get update && \
+		apt-get install stow python-pip
+	else
+		sudo apt-get update && \
+		sudo apt-get install stow python-pip
+	fi
+
+elif [ ! -L $HOME/.bash_profile ] && [ "${KERNEL:0:6}" = "Darwin" ]; then
 	bash brew.sh
 
 	USERNAME=$(git config --global user.name)
@@ -24,7 +34,7 @@ if [ ! -L $HOME/.bash_profile ] && [ "${KERNEL:0:6}" = "Darwin" ]; then
 
 	git config --global user.name "$USERNAME"; unset USERNAME;
 	git config --global user.email "$EMAIL"; unset EMAIL;
-	
+
 fi
 
 function doIt() {
@@ -52,3 +62,24 @@ fi;
 unset doIt;
 
 source $HOME/.bash_profile;
+
+# Install Miniconda3 if it's not already installed.
+if [ ! -d ~/.conda ]; then
+
+  if [ "${KERNEL:0:6}" = "Darwin" ]; then
+    wget https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh -O $HOME/conda.sh
+  elif [ "${KERNEL:0:5}" = "Linux" ]; then
+    wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O $HOME/conda.sh
+  fi
+
+  bash $HOME/conda.sh -b -p $HOME/.conda && rm $HOME/conda.sh
+  source $HOME/.bash_profile
+
+  pip install --upgrade pip && conda update conda -y
+
+  if [ "${KERNEL:0:5}" = "Linux" ]; then
+    mkdir $HOME/.jupyter/certs && \
+    sudo openssl req -x509 -nodes -days 365 -newkey rsa:1024 -keyout $HOME/.jupyter/certs/jupyter_cert.pem -out $HOME/.jupyter/certs/jupyter_cert.pem
+  fi
+
+fi

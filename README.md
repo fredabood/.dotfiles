@@ -57,6 +57,19 @@ python -m spacy download en_core_web_sm;
 python -m spacy download en_core_web_md;
 ```
 
+## Building Docker Container
+```bash
+cd home/init/
+docker build -t conda -f ./Dockerfile ./
+docker run -i -t conda /bin/bash
+cd
+cd .dotfiles/
+bash bootstrap.sh -f
+cd
+source .bash_profile
+
+```
+
 ### [Miniconda Archive](https://repo.continuum.io/miniconda/) | [Jupyter Kernels](https://github.com/jupyter/jupyter/wiki/Jupyter-kernels) | [Spark Downloads](https://spark.apache.org/downloads.html)
 
 ## Deviations from Mathias
