@@ -1,37 +1,30 @@
-# reference: https://hub.docker.com/_/ubuntu/
-FROM ubuntu
+FROM ubuntu:latest
 
-##Set environment variables
 ENV LANG=C.UTF-8 LC_ALL=C.UTF-8
+ENV PATH /opt/conda/bin:$PATH
 
-RUN sudo apt-get update && upgrade && \
-    sudo apt-get install stow python-pip && \
+RUN apt-get update --fix-missing && \
+    apt-get install -y wget bzip2 ca-certificates curl git && \
     apt-get clean && \
+    apt get install stow && \
     rm -rf /var/lib/apt/lists/*
 
-RUN echo 'export PATH=/opt/.conda/bin:$PATH' > /etc/profile.d/conda.sh && \
-    wget --quiet https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh -O $HOME/miniconda.sh && \
-    /bin/bash ~/miniconda.sh -b -p /opt/.conda && \
-    rm ~/miniconda.sh
+RUN git clone https://github.com/fredabood/.dotfiles.git ~/.dotfiles && \
+    rm ~/.dotfiles/home/.path && \
+    bash ~/.dotfiles/bootstrap.sh && \
+    source ~/.bash_profile
 
-ENV PATH /opt/.conda/bin:$PATH
+RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/conda.sh && \
+    /bin/bash ~/conda.sh -b -p /opt/conda && \
+    rm ~/conda.sh && \
+    /opt/conda/bin/conda clean -tipsy && \
+    ln -s /opt/conda/etc/profile.d/conda.sh /etc/profile.d/conda.sh && \
+    echo ". /opt/conda/etc/profile.d/conda.sh" >> ~/.dotfiles/home/.bash_profile && \
+    echo "conda activate base" >> ~/.dotfiles/home/.bash_profile
 
-RUN pip install --upgrade pip && conda update conda -y
-RUN conda install jupyter jupyterlab ipykernel \
-                  numpy pandas pandas-profiling \
-                  matplotlib seaborn plotly \
-                  tqdm flask sqlalchemy boto3 \
-                  py4j cython pyspark -y
+ENV TINI_VERSION v0.16.1
+ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini /usr/bin/tini
+RUN chmod +x /usr/bin/tini
 
-# Open Ports for Jupyter
-EXPOSE 7745
-
-#Setup File System
-RUN mkdir ds
-ENV HOME=/ds
-ENV SHELL=/bin/bash
-VOLUME /ds
-WORKDIR /ds
-
-# Run the shell
-CMD  ["/bin/bash"]
+ENTRYPOINT [ "/usr/bin/tini", "--" ]
+CMD [ "/bin/bash" ]
