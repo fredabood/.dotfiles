@@ -93,7 +93,7 @@ fi;
 
 # Highlight the user name when logged in as root or inside Docker container.
 if [[ -f /.dockerenv ]]; then
-	hostStyle="${bold}${blue}"
+	userStyle="${yellow}"
 elif [[ "${USER}" == "root" ]] || [[ "$(whoami)" == "root" ]]; then
 	userStyle="${red}";
 else

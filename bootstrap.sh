@@ -1,4 +1,4 @@
-
+#!/usr/bin/env bash
 
 # In order to use the rsync function instead of stow, cd into the home directory
 cd "$(dirname "${BASH_SOURCE}")";

@@ -9,9 +9,9 @@ RUN apt-get update --fix-missing && \
     rm -rf /var/lib/apt/lists/*
 
 #Setup File System
-RUN git clone https://github.com/fredabood/.dotfiles.git /root/.dotfiles && \
-    /bin/bash /root/.dotfiles/bootstrap.sh -f && \
-    source /root/.bash_profile
+RUN git clone https://github.com/fredabood/.dotfiles.git /root/.dotfiles
+RUN /bin/bash /root/.dotfiles/bootstrap.sh -f
+RUN /bin/bash -c "source /root/.bash_profile"
 
 RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-4.5.11-Linux-x86_64.sh -O ~/miniconda.sh && \
     /bin/bash ~/miniconda.sh -b -p /opt/conda && \
