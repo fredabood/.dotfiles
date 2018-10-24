@@ -6,35 +6,37 @@ cd "$(dirname "${BASH_SOURCE}")";
 git pull origin master;
 
 # Only auto-runs brew.sh if the ~/.bash_profile isn't a symlink
-KERNEL=$(uname -a)
-ME=$(whoami)
-if [ ! -L $HOME/.bash_profile ] && [ "${KERNEL:0:5}" = "Linux" ]; then
-	if [ $ME = "root" ]; then
-		apt-get update -y && \
-		apt-get install stow python-pip -y
-	else
-		sudo apt-get update -y && \
-		sudo apt-get install stow python-pip -y
+if [ ! -f /.dockerenv ]; then
+	KERNEL=$(uname -a)
+	ME=$(whoami)
+	if [ ! -L $HOME/.bash_profile ] && [ "${KERNEL:0:5}" = "Linux" ]; then
+		if [ $ME = "root" ]; then
+			apt-get update -y && \
+			apt-get install stow python-pip -y
+		else
+			sudo apt-get update -y && \
+			sudo apt-get install stow python-pip -y
+		fi
+
+	elif [ ! -L $HOME/.bash_profile ] && [ "${KERNEL:0:6}" = "Darwin" ]; then
+		bash brew.sh
+
+		USERNAME=$(git config --global user.name)
+		if [ "$USERNAME"="" ]; then
+			unset USERNAME
+			read -p "What is your Git username i.e. Mona Lisa? " USERNAME
+		fi
+
+		EMAIL=$(git config --global user.email)
+		if [ "$EMAIL"="" ]; then
+			unset EMAIL
+			read -p "What is your Git email i.e. name@example.com? " EMAIL
+		fi
+
+		git config --global user.name "$USERNAME"; unset USERNAME;
+		git config --global user.email "$EMAIL"; unset EMAIL;
+
 	fi
-
-elif [ ! -L $HOME/.bash_profile ] && [ "${KERNEL:0:6}" = "Darwin" ]; then
-	bash brew.sh
-
-	USERNAME=$(git config --global user.name)
-	if [ "$USERNAME"="" ]; then
-		unset USERNAME
-		read -p "What is your Git username i.e. Mona Lisa? " USERNAME
-	fi
-
-	EMAIL=$(git config --global user.email)
-	if [ "$EMAIL"="" ]; then
-		unset EMAIL
-		read -p "What is your Git email i.e. name@example.com? " EMAIL
-	fi
-
-	git config --global user.name "$USERNAME"; unset USERNAME;
-	git config --global user.email "$EMAIL"; unset EMAIL;
-
 fi
 
 function doIt() {
