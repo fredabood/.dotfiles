@@ -10,11 +10,11 @@ KERNEL=$(uname -a)
 ME=$(whoami)
 if [ ! -L $HOME/.bash_profile ] && [ "${KERNEL:0:5}" = "Linux" ]; then
 	if [ $ME = "root" ]; then
-		apt-get update && \
-		apt-get install stow python-pip
+		apt-get update -y && \
+		apt-get install stow python-pip -y
 	else
-		sudo apt-get update && \
-		sudo apt-get install stow python-pip
+		sudo apt-get update -y && \
+		sudo apt-get install stow python-pip -y
 	fi
 
 elif [ ! -L $HOME/.bash_profile ] && [ "${KERNEL:0:6}" = "Darwin" ]; then
