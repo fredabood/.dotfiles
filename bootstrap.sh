@@ -64,7 +64,7 @@ unset doIt;
 source $HOME/.bash_profile;
 
 # Install Miniconda3 if it's not already installed.
-if [ ! -d ~/.conda ]; then
+if [ ! -d ~/.conda ] && [ ! -f /.dockerenv ] ; then
 
   if [ "${KERNEL:0:6}" = "Darwin" ]; then
     wget https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh -O $HOME/conda.sh
