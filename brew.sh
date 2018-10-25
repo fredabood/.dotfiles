@@ -62,17 +62,17 @@ brew cask install spotify
 brew cask install slack
 brew install lastpass-cli --with-pinentry
 brew cask install virtualbox
-brew cask install vlc
 brew cask install iterm2
 brew cask install atom
 apm install atom-ide-ui \
-            ide-python ide-r ide-typescript \
+            ide-python ide-docker language-docker \
             hydrogen hydrogen-launcher \
-            git-plus git-time-machine split-diff \
+            git-time-machine split-diff \
             platformio-ide-terminal \
             highlight-line \
             tablr \
-            pretty-json
+            pretty-json \
+            atom-file-icons file-icons
 
 # Remove outdated versions from the cellar.
 brew cleanup
