@@ -4,7 +4,7 @@ ENV LANG=C.UTF-8 LC_ALL=C.UTF-8
 ENV PATH /opt/conda/bin:$PATH
 
 RUN apt-get update --fix-missing && \
-    apt-get install -y wget bzip2 ca-certificates curl git stow vim && \
+    apt-get install -y wget bzip2 ca-certificates curl git stow vim screen && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -29,10 +29,10 @@ RUN chmod +x /usr/bin/tini
 EXPOSE 7745
 
 #Setup File System
-RUN mkdir /projects
+RUN mkdir $HOME/projects
 ENV SHELL=/bin/bash
-VOLUME /projects
-WORKDIR /projects
+VOLUME $HOME/projects
+WORKDIR $HOME/projects
 
 ENTRYPOINT [ "/usr/bin/tini", "--" ]
 CMD [ "/bin/bash" ]
