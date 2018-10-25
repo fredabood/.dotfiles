@@ -30,11 +30,9 @@ EXPOSE 7745
 
 #Setup File System
 RUN mkdir /projects
-ENV HOME=/projects
 ENV SHELL=/bin/bash
 VOLUME /projects
 WORKDIR /projects
-
 
 ENTRYPOINT [ "/usr/bin/tini", "--" ]
 CMD [ "/bin/bash" ]
