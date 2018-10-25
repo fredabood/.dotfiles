@@ -35,8 +35,6 @@ ENV SHELL=/bin/bash
 VOLUME /projects
 WORKDIR /projects
 
-RUN /bin/bash -c "conda install jupyter -y"
-RUN mv /root/.jupyter/docker_jupyter_config.py /root/.jupyter/jupyter_notebook_config.py
 
 ENTRYPOINT [ "/usr/bin/tini", "--" ]
-CMD [ "jupyter notebook --no-browser --allow-root --port=7745 --NotebookApp.token='tutorial'" ]
+CMD [ "/bin/bash" ]
