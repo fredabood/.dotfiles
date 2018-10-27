@@ -4,7 +4,7 @@ ENV LANG=C.UTF-8 LC_ALL=C.UTF-8
 ENV PATH /opt/conda/bin:$PATH
 
 RUN apt-get update --fix-missing && \
-    apt-get install -y wget bzip2 ca-certificates curl git stow vim screen && \
+    apt-get install -y wget bzip2 ca-certificates curl git stow vim screen python-pip && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -26,7 +26,7 @@ ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini /usr/
 RUN chmod +x /usr/bin/tini
 
 # Open Ports for Jupyter
-EXPOSE 7745
+EXPOSE 8888
 
 #Setup File System
 RUN mkdir $HOME/projects

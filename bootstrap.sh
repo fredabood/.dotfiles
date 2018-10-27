@@ -8,15 +8,9 @@ git pull origin master;
 # Only auto-runs brew.sh if the ~/.bash_profile isn't a symlink
 if [ ! -f /.dockerenv ]; then
 	KERNEL=$(uname -a)
-	ME=$(whoami)
 	if [ ! -L $HOME/.bash_profile ] && [ "${KERNEL:0:5}" = "Linux" ]; then
-		if [ $ME = "root" ]; then
-			apt-get update -y && \
-			apt-get install stow python-pip -y
-		else
-			sudo apt-get update -y && \
-			sudo apt-get install stow python-pip -y
-		fi
+		sudo apt-get update -y && \
+		sudo apt-get install stow python-pip docker-ce -y
 
 	elif [ ! -L $HOME/.bash_profile ] && [ "${KERNEL:0:6}" = "Darwin" ]; then
 		bash brew.sh
@@ -66,7 +60,7 @@ unset doIt;
 source $HOME/.bash_profile;
 
 # Install Miniconda3 if it's not already installed.
-if [ ! -d ~/.conda ] && [ ! -f /.dockerenv ] ; then
+if [ ! -d ~/.conda ] && [ ! -f /.dockerenv ]; then
 
   if [ "${KERNEL:0:6}" = "Darwin" ]; then
     wget https://repo.continuum.io/miniconda/Miniconda3-latest-MacOSX-x86_64.sh -O $HOME/conda.sh
