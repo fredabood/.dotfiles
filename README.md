@@ -53,7 +53,7 @@ pip install --upgrade pip && conda update conda -y;
 
 conda install cython py4j \
               jupyter jupyterlab ipykernel \
-              numpy pandas pandas-profileing \
+              numpy pandas pandas-profiling \
               matplotlib seaborn plotly \
               bokeh dash folium \
               flask django \

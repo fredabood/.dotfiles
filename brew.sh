@@ -56,7 +56,7 @@ brew install ssh-copy-id
 brew install stow
 
 # Installing Software
-brew cask install docker
+brew cask install docker && docker pull fredabood/dotconda
 brew cask install google-chrome
 brew cask install spotify
 brew cask install slack
