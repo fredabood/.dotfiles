@@ -12,7 +12,7 @@ if [ ! -f /.dockerenv ]; then
 		sudo apt-get update -y && \
 		sudo apt-get install stow python-pip -y
 		curl -fsSL get.docker.com -o get-docker.sh && sh get-docker.sh
-		sudo docker pull fredabood/dotconda
+		sudo docker pull fredabood/dotfiles
 
 	elif [ ! -L $HOME/.bash_profile ] && [ "${KERNEL:0:6}" = "Darwin" ]; then
 		bash brew.sh
