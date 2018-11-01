@@ -51,20 +51,21 @@ This list is inclusive of the packages installed in [conda.sh](./conda.sh) plus 
 ```bash
 pip install --upgrade pip && conda update conda -y;
 
-conda install cython py4j \
-              jupyter jupyterlab ipykernel \
+conda install jupyter jupyterlab ipykernel \
               numpy pandas pandas-profiling \
               matplotlib seaborn plotly \
-              bokeh dash folium \
-              flask django \
               sqlalchemy boto3 tqdm \
-              beautifulsoup4 scrapy \
+              beautifulsoup4 flask \
+              scikit-learn \
+              pyspark sparkmagic \
+              cython py4j \
+              bokeh dash folium \
+              scrapy django \
               pandas-datareader quandl \
               praw google-api-python-client tweepy \
-              scikit-learn spacy tensorflow keras theano \
+              spacy tensorflow keras theano \
               r-essentials mro-base \
               pyzmq nodejs \
-              pyspark sparkmagic \
               argcomplete -y
 
 pip install nteract_on_jupyter vaderSentiment;
