@@ -1,0 +1,20 @@
+"*":
+  core:
+    projectHome: "/Users/fred/Projects"
+    telemetryConsent: "limited"
+    themes: [
+      "one-dark-ui"
+      "solarized-dark-syntax"
+    ]
+    titleBar: "custom"
+  editor:
+    fontSize: 15
+    showIndentGuide: true
+  "exception-reporting":
+    userId: "f354a70f-9d93-4c53-811f-76e39b6cea9a"
+  "platformio-ide-terminal":
+    style:
+      theme: "solarized-dark"
+  "split-diff": {}
+  welcome:
+    showOnStartup: false
