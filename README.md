@@ -13,7 +13,8 @@ My dotfiles were forked from [Mathias Bynen's Dotfiles](https://github.com/mathi
 ### Local Dotfiles
 To install simply navigate to the directory where you wish to keep the repository, and run:
 ```bash
-git clone https://gitlab.com/fredabood/dotfiles.git && cd .dotfiles && bash bootstrap.sh
+git clone https://gitlab.com/fredabood/dotfiles.git && \
+cd .dotfiles && bash bootstrap.sh
 ```
 Uninstall is equally simple. Simply run the command below from inside the repo.
 ```bash
