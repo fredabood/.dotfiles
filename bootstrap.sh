@@ -37,10 +37,12 @@ fi
 
 function doIt() {
 	for file in `ls -a ./home/`; do
-	  if [ -r "$HOME/$file" ] && [ -f "$HOME/$file" ]; then
-	    rm $HOME/$file
-	  elif [ -r "$HOME/$file" ] && [ -d "$HOME/$file" ] && [ $file != "." ] && [ $file != ".." ]; then
-	    rm -r $HOME/$file
+	  if [ -r "$HOME/$file" ] && [ $file != "." ] && [ $file != ".." ]; then
+			if [ -f "$HOME/$file" ]; then
+				rm $HOME/$file
+			elif [ -d "$HOME/$file" ]; then
+				rm -r $HOME/$file
+			fi
 	  fi
 	done
 	unset file
