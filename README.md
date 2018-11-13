@@ -63,7 +63,7 @@ conda install jupyter jupyterlab ipykernel \
               bokeh dash folium \
               scrapy django \
               pandas-datareader quandl \
-              praw google-api-python-client tweepy \
+              praw google-api-python-client tweepy newsapi-python \
               spacy tensorflow keras theano \
               r-essentials mro-base \
               pyzmq nodejs \
