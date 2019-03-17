@@ -185,3 +185,8 @@ function git_pull() {
     fi
   done
 }
+
+# git add, commit, pull, push all in one
+function git_push() {
+	git add -A; git commit -m "$1"; git pull --rebase; git push;
+}

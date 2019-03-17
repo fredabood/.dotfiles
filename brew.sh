@@ -54,6 +54,8 @@ brew install p7zip
 brew install ssh-copy-id
 
 brew install stow
+brew tap caskroom/fonts
+brew cask install font-fira-code
 
 # Installing Software
 brew cask install docker && docker pull fredabood/dotconda
