@@ -194,3 +194,4 @@ function git_push() {
 
 function search() {
 	 grep -rnw "./" -e "$1"
+}
