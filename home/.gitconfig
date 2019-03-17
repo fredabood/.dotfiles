@@ -191,3 +191,8 @@
 	required = true
 	clean = git-lfs clean -- %f
 	smudge = git-lfs smudge -- %f
+
+[user]
+	signingkey = D7F7FC1E37F5C65978DCDACDED57E10FB793DCD3
+	name = Fred Abood
+	email = fred@fredabood.com

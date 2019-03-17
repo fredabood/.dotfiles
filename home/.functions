@@ -190,3 +190,6 @@ function git_pull() {
 function git_push() {
 	git add -A; git commit -m "$1"; git pull --rebase; git push;
 }
+
+function search() {
+	 grep -rnw "./" -e "$1"
