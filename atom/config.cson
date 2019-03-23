@@ -9,9 +9,11 @@
   editor:
     fontFamily: "Fira Code"
     fontSize: 13
-    showIndentGuide: true
     scrollPastEnd: true
+    showIndentGuide: true
   "exception-reporting":
     userId: "d39657eb-4fef-4bd0-bc5b-89ff4f1365e6"
+  "ide-python":
+    python: "~/.conda/bin/python"
   welcome:
     showOnStartup: false

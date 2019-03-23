@@ -67,14 +67,22 @@ brew cask install virtualbox
 brew cask install iterm2
 brew cask install atom
 apm install atom-ide-ui \
-            ide-python ide-docker language-docker \
-            hydrogen hydrogen-launcher \
-            git-time-machine split-diff \
-            platformio-ide-terminal \
+            atom-ide-debugger-python \
+            ide-python \
+            ide-docker \
+            ide-json \
+            language-docker \
+            docker \
+            hydrogen \
+            hydrogen-launcher \
+            git-time-machine \
+            split-diff \
             highlight-line \
             tablr \
+            minimap \
             pretty-json \
-            atom-file-icons file-icons
+            atom-file-icons \
+            file-icons
 
 # Remove outdated versions from the cellar.
 brew cleanup
