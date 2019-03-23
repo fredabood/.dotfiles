@@ -1,20 +1,17 @@
 "*":
   core:
     projectHome: "/Users/fred/Projects"
-    telemetryConsent: "limited"
+    telemetryConsent: "no"
     themes: [
       "one-dark-ui"
       "solarized-dark-syntax"
     ]
-    titleBar: "custom"
   editor:
-    fontSize: 15
+    fontFamily: "Fira Code"
+    fontSize: 13
     showIndentGuide: true
+    scrollPastEnd: true
   "exception-reporting":
-    userId: "f354a70f-9d93-4c53-811f-76e39b6cea9a"
-  "platformio-ide-terminal":
-    style:
-      theme: "solarized-dark"
-  "split-diff": {}
+    userId: "d39657eb-4fef-4bd0-bc5b-89ff4f1365e6"
   welcome:
     showOnStartup: false

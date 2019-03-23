@@ -189,7 +189,10 @@ function git_pull() {
 
 # git add, commit, pull, push all in one
 function git_push() {
-	git add -A; git commit -m "$1"; git pull --rebase; git push;
+	git add -A && \
+	git commit -m "$1" && \
+	git pull --rebase && \
+	git push;
 }
 
 function search() {

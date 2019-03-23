@@ -36,18 +36,18 @@ if [ ! -f /.dockerenv ]; then
 fi
 
 function doIt() {
-	for file in `ls -a ./home/`; do
-	  if [ -r "$HOME/$file" ] && [ $file != "." ] && [ $file != ".." ]; then
-			if [ -f "$HOME/$file" ]; then
-				rm $HOME/$file
-			elif [ -d "$HOME/$file" ]; then
-				rm -r $HOME/$file
+	for file in `ls -a ./$1/`; do
+	  if [ -r "$2/$file" ] && [ $file != "." ] && [ $file != ".." ]; then
+			if [ -f "$2/$file" ]; then
+				rm $2/$file
+			elif [ -d "$2/$file" ]; then
+				rm -r $2/$file
 			fi
 	  fi
 	done
 	unset file
-	( stow -R home -t $HOME )
-	source $HOME/.bash_profile;
+	( stow -R $1 -t $2 )
+	source $2/.bash_profile;
 }
 
 if [ "$1" == "--force" -o "$1" == "-f" ]; then
@@ -56,7 +56,8 @@ else
 	read -p "This may overwrite existing files in your home directory. Are you sure? (y/n) " -n 1;
 	echo "";
 	if [[ $REPLY =~ ^[Yy]$ ]]; then
-		doIt;
+		doIt home "~/" && \
+		doIt atom "~/.atom/";
 	fi;
 fi;
 unset doIt;
