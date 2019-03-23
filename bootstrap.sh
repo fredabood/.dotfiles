@@ -47,7 +47,7 @@ function doIt() {
 	done
 	unset file
 	( stow -R $1 -t $2 )
-	source $2/.bash_profile;
+	source $HOME/.bash_profile;
 }
 
 if [ "$1" == "--force" -o "$1" == "-f" ]; then
@@ -56,8 +56,8 @@ else
 	read -p "This may overwrite existing files in your home directory. Are you sure? (y/n) " -n 1;
 	echo "";
 	if [[ $REPLY =~ ^[Yy]$ ]]; then
-		doIt home "~/" && \
-		doIt atom "~/.atom/";
+		doIt home "$HOME" && \
+		doIt atom "$HOME/.atom/";
 	fi;
 fi;
 unset doIt;
