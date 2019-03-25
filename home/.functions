@@ -146,3 +146,11 @@ function git_push() {
 function search() {
 	 grep -rnw "./" -e "$1"
 }
+
+function t2csv() {
+  cat $1 | tr "\\t" ","
+}
+
+function c2tsv() {
+  cat $1 | tr "," "\\t"
+}
