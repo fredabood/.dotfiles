@@ -154,3 +154,9 @@ function t2csv() {
 function c2tsv() {
   cat $1 | tr "," "\\t"
 }
+
+function conda_path() {
+  CONDA="$HOME/.conda/bin"
+  export PATH="$CONDA:$PATH"
+  unset CONDA
+}
