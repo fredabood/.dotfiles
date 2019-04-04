@@ -1,5 +1,6 @@
 # Add `~/bin` to the `$PATH`
-export PATH="$HOME/bin:$PATH";
+export VSCODE="/Applications/Visual\ Studio\ Code.app/Contents/Resources/app/bin/code"
+export PATH="$HOME/bin:$PATH:$VSCODE";
 
 # Load the shell dotfiles, and then some:
 # * ~/.path can be used to extend `$PATH`.
