@@ -57,7 +57,6 @@ else
 	echo "";
 	if [[ $REPLY =~ ^[Yy]$ ]]; then
 		doIt home "$HOME" && \
-		doIt atom "$HOME/.atom/";
 	fi;
 fi;
 unset doIt;
