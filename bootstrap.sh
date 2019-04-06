@@ -76,7 +76,7 @@ if [ ! -d ~/.conda ] && [ ! -f /.dockerenv ]; then
   bash $HOME/conda.sh -b -p $HOME/.conda && rm $HOME/conda.sh
   source $HOME/.bash_profile
 
-  pip install --upgrade pip && conda update conda -y
+  pip install --upgrade setuptools pip && conda update conda -y
 
   if [ "${KERNEL:0:5}" = "Linux" ]; then
     mkdir $HOME/.jupyter/certs && \

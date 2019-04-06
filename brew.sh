@@ -63,26 +63,8 @@ brew cask install google-chrome
 brew cask install spotify
 brew cask install slack
 brew install lastpass-cli --with-pinentry
-brew cask install virtualbox
 brew cask install iterm2
-brew cask install atom
-apm install atom-ide-ui \
-            atom-ide-debugger-python \
-            ide-python \
-            ide-docker \
-            ide-json \
-            language-docker \
-            docker \
-            hydrogen \
-            hydrogen-launcher \
-            git-time-machine \
-            split-diff \
-            highlight-line \
-            tablr \
-            minimap \
-            pretty-json \
-            atom-file-icons \
-            file-icons
+brew cask install visual-studio-code
 
 # Remove outdated versions from the cellar.
 brew cleanup
