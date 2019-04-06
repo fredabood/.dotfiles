@@ -1,5 +1,2 @@
-export CONDA="$HOME/.conda/bin"
-export MYSQL="/usr/local/.mysql/bin"
-export PSQL="$HOME/.postgres/pg10/bin"
-
-export PATH="$CONDA:$HOME_BIN:$MYSQL:$PSQL:$PATH"
+export VSCODE="/Applications/Visual Studio Code.app/Contents/Resources/app/bin"
+export PATH="$PATH:$VSCODE"

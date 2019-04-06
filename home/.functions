@@ -134,15 +134,28 @@ function git_pull() {
   done
 }
 
-
 # git add, commit, pull, push all in one
 function git_push() {
-	git add -A && \
-	git commit -m "$1" && \
-	git pull --rebase && \
+	git add -A; \
+	git commit -m "$1"; \
+	git pull && \
 	git push;
 }
 
 function search() {
 	 grep -rnw "./" -e "$1"
+}
+
+function tsv2csv() {
+  cat $1 | tr "\\t" ","
+}
+
+function csv2tsv() {
+  cat $1 | tr "," "\\t"
+}
+
+function conda_path() {
+  CONDA="$HOME/.conda/bin"
+  export PATH="$CONDA:$PATH"
+  unset CONDA
 }

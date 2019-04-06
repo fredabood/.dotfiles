@@ -13,10 +13,8 @@ dependencies:
   - ipykernel
   - numpy
   - pandas
-  - pandas-profiling
   - matplotlib
   - seaborn
   - tqdm
   - flask
-  - sqlalchemy
-  - boto3
+  

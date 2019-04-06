@@ -1,4 +1,4 @@
-name: py36
+name: py37
 channels:
   - defaults
   - anaconda
@@ -8,15 +8,12 @@ channels:
   - plotly
   - blaze
 dependencies:
-  - python=3.6.5
+  - python=3.7
   - pip
   - ipykernel
   - numpy
   - pandas
-  - pandas-profiling
   - matplotlib
   - seaborn
   - tqdm
   - flask
-  - sqlalchemy
-  - boto3
