@@ -1,5 +1,6 @@
 .DS_Store
 .extra
+.git-aliases
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
