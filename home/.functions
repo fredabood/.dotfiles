@@ -144,7 +144,7 @@ function git_push() {
 				echo "git_push Options:"
 				echo "-h|--help			show brief help"
 				echo "-r|--rebase		rebase the git pull"
-				echo "-A| . | * |-u		passes the arg to git add"
+				echo "-A| . | * |-u		passed directly to git add"
 				echo "-m|--message		specify git commit message"
 				echo " "
 				return 0
@@ -166,7 +166,7 @@ function git_push() {
 	if [[ -z ${message} ]]; then
 		message=$1
 		if [[ -z ${message} ]]; then
-			message="updating"
+			message="'' --allow-empty-message"
 		fi
 	fi
 	if [[ -z ${rebase} ]]; then
