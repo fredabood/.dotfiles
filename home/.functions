@@ -182,6 +182,12 @@ function git_push() {
 	git push;
 }
 
+function get_envs() {
+	for env in `ls $HOME/.conda/env/`; do
+		alias $env="source activate $env"
+	done
+}
+
 function search() {
 	 grep -rnw "./" -e "$1"
 }
