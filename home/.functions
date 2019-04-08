@@ -182,10 +182,9 @@ function git_push() {
 	git push;
 }
 
-function get_envs() {
-	for env in `ls $HOME/.conda/env/`; do
-		alias $env="source activate $env"
-	done
+function activate() {
+	VENV_DIR="$HOME/.conda/env"
+	. $VENV_DIR/$1/bin/activate
 }
 
 function search() {
