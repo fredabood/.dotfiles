@@ -182,11 +182,6 @@ function git_push() {
 	git push;
 }
 
-function activate() {
-	VENV_DIR="$HOME/.conda/env"
-	. $VENV_DIR/$1/bin/activate
-}
-
 function search() {
 	 grep -rnw "./" -e "$1"
 }
