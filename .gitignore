@@ -2,6 +2,7 @@
 .extra
 .git-aliases
 .code-workspace
+.jupyter/migrated
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

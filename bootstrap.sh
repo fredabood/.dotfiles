@@ -63,7 +63,7 @@ unset doIt;
 
 source $HOME/.bash_profile;
 
-# Install Miniconda3 if it's not already installed.
+# Install Miniconda if it's not already installed.
 if [ ! -d ~/.conda ] && [ ! -f /.dockerenv ]; then
 
   if [ "${KERNEL:0:6}" = "Darwin" ]; then
