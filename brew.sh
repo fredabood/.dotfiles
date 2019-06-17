@@ -24,7 +24,7 @@ brew install moreutils
 # Install GNU `find`, `locate`, `updatedb`, and `xargs`, `g`-prefixed.
 brew install findutils
 # Install GNU `sed`, overwriting the built-in `sed`.
-brew install gnu-sed --with-default-names
+brew install gnu-sed
 # Install Bash 4.
 brew install bash
 brew install bash-completion2
@@ -36,13 +36,13 @@ if ! fgrep -q "${BREW_PREFIX}/bin/bash" /etc/shells; then
 fi;
 
 # Install `wget` with IRI support.
-brew install wget --with-iri
+brew install wget
 
 # Install GnuPG to enable PGP-signing commits.
 brew install gnupg
 
 # Install more recent versions of some macOS tools.
-brew install vim --with-override-system-vi
+brew install vim
 brew install grep
 brew install openssh
 brew install screen
@@ -56,15 +56,10 @@ brew install ssh-copy-id
 brew install stow
 brew tap caskroom/fonts
 brew cask install font-fira-code
+brew install osxfuse
+brew install sshfs
 
-# Installing Software
 brew cask install docker && docker pull fredabood/dotconda
-brew cask install google-chrome
-brew cask install spotify
-brew cask install slack
-brew install lastpass-cli --with-pinentry
-brew cask install iterm2
-brew cask install visual-studio-code
 
 # Remove outdated versions from the cellar.
 brew cleanup

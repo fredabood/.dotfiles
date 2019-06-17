@@ -199,3 +199,14 @@ function conda_path() {
   export PATH="$CONDA:$PATH"
   unset CONDA
 }
+
+function mdm2md() {
+  js="const mediumToMarkdown = require('medium-to-markdown');
+mediumToMarkdown.convertFromUrl('$1')
+.then(function (markdown) {
+  console.log(markdown); //=> Markdown content of medium post
+});
+"
+  node -e "$js"
+  unset js
+}

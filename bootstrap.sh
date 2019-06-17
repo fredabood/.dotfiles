@@ -17,21 +17,6 @@ if [ ! -f /.dockerenv ]; then
 	elif [ ! -L $HOME/.bash_profile ] && [ "${KERNEL:0:6}" = "Darwin" ]; then
 		bash brew.sh
 
-		USERNAME=$(git config --global user.name)
-		if [ "$USERNAME"="" ]; then
-			unset USERNAME
-			read -p "What is your Git username i.e. Mona Lisa? " USERNAME
-		fi
-
-		EMAIL=$(git config --global user.email)
-		if [ "$EMAIL"="" ]; then
-			unset EMAIL
-			read -p "What is your Git email i.e. name@example.com? " EMAIL
-		fi
-
-		git config --global user.name "$USERNAME"; unset USERNAME;
-		git config --global user.email "$EMAIL"; unset EMAIL;
-
 	fi
 fi
 
@@ -74,7 +59,6 @@ if [ ! -d ~/.conda ] && [ ! -f /.dockerenv ]; then
 
   bash $HOME/conda.sh -b -p $HOME/.conda && rm $HOME/conda.sh
   source $HOME/.bash_profile
-
   pip install --upgrade setuptools pip && conda update conda -y
 
   if [ "${KERNEL:0:5}" = "Linux" ]; then

@@ -83,6 +83,9 @@ alias c="tr -d '\n' | pbcopy"
 # Recursively delete `.DS_Store` files
 alias cleanup="find . -type f -name '*.DS_Store' -ls -delete"
 
+# Recursively delete `__pycache__ and .ipynb_checkpoints` directories
+alias pyclean="find . -type d -name '*__pycache__' -ls -delete && find . -type d -name '*.ipynb_checkpoints' -ls -delete"
+
 # Empty the Trash on all mounted volumes and the main HDD.
 # Also, clear Apple’s System Logs to improve shell startup speed.
 # Finally, clear download history from quarantine. https://mths.be/bum
@@ -143,3 +146,5 @@ alias reload="exec ${SHELL} -l"
 
 # Print each PATH entry on a separate line
 alias path='echo -e ${PATH//:/\\n}'
+alias ubuntu="docker run --tty --interactive --rm ubuntu /bin/bash"
+alias arch="docker run --tty --interactive --rm archlinux/base /bin/bash"
