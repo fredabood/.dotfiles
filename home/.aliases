@@ -90,7 +90,9 @@ alias c="tr -d '\n' | pbcopy"
 alias cleanup="find . -type f -name '*.DS_Store' -ls -delete"
 
 # Recursively delete `__pycache__ and .ipynb_checkpoints` directories
-alias pyclean="find . -type d -name '*__pycache__' -ls -delete && find . -type d -name '*.ipynb_checkpoints' -ls -delete"
+alias pycache_cleanup="find . -type d -name '*__pycache__' -ls -delete"
+alias ipynb_cleanup="find . -type d -name '*.ipynb_checkpoints' -ls -delete"
+alias pyclean="pycache_cleanup; ipynb_cleanup"
 
 # Empty the Trash on all mounted volumes and the main HDD.
 # Also, clear Apple’s System Logs to improve shell startup speed.
