@@ -34,3 +34,5 @@ export MANPAGER='less -X';
 export GPG_TTY=$(tty);
 
 export AWS="ssh -i ~/.ssh/aws.pem ubuntu"
+
+export VENV_DIR=$HOME/.venv
