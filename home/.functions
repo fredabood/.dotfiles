@@ -218,3 +218,11 @@ function exists(){
     echo false
   fi
 }
+
+function activate() {
+  . $VENV_DIR/$1/bin/activate
+}
+
+function venv() {
+  virtualenv $VENV_DIR/$1
+}
