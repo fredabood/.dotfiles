@@ -224,5 +224,5 @@ function activate() {
 }
 
 function venv() {
-  virtualenv $VENV_DIR/$1
+  virtualenv --python=$(which python3) $VENV_DIR/$1
 }
