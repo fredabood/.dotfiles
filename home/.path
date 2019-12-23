@@ -1,2 +1,1 @@
-export VSCODE="/Applications/Visual Studio Code.app/Contents/Resources/app/bin"
-export PATH="$PATH:$VSCODE"
+
