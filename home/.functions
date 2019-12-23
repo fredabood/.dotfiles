@@ -118,22 +118,6 @@ function tre() {
 	tree -aC -I '.git|node_modules|bower_components' --dirsfirst "$@" | less -FRNX;
 }
 
-# Recursively traverse all folders in CWD and do a git pull in all repos
-function git_pull() {
-  for file in `ls ./`; do
-    if [ -d "$file" ] && [ $file != "." ] && [ $file != ".." ] && [ $file != ".git" ]; then
-      echo $file;
-      cd $file;
-      if [ -d ".git" ]; then
-        git pull --rebase;
-      else
-        git_pull;
-      fi
-      cd ..;
-    fi
-  done
-}
-
 # git add, commit, pull, push all in one
 function git_push() {
 	PARAMS=""
@@ -186,31 +170,6 @@ function search() {
 	 grep -rnw "./" -e "$1"
 }
 
-function tsv2csv() {
-  cat $1 | tr "\\t" ","
-}
-
-function csv2tsv() {
-  cat $1 | tr "," "\\t"
-}
-
-function conda_path() {
-  CONDA="$HOME/.conda/bin"
-  export PATH="$CONDA:$PATH"
-  unset CONDA
-}
-
-function mdm2md() {
-  js="const mediumToMarkdown = require('medium-to-markdown');
-mediumToMarkdown.convertFromUrl('$1')
-.then(function (markdown) {
-  console.log(markdown); //=> Markdown content of medium post
-});
-"
-  node -e "$js"
-  unset js
-}
-
 function exists(){
   if [ -e $1 ]; then
     echo true
@@ -224,5 +183,5 @@ function activate() {
 }
 
 function venv() {
-  virtualenv --python=$(which python3) $VENV_DIR/$1
+  virtualenv $VENV_DIR/$1
 }
