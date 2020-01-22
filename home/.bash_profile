@@ -26,6 +26,7 @@ for option in autocd globstar; do
 done;
 
 # Add tab completion for many Bash commands
+# This will fail if you don't successfully switch to the brew installed version of bash.
 if which brew &> /dev/null && [ -f "$(brew --prefix)/share/bash-completion/bash_completion" ]; then
 	source "$(brew --prefix)/share/bash-completion/bash_completion";
 elif [ -f /etc/bash_completion ]; then
