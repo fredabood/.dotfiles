@@ -59,7 +59,11 @@ brew cask install font-fira-code
 brew install osxfuse
 brew install sshfs
 
-brew cask install docker && docker pull fredabood/dotconda
+brew install tmux
+brew install jq
+brew install htop
+
+brew cask install docker
 
 # Remove outdated versions from the cellar.
 brew cleanup
