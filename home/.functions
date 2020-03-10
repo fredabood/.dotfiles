@@ -183,5 +183,6 @@ function activate() {
 }
 
 function venv() {
-  virtualenv $VENV_DIR/$1
+  virtualenv $VENV_DIR/“$1” —python=“$(which python3)”;
+  activate $1 && pip install -r ~/.requirements.txt && deactivate
 }
