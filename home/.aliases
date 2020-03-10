@@ -147,3 +147,6 @@ alias ubuntu="docker run --tty --interactive --rm ubuntu /bin/bash"
 alias arch="docker run --tty --interactive --rm archlinux/base /bin/bash"
 
 alias h="history | grep -i"
+
+# please is a "sudo !!" alias
+alias please='sudo $(fc -ln -1)'
