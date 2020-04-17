@@ -54,7 +54,7 @@ brew install p7zip
 brew install ssh-copy-id
 
 brew install stow
-brew tap caskroom/fonts
+brew tap homebrew/cask-fonts
 brew cask install font-fira-code
 brew install osxfuse
 brew install sshfs
@@ -64,6 +64,7 @@ brew install jq
 brew install htop
 
 brew cask install docker
+brew cask install vscodium
 
 # Remove outdated versions from the cellar.
 brew cleanup
