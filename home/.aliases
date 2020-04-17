@@ -150,3 +150,5 @@ alias h="history | grep -i"
 
 # please is a "sudo !!" alias
 alias please='sudo $(fc -ln -1)'
+
+alias code='codium'
