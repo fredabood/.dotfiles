@@ -171,7 +171,7 @@ function search() {
 }
 
 function exists(){
-  [ -e $1 ] && echo true || echo false
+  [ -e "$1" ] && echo true || echo false
 }
 
 function activate() {
