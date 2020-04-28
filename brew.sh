@@ -63,6 +63,11 @@ brew install tmux
 brew install jq
 brew install htop
 
+# https://towardsdatascience.com/bash-commands-up-your-sleeve-fc77b10fb09c
+brew install tldr
+brew install fzf
+brew install broot
+
 brew cask install docker
 brew cask install vscodium
 
