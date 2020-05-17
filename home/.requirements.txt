@@ -9,3 +9,4 @@ pandas_profiling
 sqlalchemy
 flask
 sickit-learn
+tqdm

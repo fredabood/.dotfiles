@@ -118,54 +118,6 @@ function tre() {
 	tree -aC -I '.git|node_modules|bower_components' --dirsfirst "$@" | less -FRNX;
 }
 
-# git add, commit, pull, push all in one
-function git_push() {
-	PARAMS=""
-	while (( "$#" )); do
-		case "$1" in
-			-h|--help)
-				echo " "
-				echo "git_push Options:"
-				echo "-h|--help			show brief help"
-				echo "-r|--rebase		rebase the git pull"
-				echo "-A| . | * |-u		passed directly to git add"
-				echo "-m|--message		specify git commit message"
-				echo " "
-				return 0
-				;;
-			-r|--rebase) rebase=$1 && shift 1 ;;
-			-A|\.|\*|-u) add=$1 && shift 1 ;;
-			-m|--message) message=$2 && shift 2 ;;
-			-*|--*=)
-				echo "Error: Unsupported flag $1" >&2
-				echo "$(git_pull -h)"
-				return 0
-				;;
-			*) PARAMS="$PARAMS $1" && shift ;;
-		esac
-	done
-	eval set -- "$PARAMS" # reset positional args
-	unset PARAMS
-
-	if [[ -z ${message} ]]; then
-		message=$1
-		if [[ -z ${message} ]]; then
-			message="'' --allow-empty-message"
-		fi
-	fi
-	if [[ -z ${rebase} ]]; then
-		rebase=""
-	fi
-	if [[ -z ${add} ]]; then
-		add="-A"
-	fi
-
-	git add $add; \
-	git commit -m "$message"; \
-	git pull $rebase && \
-	git push;
-}
-
 function search() {
 	 grep -rnw "./" -e "$1"
 }

@@ -2,14 +2,12 @@
 
 xcode-select --install
 
-ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
+# Make sure we’re using the latest Homebrew. Upgrade any already-installed formulae.
+brew update && brew upgrade || ruby -e "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install)"
 brew tap caskroom/cask
 brew tap caskroom/versions
 
 # Install command-line tools using Homebrew.
-
-# Make sure we’re using the latest Homebrew. Upgrade any already-installed formulae.
-brew update && brew upgrade
 
 # Save Homebrew’s installed location.
 BREW_PREFIX=$(brew --prefix)
