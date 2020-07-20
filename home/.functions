@@ -138,5 +138,5 @@ function venv() {
 }
 
 function code() {
-  cd "$1" && codium .
+  codium "$1" && [ -d "$1"] && cd "$1"
 }
