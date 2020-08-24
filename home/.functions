@@ -136,7 +136,3 @@ function venv() {
   pip install -r ~/.requirements.txt && \
   deactivate
 }
-
-function code() {
-  codium "$1" && [ -d "$1"] && cd "$1"
-}
