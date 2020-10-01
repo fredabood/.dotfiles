@@ -136,3 +136,9 @@ function venv() {
   pip install -r ~/.requirements.txt && \
   deactivate
 }
+
+function edit() {
+	[[ -d $1 ]] && cd $1 && code $1 && open $1 && return 0
+	[[ -e $1 ]] && open $1 && return 0
+	echo "invalid path"
+}
