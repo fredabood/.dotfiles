@@ -71,3 +71,11 @@ brew cask install visual-studio-code
 
 # Remove outdated versions from the cellar.
 brew cleanup
+
+# Install java
+brew install java
+
+# Install terraform
+brew tap hashicorp/tap
+brew install hashicorp/tap/terraform
+brew upgrade hashicorp/tap/terraform
