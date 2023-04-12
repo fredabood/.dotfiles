@@ -135,7 +135,7 @@
 [commit]
 
 	# https://help.github.com/articles/signing-commits-using-gpg/
-	gpgsign = true
+	# gpgsign = true
 
 [diff]
 
@@ -194,3 +194,8 @@
 
 [include]
 	path = ~/.git-aliases
+
+[user]
+	email = fredabood@gmail.com
+	name = @fredabood
+	signingkey = 5A501CE2B8B82780
