@@ -41,9 +41,41 @@ Originally forked from [Mathias' Dotfiles](https://github.com/mathiasbynens/dotf
 │   ├── bash/             # Old bash configs
 │   ├── conda/            # Old conda configs
 │   └── docker/           # Old Docker setup
+├── docs/                   # Comprehensive documentation
 ├── install.sh            # Installation script
 └── sync-vscode.sh        # Sync VS Code config to repo
 ```
+
+## Documentation
+
+📚 **Comprehensive guides available in the `docs/` directory:**
+
+### Getting Started
+- **[Setup Guide](docs/SETUP.md)** - Detailed installation instructions, step-by-step setup, and verification
+- **[Quick Start](#installation)** - Fast installation for experienced users (below)
+
+### Reference
+- **[Components Documentation](docs/COMPONENTS.md)** - Detailed documentation for each component (zsh, VS Code, brew, etc.)
+- **[Architecture](docs/ARCHITECTURE.md)** - Design decisions, philosophy, and technical architecture
+- **[Changelog](CHANGELOG.md)** - Version history and upgrade notes
+
+### Customization & Help
+- **[Customization Guide](docs/CUSTOMIZATION.md)** - How to personalize aliases, functions, themes, and settings
+- **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Common issues and solutions
+- **[FAQ](docs/FAQ.md)** - Frequently asked questions
+- **[Migration Guide](MIGRATION.md)** - Details on the bash → zsh migration
+
+### Quick Links
+| I want to... | Read this |
+|--------------|-----------|
+| Install for the first time | [Setup Guide](docs/SETUP.md) |
+| Fix an issue | [Troubleshooting](docs/TROUBLESHOOTING.md) |
+| Customize my setup | [Customization Guide](docs/CUSTOMIZATION.md) |
+| Understand the structure | [Architecture](docs/ARCHITECTURE.md) |
+| Learn about components | [Components](docs/COMPONENTS.md) |
+| See what changed | [Changelog](CHANGELOG.md) |
+
+---
 
 ## Installation
 
@@ -350,6 +382,50 @@ The `deprecated/` directory contains archived configurations:
 - `deprecated/docker/` - Old Docker containerized environment
 
 These are kept for reference but are not actively maintained.
+
+---
+
+## Learn More
+
+### 📖 Full Documentation
+
+This README provides a quick overview. For comprehensive information, see the full documentation:
+
+**Essential Reading:**
+- 📘 **[Setup Guide](docs/SETUP.md)** - Complete installation walkthrough with verification steps
+- 🔧 **[Customization Guide](docs/CUSTOMIZATION.md)** - Make it yours: themes, aliases, functions, and more
+- ❓ **[FAQ](docs/FAQ.md)** - Answers to common questions
+- 🚨 **[Troubleshooting](docs/TROUBLESHOOTING.md)** - Solutions to common problems
+
+**Advanced Topics:**
+- 🏗️ **[Architecture](docs/ARCHITECTURE.md)** - Design philosophy and technical decisions
+- 🧩 **[Components](docs/COMPONENTS.md)** - Deep dive into each component
+- 📝 **[Changelog](CHANGELOG.md)** - Version history and breaking changes
+- 🔄 **[Migration Guide](MIGRATION.md)** - Bash to zsh migration details
+
+### 💡 Quick Tips
+
+**After Installation:**
+1. Read the [Customization Guide](docs/CUSTOMIZATION.md) to personalize your setup
+2. Check [Components Documentation](docs/COMPONENTS.md) to understand what each part does
+3. Bookmark [Troubleshooting](docs/TROUBLESHOOTING.md) for quick problem solving
+
+**Regular Maintenance:**
+```bash
+# Update packages
+cd ~/.dotfiles
+brew bundle --file=brew/Brewfile
+
+# Sync VS Code extensions (after installing new ones)
+./sync-vscode.sh
+
+# Commit changes
+git add .
+git commit -m "Update configurations"
+git push
+```
+
+---
 
 ## Contributing
 
