@@ -1,0 +1,165 @@
+# Brewfile - Homebrew Bundle for package management
+# Install with: brew bundle --file=brew/Brewfile
+
+# ============================================================================
+# Taps
+# ============================================================================
+
+tap "homebrew/cask"
+tap "homebrew/cask-fonts"
+tap "hashicorp/tap"
+
+# ============================================================================
+# Core Utilities
+# ============================================================================
+
+# GNU core utilities (those that come with macOS are outdated)
+brew "coreutils"
+
+# Other useful utilities
+brew "moreutils"
+brew "findutils"
+brew "gnu-sed"
+
+# ============================================================================
+# Shell & Terminal
+# ============================================================================
+
+# Modern zsh (usually already installed on macOS, but kept here for reference)
+# brew "zsh"
+# brew "zsh-completions"
+
+# ============================================================================
+# Network Tools
+# ============================================================================
+
+brew "wget"
+brew "curl"
+brew "openssh"
+
+# ============================================================================
+# Version Control
+# ============================================================================
+
+brew "git"
+brew "git-lfs"
+
+# ============================================================================
+# Security & Encryption
+# ============================================================================
+
+brew "gnupg"
+
+# ============================================================================
+# Text Editors
+# ============================================================================
+
+brew "vim"
+
+# ============================================================================
+# File & Archive Tools
+# ============================================================================
+
+brew "p7zip"
+brew "ssh-copy-id"
+
+# ============================================================================
+# Terminal Multiplexer
+# ============================================================================
+
+brew "tmux"
+brew "screen"
+
+# ============================================================================
+# Data & JSON Tools
+# ============================================================================
+
+brew "jq"
+
+# ============================================================================
+# System Monitoring
+# ============================================================================
+
+brew "htop"
+
+# ============================================================================
+# Search & Navigation
+# ============================================================================
+
+# Better command documentation
+brew "tldr"
+
+# Fuzzy finder for command-line
+brew "fzf"
+
+# Modern tree-like directory navigator
+brew "broot"
+
+# ============================================================================
+# Development Tools
+# ============================================================================
+
+# Java
+brew "java"
+
+# Terraform
+brew "hashicorp/tap/terraform"
+
+# ============================================================================
+# Filesystem Tools
+# ============================================================================
+
+# Note: osxfuse and sshfs are deprecated on modern macOS
+# Use macFUSE instead if needed
+# brew "macfuse"
+# brew "gromgit/fuse/sshfs-mac"
+
+# ============================================================================
+# Applications (Casks)
+# ============================================================================
+
+# Docker Desktop
+cask "docker"
+
+# Visual Studio Code
+cask "visual-studio-code"
+
+# Fonts
+cask "font-fira-code"
+
+# ============================================================================
+# Optional Tools (Commented Out)
+# ============================================================================
+
+# Uncomment any of these if you use them:
+
+# Programming Languages
+# brew "python"
+# brew "node"
+# brew "go"
+# brew "rust"
+
+# Database Tools
+# brew "postgresql"
+# brew "mysql"
+# brew "redis"
+
+# Cloud CLI Tools
+# brew "awscli"
+# brew "azure-cli"
+# brew "google-cloud-sdk"
+
+# Container Tools
+# brew "kubectl"
+# brew "helm"
+# brew "docker-compose"
+
+# Other useful tools
+# brew "tree"
+# brew "watch"
+# brew "httpie"
+# brew "bat"  # Better cat
+# brew "exa"  # Better ls
+# brew "ripgrep"  # Better grep
+# brew "fd"  # Better find
+# brew "diff-so-fancy"  # Better git diff

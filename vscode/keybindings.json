@@ -1,0 +1,50 @@
+// Empty
+[
+    {
+        "key": "ctrl+shift+space",
+        "command": "editor.action.triggerParameterHints",
+        "when": "editorHasSignatureHelpProvider && editorTextFocus"
+    },
+    {
+        "key": "shift+cmd+space",
+        "command": "-editor.action.triggerParameterHints",
+        "when": "editorHasSignatureHelpProvider && editorTextFocus"
+    },
+    {
+        "key": "backspace shift+cmd",
+        "command": "issue.suggestRefresh",
+        "when": "suggestWidgetVisible"
+    },
+    {
+        "key": "ctrl+shift+space",
+        "command": "-issue.suggestRefresh",
+        "when": "suggestWidgetVisible"
+    },
+    {
+        "key": "space backspace",
+        "command": "rerunSearchEditorSearch",
+        "when": "inSearchEditor"
+    },
+    {
+        "key": "shift+cmd+r",
+        "command": "-rerunSearchEditorSearch",
+        "when": "inSearchEditor"
+    },
+    {
+        "key": "shift+cmd+r",
+        "command": "databricks.run.runEditorContents"
+    },
+    {
+        "key": "ctrl+shift+space",
+        "command": "workbench.action.terminal.focus",
+        "when": "!terminalFocus"
+    },
+    {
+        "key": "ctrl+shift+space",
+        "command": "workbench.action.terminal.sendSequence",
+        "args": {
+            "text": "claude\u000D"
+        },
+        "when": "terminalFocus"
+    }
+]

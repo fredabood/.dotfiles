@@ -1,0 +1,65 @@
+{
+	// Place your snippets for sql here. Each snippet is defined under a snippet name and has a prefix, body and 
+	// description. The prefix is what is used to trigger the snippet and the body will be expanded and inserted. Possible variables are:
+	// $1, $2 for tab stops, $0 for the final cursor position, and ${1:label}, ${2:another} for placeholders. Placeholders with the 
+	// same ids are connected.
+	// Example:
+	// "Print to console": {
+	// 	"prefix": "log",
+	// 	"body": [
+	// 		"console.log('$1');",
+	// 		"$2"
+	// 	],
+	// 	"description": "Log output to console"
+	// }
+	"DROP/CREATE TABLE": {
+		"prefix": "create",
+		"body": "DROP TABLE IF EXISTS ;\nCREATE TABLE  AS",
+		"description": "DROP/CREATE TABLE"
+	  },
+	  "header_comment": {
+		"prefix": "header",
+		"body": "--------------------------------------------------------------------------------\n--\n--------------------------------------------------------------------------------",
+		"description": "header_comment"
+	  },
+	  "COUNT DISTINCT": {
+		"prefix": "cdist",
+		"body": "COUNT(DISTINCT ) AS",
+		"description": "COUNT DISTINCT"
+	  },
+	  "ROW NUMBER": {
+		"prefix": "rank",
+		"body": "ROW_NUMBER() OVER(PARTITION BY  ORDER BY  ) AS",
+		"description": "ROW NUMBER"
+	  },
+	  "LEFT JOIN": {
+		"prefix": "left",
+		"body": "LEFT JOIN",
+		"description": "LEFT JOIN"
+	  },
+	  "RIGHT JOIN": {
+		"prefix": "right",
+		"body": "RIGHT JOIN",
+		"description": "RIGHT JOIN"
+	  },
+	  "INNER JOIN": {
+		"prefix": "inner",
+		"body": "INNER JOIN",
+		"description": "INNER JOIN"
+	  },
+	  "FULL OUTER JOIN": {
+		"prefix": "full",
+		"body": "FULL OUTER JOIN",
+		"description": "FULL OUTER JOIN"
+	  },
+	  "CROSS JOIN UNNEST": {
+		"prefix": "cross",
+		"body": "CROSS JOIN UNNEST",
+		"description": "CROSS JOIN UNNEST"
+	  },
+	  "blank_template": {
+		"prefix": "blank",
+		"body": "SELECT\nFROM\nWHERE 1=1\n  AND datepartition BETWEEN '' and ''\n  AND\nGROUP BY\nHAVING\nORDER BY\n;",
+		"description": "blank_template"
+	  },
+}
