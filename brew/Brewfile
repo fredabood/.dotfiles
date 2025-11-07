@@ -5,8 +5,8 @@
 # Taps
 # ============================================================================
 
-tap "homebrew/cask"
-tap "homebrew/cask-fonts"
+# Note: homebrew/cask is no longer needed - casks work automatically
+# Note: homebrew/cask-fonts was deprecated - fonts are now in homebrew/cask
 tap "hashicorp/tap"
 
 # ============================================================================
