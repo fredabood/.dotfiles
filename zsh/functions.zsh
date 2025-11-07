@@ -165,3 +165,8 @@ function edit() {
 	[[ -e $1 ]] && open $1 && return 0
 	echo "invalid path"
 }
+
+# Quick shortcut to open a project in VS Code from ~/Repositories
+function codr() {
+	code "$HOME/Repositories/$1"
+}
