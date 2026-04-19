@@ -258,6 +258,24 @@ else
 fi
 
 # ============================================================================
+# iTerm2 Configuration
+# ============================================================================
+
+print_header "iTerm2 Configuration"
+
+if [[ -d "$DOTFILES_DIR/iterm" ]]; then
+    if ask_yes_no "Point iTerm2 at ~/.dotfiles/iterm for preferences?"; then
+        print_warning "Quit iTerm2 before continuing if it's running."
+        defaults write com.googlecode.iterm2 PrefsCustomFolder -string "$DOTFILES_DIR/iterm"
+        defaults write com.googlecode.iterm2 LoadPrefsFromCustomFolder -bool true
+        print_success "iTerm2 will load prefs from $DOTFILES_DIR/iterm"
+        echo "  On first launch, choose 'Save' when prompted so changes persist to the repo."
+    fi
+else
+    print_warning "iTerm2 configuration not found at $DOTFILES_DIR/iterm"
+fi
+
+# ============================================================================
 # macOS Defaults
 # ============================================================================
 

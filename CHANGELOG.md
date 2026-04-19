@@ -215,7 +215,7 @@ git log --oneline -20
 
 **2.1.0**
 - [ ] Enhanced terminal themes support (Powerlevel10k configuration)
-- [ ] iTerm2 configuration integration
+- [x] iTerm2 configuration integration
 - [ ] tmux configuration
 - [ ] Neovim setup alongside Vim
 
