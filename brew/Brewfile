@@ -89,6 +89,9 @@ brew "htop"
 # Better command documentation
 brew "tldr"
 
+# Markdown renderer for the terminal
+brew "glow"
+
 # Fuzzy finder for command-line
 brew "fzf"
 

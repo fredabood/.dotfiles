@@ -96,5 +96,14 @@
     "githubPullRequests.createOnPublishBranch": "never",
     "chat.commandCenter.enabled": false,
     "workbench.colorTheme": "Tokyo Night Storm",
-    "claudeCode.preferredLocation": "sidebar"
+    "claudeCode.preferredLocation": "sidebar",
+    "yaml.disableSchemaDetection": [
+        "**/.github/workflows/*.yml",
+        "**/.github/workflows/*.yaml",
+        "**/.gitea/workflows/*.yml",
+        "**/.gitea/workflows/*.yaml",
+        "**/.forgejo/workflows/*.yml",
+        "**/.forgejo/workflows/*.yaml"
+    ],
+    "hediet.vscode-drawio.resizeImages": null
 }

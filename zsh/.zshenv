@@ -72,3 +72,20 @@ export LC_ALL='en_US.UTF-8'
 # Python virtual environments directory (if you use virtualenv/venv)
 # Update or remove if you use a different Python environment manager
 export VENV_DIR="$HOME/.venv"
+
+# uv
+export PATH="/Users/fredabood/.local/bin:$PATH"
+
+# omnigent durable state on postgres-memory (LAB-1022) — read by BOTH the
+# registry script and the managed auto-spawn (ensure_local_omnigent_server);
+# password comes from ~/.pgpass. Unset to fall back to sqlite chat.db.
+export OMNIGENT_DATABASE_URI="postgresql+psycopg://postgres@localhost:5432/omnigent"
+# omnigent accounts-mode auth (LAB-1018) — every spawn path must agree on
+# auth mode (server_config_signature covers it); admin creds in
+# op://Homelab/Omnigent Admin. Unset ONLY together with tearing down serve.
+export OMNIGENT_AUTH_ENABLED=1
+# Login-token/cookie TTL 30d (default 8h broke runner auth daily: host daemon
+# and runners consume the stored omnigent-login JWT and nothing refreshes it —
+# expired token => spec_resolver 401 => every harness/agent session fails at
+# init; diagnosed 2026-08-05). Re-login: creds in op://Homelab/Omnigent Admin.
+export OMNIGENT_ACCOUNTS_SESSION_TTL_HOURS=720

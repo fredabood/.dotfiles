@@ -135,3 +135,23 @@ fi
 # - rbenv init
 # - nvm loading
 # - direnv hook
+
+# RAG Knowledge Base Search
+alias rag='python3 ~/homelab/scripts/goose-rag-search.py'
+export PATH="$HOME/bin:$PATH"
+
+# Atlassian MCP + Anthropic credentials live in ~/.zshrc.local (gitignored,
+# sourced above). Never put tokens in this file — it is a public repo.
+export PATH="$HOME/.local/bin:$PATH"
+
+
+# kimi-code
+export PATH="/Users/fredabood/.kimi-code/bin:$PATH"
+
+# Qwen Code PATH block begin
+export PATH='/Users/fredabood/.local/bin':$PATH
+# Qwen Code PATH block end
+
+
+# Added by Antigravity CLI installer
+export PATH="/Users/fredabood/.local/bin:$PATH"
