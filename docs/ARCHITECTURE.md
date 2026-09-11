@@ -255,9 +255,12 @@ Symlinks allow configuration files to live in the git repository while appearing
 ~/Library/Application Support/Code/User/snippets/
   → ~/.dotfiles/vscode/snippets/
 
-# Claude Code — per item, never the directory (see below)
-~/.claude/agents/<name>.md    → ~/.dotfiles/claude/agents/<name>.md
-~/.claude/skills/<name>/      → ~/.dotfiles/claude/skills/<name>/
+# Claude Code — the five content folders, never ~/.claude itself (see below)
+~/.claude/agents     → ~/.dotfiles/claude/agents
+~/.claude/commands   → ~/.dotfiles/claude/commands
+~/.claude/rules      → ~/.dotfiles/claude/rules
+~/.claude/hooks      → ~/.dotfiles/claude/hooks
+~/.claude/skills     → ~/.dotfiles/claude/skills
 ~/.claude/statusline-command.sh → ~/.dotfiles/claude/statusline-command.sh
 ```
 
@@ -284,19 +287,27 @@ mv ~/.zshrc.backup.20250104_153045 ~/.zshrc
 
 `claude/` breaks two of the patterns above, deliberately. Full detail: [`claude/README.md`](../claude/README.md).
 
-### Per-item links, not a directory link
+### Folder links — but never `~/.claude` itself
 
 `~/.claude` is not a config directory; it is Claude Code's **runtime** directory — session
-transcripts, prompt history, background jobs, backups of `~/.claude.json` carrying OAuth data. Linking
-it (or even `~/.claude/skills`) into this public repo would put all of that in the working tree, one
-careless `git add` from publication, and would let any third-party skill installer write straight
-into the repo.
+transcripts, prompt history, background jobs, backups of `~/.claude.json` carrying OAuth data,
+`settings.local.json`. Linking it into this public repo would put all of that in the working tree, one
+careless `git add` from publication. It stays a real directory.
 
-So `claude/install.sh` links each agent, command, rule, hook and skill individually. The container
-directories stay real and runtime-owned; only committed items are managed. The cost is re-running
-`claude/install.sh` after adding or removing an item. Backups go to
-`~/.claude-migration-backup/<timestamp>/`, not beside the original — a backed-up skill directory
-inside `~/.claude/skills` would load as a duplicate skill.
+Its five *content* folders — `agents`, `commands`, `rules`, `hooks`, `skills` — are linked whole, so
+the usual dotfiles property holds: anything added, edited or removed in `claude/` is live immediately,
+with nothing to re-run. (Until 2026-09-11 each item was linked individually instead; that kept the
+folders runtime-owned but meant re-running the installer for every new item, which nobody would.)
+
+The cost is the reverse direction: whatever Claude or a third-party installer writes into those
+folders lands in this working tree. `claude/install.sh --status` lists uncommitted items there, and
+the pre-commit check still blocks credentials and denylisted private strings. When `install.sh` meets
+a real folder it inspects the contents first and refuses to replace one holding items the repo does
+not manage. Backups go to `~/.claude-migration-backup/<timestamp>/`, not beside the original — a
+backed-up skill directory inside `~/.claude/skills` would load as a duplicate skill.
+
+Folder links were verified in Claude Code 2.1.268 by canaries (a skill, command, rule and agent
+created only in `claude/`, with no installer run, all loaded by a fresh session).
 
 ### settings.json is generated, not linked
 

@@ -1,20 +1,31 @@
 #!/usr/bin/env bash
 # Single-quoted "$1" and jq $vars are passed to child shells / jq on purpose.
 # shellcheck disable=SC2016
-# install.test.sh — exercises claude/install.sh and scripts/claude-settings against a fake HOME.
-# Never touches the real ~/.claude, vault, or state. Run: bash claude/tests/install.test.sh
+# install.test.sh — exercises claude/install.sh, scripts/claude-settings and the SessionStart hook
+# against a fake HOME and a throwaway git copy of this package (so tests can add and remove repo
+# items). Never touches the real ~/.claude, vault, state or dotfiles checkout.
+# Run: bash claude/tests/install.test.sh
 set -uo pipefail
 
-PKG="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PKG_SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 T="$(mktemp -d "${TMPDIR:-/tmp}/claude-install-test.XXXXXX")"
 trap 'rm -rf "$T"' EXIT
+
+# A disposable dotfiles repo holding a copy of the package
+mkdir -p "$T/dotfiles"
+cp -R "$PKG_SRC" "$T/dotfiles/claude"
+git -C "$T/dotfiles" init -q
+git -C "$T/dotfiles" config user.email test@example.com
+git -C "$T/dotfiles" config user.name test
+git -C "$T/dotfiles" add -A && git -C "$T/dotfiles" commit -q -m fixture
+PKG="$(cd "$T/dotfiles/claude" && pwd)"   # normalised: mktemp can return a path with "//"
 
 export HOME="$T/home"
 export CLAUDE_CONFIG_DIR="$HOME/.claude"
 export MEMORY_VAULT_PATH="$T/vault"
 export XDG_STATE_HOME="$T/state"
 export CLAUDE_BACKUP_DIR="$T/backup"
-unset CLAUDE_SETTINGS_OVERLAY CLAUDE_SETTINGS_BASE DOTFILES_DENYLIST
+unset CLAUDE_SETTINGS_OVERLAY CLAUDE_SETTINGS_BASE DOTFILES_DENYLIST CLAUDE_SETTINGS_SYNC CLAUDE_SETTINGS_AUTOCOMMIT
 mkdir -p "$HOME"
 
 C="$CLAUDE_CONFIG_DIR"
@@ -23,6 +34,7 @@ OVL="$MEMORY_VAULT_PATH/personal/claude/settings.overlay.json"
 LASTGEN="$XDG_STATE_HOME/dotfiles/claude-settings.lastgen.json"
 INSTALL="$PKG/install.sh"
 SETTINGS="$PKG/scripts/claude-settings"
+FOLDERS="agents commands rules hooks skills"
 
 pass=0; failed=0
 ok()   { pass=$((pass + 1)); printf '  ok   %s\n' "$1"; }
@@ -33,34 +45,38 @@ section() { printf '\n%s\n' "$1"; }
 canon() { jq -S 'walk(if type == "array" then sort else . end)' "$1"; }
 # set_json <file> <jq args...>: edit in place (keeps the inode, mode and regular-file type)
 set_json() { local f="$1" tmp; shift; tmp="$(mktemp)"; jq "$@" "$f" > "$tmp" && cat "$tmp" > "$f" && rm -f "$tmp"; }
+real_dir() { [ -d "$1" ] && [ ! -L "$1" ]; }
+regular_600() { [ -f "$1" ] && [ ! -L "$1" ] && [ "$(stat -f '%Lp' "$1")" = "600" ]; }
 
 skills=("$PKG"/skills/*/)
 agents=("$PKG"/agents/*.md)
+rules=("$PKG"/rules/*.md)
 first_skill="$(basename "${skills[0]}")"
 first_agent="$(basename "${agents[0]}")"
+first_rule="$(basename "${rules[0]}")"
 base_allow0="$(jq -r '.permissions.allow[0]' "$PKG/settings.base.json")"
 
 all_links_ok() {
-    local f n
-    for f in "$PKG"/agents/*.md "$PKG"/commands/*.md "$PKG"/rules/*.md; do
-        n="$(basename "$(dirname "$f")")/$(basename "$f")"
-        [ -L "$C/$n" ] && [ "$(readlink "$C/$n")" = "$f" ] || { echo "    bad link: $n"; return 1; }
-    done
-    for f in "$PKG"/hooks/*; do
-        [ "$(readlink "$C/hooks/$(basename "$f")")" = "$f" ] || { echo "    bad hook link: $f"; return 1; }
-    done
-    for f in "$PKG"/skills/*/; do
-        n="$(basename "$f")"
-        [ "$(readlink "$C/skills/$n")" = "$PKG/skills/$n" ] || { echo "    bad skill link: $n"; return 1; }
+    local f
+    for f in $FOLDERS; do
+        [ "$(readlink "$C/$f")" = "$PKG/$f" ] || { echo "    bad folder link: $f"; return 1; }
     done
     [ "$(readlink "$C/statusline-command.sh")" = "$PKG/statusline-command.sh" ]
 }
-regular_600() { [ -f "$1" ] && [ ! -L "$1" ] && [ "$(stat -f '%Lp' "$1")" = "600" ]; }
+
+# per_item_layout <folder>: recreate the earlier layout — a real folder of per-item links
+per_item_layout() {
+    local f="$1" e
+    rm -f "$C/$f"
+    mkdir -p "$C/$f"
+    for e in "$PKG/$f"/*; do ln -s "$e" "$C/$f/$(basename "$e")"; done
+}
 
 section "fresh install, no vault"
 out="$("$INSTALL" 2>"$T/err")"; rc=$?
 check "exit 0" [ "$rc" -eq 0 ]
-check "every managed item linked to the package" all_links_ok
+check "all five folders and the statusline linked to the package" all_links_ok
+check "the claude config dir itself is a real directory" real_dir "$C"
 check "settings.json is a regular file, mode 600" regular_600 "$S"
 check "settings.json equals the base" [ "$(canon "$S")" = "$(canon "$PKG/settings.base.json")" ]
 check "generation recorded" [ -f "$LASTGEN" ]
@@ -74,35 +90,71 @@ check "second run changes nothing" grep -q '^changed: 0$' <<<"$out"
 check "settings.json not rewritten" [ "$(stat -f '%m' "$S")" = "$mtime" ]
 check "--status healthy" quiet "$INSTALL" --status
 
-section "a real directory shadowing a managed skill"
-rm "$C/skills/$first_skill"; mkdir "$C/skills/$first_skill"; echo marker > "$C/skills/$first_skill/MARKER"
-check "--status reports it" bash -c '! "$1" --status >/dev/null 2>&1' _ "$INSTALL"
-"$INSTALL" >/dev/null 2>&1
-check "relinked" [ "$(readlink "$C/skills/$first_skill")" = "$PKG/skills/$first_skill" ]
-check "original backed up OUTSIDE ~/.claude" [ -n "$(find "$CLAUDE_BACKUP_DIR" -name MARKER 2>/dev/null)" ]
-check "no backup copy left inside ~/.claude" [ -z "$(find "$C" -name MARKER 2>/dev/null)" ]
-check "no link nested inside the package" [ ! -e "$PKG/skills/$first_skill/$first_skill" ]
+section "repo additions, edits and removals take effect with no re-run"
+mkdir -p "$PKG/skills/zz-new-skill"
+printf -- '---\nname: zz-new-skill\ndescription: test\n---\nbody\n' > "$PKG/skills/zz-new-skill/SKILL.md"
+printf -- '---\ndescription: test\n---\nbody\n' > "$PKG/agents/zz-new-agent.md"
+printf '\n# edited in the repo\n' >> "$PKG/rules/$first_rule"
+check "new skill visible in ~/.claude" [ -f "$C/skills/zz-new-skill/SKILL.md" ]
+check "new agent visible in ~/.claude" [ -f "$C/agents/zz-new-agent.md" ]
+check "edit visible in ~/.claude" grep -q 'edited in the repo' "$C/rules/$first_rule"
+out="$("$INSTALL" --status 2>&1)"; rc=$?
+check "--status still healthy" [ "$rc" -eq 0 ]
+check "--status lists the uncommitted skill" grep -q 'uncommitted: .*zz-new-skill' <<<"$out"
+check "--status lists the uncommitted agent" grep -q 'uncommitted: .*zz-new-agent.md' <<<"$out"
+rm -rf "$PKG/skills/zz-new-skill" "$PKG/agents/zz-new-agent.md"
+git -C "$PKG" checkout -q -- "rules/$first_rule"
+check "removed skill gone from ~/.claude" [ ! -e "$C/skills/zz-new-skill" ]
+check "--status quiet again once removed" bash -c '! "$1" --status 2>&1 | grep -q uncommitted' _ "$INSTALL"
 
-section "a differing real file at a managed path"
-rm "$C/agents/$first_agent"; echo "local edit" > "$C/agents/$first_agent"
-"$INSTALL" >/dev/null 2>&1
-check "relinked" [ "$(readlink "$C/agents/$first_agent")" = "$PKG/agents/$first_agent" ]
-check "differing file backed up" grep -rqs 'local edit' "$CLAUDE_BACKUP_DIR"
+section "migrating the earlier per-item layout"
+for f in $FOLDERS; do per_item_layout "$f"; done
+rm "$C/skills/$first_skill" && cp -R "$PKG/skills/$first_skill" "$C/skills/$first_skill"   # a materialized copy
+ln -s "$PKG/skills/zz-gone" "$C/skills/zz-gone"                                            # dangling, into the package
+: > "$C/skills/.DS_Store"
+out="$("$INSTALL" 2>&1)"; rc=$?
+check "exit 0" [ "$rc" -eq 0 ]
+check "every folder is now a link" all_links_ok
+check "old skills folder kept in the backup" [ -n "$(find "$CLAUDE_BACKUP_DIR" -type d -path "*/skills/$first_skill" 2>/dev/null)" ]
+check "identical copy raises no 'differs' warning" bash -c '! grep -q differs <<<"$1"' _ "$out"
+check "no backup inside ~/.claude" [ -z "$(find "$C" -name "$first_skill" -not -path "$C/skills/*" 2>/dev/null)" ]
 
-section "pruning and unmanaged items"
-ln -s "$PKG/skills/zz-removed-skill" "$C/skills/zz-removed-skill"
+section "an unmanaged item blocks only its own folder"
+per_item_layout skills
 mkdir -p "$C/skills/third-party-x" && echo keep > "$C/skills/third-party-x/SKILL.md"
-ln -s "$T" "$C/skills/foreign-link"
+per_item_layout rules
+out="$("$INSTALL" 2>&1)"; rc=$?
+check "install exits non-zero" [ "$rc" -ne 0 ]
+check "names the unmanaged item" grep -q 'third-party-x' <<<"$out"
+check "skills folder left as it was" real_dir "$C/skills"
+check "unmanaged skill intact" [ -f "$C/skills/third-party-x/SKILL.md" ]
+check "other folders still migrate in the same run" [ "$(readlink "$C/rules")" = "$PKG/rules" ]
+check "--status reports the unlinked folder" bash -c '! "$1" --status >/dev/null 2>&1' _ "$INSTALL"
+mv "$C/skills/third-party-x" "$T/third-party-x"
+"$INSTALL" >/dev/null 2>&1; rc=$?
+check "after moving it out: exit 0 and linked" [ "$rc$(readlink "$C/skills")" = "0$PKG/skills" ]
+
+section "a local copy that differs from the repo is backed up"
+per_item_layout agents
+rm "$C/agents/$first_agent" && echo "local edit" > "$C/agents/$first_agent"
+out="$("$INSTALL" 2>&1)"
+check "linked" [ "$(readlink "$C/agents")" = "$PKG/agents" ]
+check "warns that it differed" grep -q "agents/$first_agent differs" <<<"$out"
+check "local version kept in the backup" grep -rqs 'local edit' "$CLAUDE_BACKUP_DIR"
+
+section "a folder linked somewhere else is relinked"
+mkdir -p "$T/elsewhere-rules" && echo x > "$T/elsewhere-rules/keep.md"
+rm "$C/rules" && ln -s "$T/elsewhere-rules" "$C/rules"
 "$INSTALL" >/dev/null 2>&1
-check "dangling link into the package pruned" [ ! -L "$C/skills/zz-removed-skill" ]
-check "unmanaged real skill untouched" [ -f "$C/skills/third-party-x/SKILL.md" ]
-check "foreign symlink untouched" [ -L "$C/skills/foreign-link" ]
+check "relinked to the package" [ "$(readlink "$C/rules")" = "$PKG/rules" ]
+check "the old target is untouched" [ -f "$T/elsewhere-rules/keep.md" ]
+check "the old link is in the backup" [ -n "$(find "$CLAUDE_BACKUP_DIR" -type l -name rules 2>/dev/null)" ]
 
 section "dry run changes nothing"
-rm "$C/agents/$first_agent"
+rm "$C/agents"
 out="$("$INSTALL" --dry-run 2>/dev/null)"
-check "reports the pending link" grep -q "would: link $C/agents/$first_agent" <<<"$out"
-check "link still missing" [ ! -e "$C/agents/$first_agent" ]
+check "reports the pending link" grep -q "would: link $C/agents" <<<"$out"
+check "link still missing" bash -c '[ ! -e "$1" ] && [ ! -L "$1" ]' _ "$C/agents"
 "$INSTALL" >/dev/null 2>&1
 
 section "overlay merges with array union"
@@ -158,35 +210,44 @@ check "apply --force generates and records" generated_and_recorded
 
 section "materialize and relink"
 "$INSTALL" --materialize >/dev/null 2>&1
-check "skill is now a real directory" bash -c '[ -d "$1" ] && [ ! -L "$1" ]' _ "$C/skills/$first_skill"
-check "copy matches the package" diff -rq "$C/skills/$first_skill" "$PKG/skills/$first_skill"
-check "agent is now a real file" bash -c '[ -f "$1" ] && [ ! -L "$1" ]' _ "$C/agents/$first_agent"
-"$INSTALL" >/dev/null 2>&1
-check "plain install relinks everything" all_links_ok
-
-section "refuses a symlinked container directory"
-mv "$C/rules" "$T/rules-real" && ln -s "$T/rules-real" "$C/rules"
-check "install exits non-zero" bash -c '! "$1" >/dev/null 2>&1' _ "$INSTALL"
-rm "$C/rules" && mv "$T/rules-real" "$C/rules"
+check "skills is now a real folder" real_dir "$C/skills"
+check "copy matches the package" diff -rq "$C/skills" "$PKG/skills"
+check "agents is now a real folder" real_dir "$C/agents"
+check "hooks stays linked (the shell always follows links)" [ "$(readlink "$C/hooks")" = "$PKG/hooks" ]
+"$INSTALL" >/dev/null 2>&1; rc=$?
+check "plain install relinks the identical copies" [ "$rc" -eq 0 ]
+check "every folder linked again" all_links_ok
 
 section "SessionStart hook keeps settings in sync without anyone remembering"
 HOOK="$C/hooks/claude-settings-sync.sh"
 SYNC_LOG="$XDG_STATE_HOME/dotfiles/claude-settings-sync.log"
 SYNC_LOCK="$XDG_STATE_HOME/dotfiles/claude-settings-sync.lock"
+SYNC_STAMP="$XDG_STATE_HOME/dotfiles/claude-settings-sync.stamp"
 V="$MEMORY_VAULT_PATH"
 git -C "$V" init -q && git -C "$V" config user.email test@example.com && git -C "$V" config user.name test
 git -C "$V" add -A && git -C "$V" commit -q -m "fixture"
 log_lines() { if [ -f "$SYNC_LOG" ]; then wc -l < "$SYNC_LOG" | tr -d ' '; else echo 0; fi; }
 vault_commits() { git -C "$V" rev-list --count HEAD; }
-check "hook is linked from the package" [ "$(readlink "$HOOK")" = "$PKG/hooks/claude-settings-sync.sh" ]
+check "hook reached through the hooks folder link" bash -c '[ -f "$1" ] && [ ! -L "$1" ] && [ -L "$(dirname "$1")" ]' _ "$HOOK"
 check "base registers it on SessionStart" quiet jq -e '.hooks.SessionStart[].hooks[] | select(.command == "$HOME/.claude/hooks/claude-settings-sync.sh")' "$PKG/settings.base.json"
 
+rm -f "$SYNC_STAMP"
 out="$("$HOOK")"; rc=$?
 check "clean state: exit 0" [ "$rc" -eq 0 ]
 check "clean state: silent" [ -z "$out" ]
+check "resolves the package through the folder link (sync ran, stamp written)" [ -f "$SYNC_STAMP" ]
 before="$(log_lines)"
 "$HOOK" >/dev/null
 check "unchanged files take the fast path (no sync run)" [ "$(log_lines)" = "$before" ]
+
+ln -s "$PKG/hooks/claude-settings-sync.sh" "$T/per-file-hook.sh"
+rm -f "$SYNC_STAMP"
+"$T/per-file-hook.sh" >/dev/null
+check "also resolves through a per-file link" [ -f "$SYNC_STAMP" ]
+mkdir -p "$T/lonely/hooks" && cp "$PKG/hooks/claude-settings-sync.sh" "$T/lonely/hooks/"
+out="$("$T/lonely/hooks/claude-settings-sync.sh")"; rc=$?
+warns_not_found() { [ "$rc" -eq 0 ] && jq -e '.systemMessage | test("could not find")' <<<"$out" >/dev/null 2>&1; }
+check "package not found: exit 0 but warns instead of dying silently" warns_not_found
 
 commits="$(vault_commits)"
 set_json "$S" '.theme = "hook-drift"'
@@ -198,7 +259,6 @@ check "drift: commit touches only the overlay" [ "$(git -C "$V" show --name-only
 check "drift: vault left clean" [ -z "$(git -C "$V" status --porcelain -- personal/claude/settings.overlay.json)" ]
 check "drift: settings.json still a regular 600 file" regular_600 "$S"
 
-cp "$S" "$T/live.hook-before"
 set_json "$S" --arg a "$base_allow0" '.permissions.allow -= [$a]'
 cp "$S" "$T/live.hook-lossy"
 out="$("$HOOK")"; rc=$?

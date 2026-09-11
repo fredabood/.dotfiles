@@ -37,7 +37,7 @@ Originally forked from [Mathias' Dotfiles](https://github.com/mathiasbynens/dotf
 │   ├── extensions.txt    # Installed extensions list
 │   └── snippets/         # Code snippets
 ├── claude/                # Claude Code configuration (see claude/README.md)
-│   ├── agents/ commands/ rules/ hooks/ skills/   # linked item by item into ~/.claude
+│   ├── agents/ commands/ rules/ hooks/ skills/   # each folder linked into ~/.claude — new items live immediately
 │   ├── settings.base.json # Public half of ~/.claude/settings.json
 │   ├── install.sh        # Linker + settings generation
 │   └── scripts/          # claude-settings, check-public.sh, merge/subtract jq
