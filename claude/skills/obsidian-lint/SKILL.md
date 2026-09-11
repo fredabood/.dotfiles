@@ -30,7 +30,9 @@ Examples:
 1. If no path argument is given, default to `$MEMORY_VAULT_PATH/` relative to the repository root.
 2. If a path is given, resolve it relative to the repository root.
 3. Verify the path exists and contains `.md` files.
-4. Collect all `.md` files in the target (recursively if directory).
+4. Collect all `.md` files in the target (recursively if directory), skipping dot-directories
+   (`.git/`, `.obsidian/`, `.claude/worktrees/`, …). Obsidian ignores them too, and a worktree
+   under `.claude/worktrees/` is a second checkout of the vault that would report every note twice.
 5. Note whether `--fix` mode is active.
 
 ### Step 2: Frontmatter validation

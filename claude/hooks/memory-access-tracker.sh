@@ -25,10 +25,11 @@ set -euo pipefail
 # This used to be pinned to a single project's slug, so it silently no-opped in
 # every worktree and in every other repo — which, after the 2026-09-10
 # de-monorepo split, is most sessions. Claude Code slugifies the project path by
-# replacing every "/" with "-", so /Users/<you>/src/app becomes
-# -Users-<you>-src-app.
+# replacing every non-alphanumeric character with "-" — not just "/" — so
+# /Users/<you>/src/app/.claude/worktrees/wt_2 becomes
+# -Users-<you>-src-app--claude-worktrees-wt-2.
 PROJECT_ROOT="${CLAUDE_PROJECT_DIR:-$PWD}"
-PROJECT_SLUG="${PROJECT_ROOT//\//-}"
+PROJECT_SLUG="${PROJECT_ROOT//[^a-zA-Z0-9]/-}"
 MEMORY_DIR="$HOME/.claude/projects/$PROJECT_SLUG/memory"
 TODAY=$(date +%Y-%m-%d)
 SESSION_MARKER="/tmp/.memory-access-tracked-${PROJECT_SLUG}-${TODAY}"
