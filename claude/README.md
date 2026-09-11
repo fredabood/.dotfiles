@@ -63,10 +63,26 @@ When Claude changes the file, that is drift against the last generation
 (`~/.local/state/dotfiles/claude-settings.lastgen.json`). `sync` absorbs it into the private overlay
 — only when `merge(base, live − base) == live`, i.e. nothing would be lost — then regenerates.
 
+**You never run `sync` by hand.** `hooks/claude-settings-sync.sh` is registered as a `SessionStart`
+hook in `settings.base.json`, so every new session:
+
+1. exits immediately if live, base and overlay are unchanged since the last sync (a few `cksum`s);
+2. otherwise runs `sync` — absorbing what `/config`, `/model` or "always allow" changed last
+   session, and applying base/overlay changes you pulled;
+3. commits just the overlay in the vault when it absorbed something, and pushes it in the
+   background if the vault branch has an upstream;
+4. if `sync` refuses, leaves everything as-is and shows one warning ("Claude settings sync needs
+   attention…") in the session — every session, until it is resolved.
+
+It never blocks a session. Log: `~/.local/state/dotfiles/claude-settings-sync.log`. Opt out with
+`CLAUDE_SETTINGS_SYNC=0` (no sync) or `CLAUDE_SETTINGS_AUTOCOMMIT=0` (sync, but leave committing to you).
+
+For inspection or manual resolution:
+
 ```bash
 claude/scripts/claude-settings status    # clean | drift | apply pending | CONFLICT
 claude/scripts/claude-settings diff      # live vs base + overlay
-claude/scripts/claude-settings sync      # absorb drift, regenerate (what install.sh runs)
+claude/scripts/claude-settings sync      # absorb drift, regenerate (what the hook and install.sh run)
 claude/scripts/claude-settings apply --force   # generated wins; live is backed up first
 ```
 

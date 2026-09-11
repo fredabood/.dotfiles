@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `claude/scripts/claude-settings`: generates `~/.claude/settings.json` from the public
   `claude/settings.base.json` plus a private overlay in the memory vault, and absorbs changes Claude
   Code makes back into the overlay when that is lossless.
+- `claude/hooks/claude-settings-sync.sh`, a `SessionStart` hook that runs that sync automatically
+  (fast no-op when nothing changed), commits the absorbed overlay in the vault, and warns in-session
+  only when sync refuses — so `/config` and `/model` changes need no manual step.
 - `.githooks/pre-commit` → `claude/scripts/check-public.sh`: gitleaks plus a private denylist on
   every staged change. `install.sh` enables it (`core.hooksPath`). `gitleaks` added to the Brewfile.
 - `MEMORY_VAULT_PATH` export in `zsh/.zshenv`.
