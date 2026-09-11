@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+# omnigent-worktree-patch — make Omnigent create session worktrees inside the repo.
+#
+# Omnigent (checked: 0.12.0) puts "random worktree" sessions at <parent>/<repo>-worktrees/<branch>
+# and has no setting to change it. Worktrees live at <repo>/.claude/worktrees/<name> (the path
+# Claude Code's own EnterWorktree uses — see claude/rules/worktrees.md), so this rewrites the one
+# line of the installed copy that builds the path. Omnigent already creates missing parent dirs.
+#
+# `uv tool upgrade omnigent` reinstalls the original: re-run this afterwards, then restart the
+# Omnigent host so it re-imports the module.
+#
+#   omnigent-worktree-patch           patch; exit 0 if patched or already patched
+#   omnigent-worktree-patch --check   exit 0 if patched, 1 if not
+#
+# Exit 2 when the file or the anchor line is gone — upstream changed; re-read git_worktree.py.
+set -euo pipefail
+
+TOOLS="${UV_TOOL_DIR:-$(uv --color never tool dir 2>/dev/null || printf '%s' "$HOME/.local/share/uv/tools")}"
+FILE=""
+for f in "$TOOLS"/omnigent/lib/python3*/site-packages/omnigent/host/git_worktree.py; do
+    [ -f "$f" ] && FILE="$f"
+done
+[ -n "$FILE" ] || { printf 'omnigent-worktree-patch: git_worktree.py not found under %s\n' "$TOOLS" >&2; exit 2; }
+
+python3 - "$FILE" "${1:-}" <<'PY'
+import pathlib, sys
+
+path, mode = pathlib.Path(sys.argv[1]), sys.argv[2]
+old = 'base_dir = root.parent / f"{root.name}-worktrees"'
+new = 'base_dir = root / ".claude" / "worktrees"'
+text = path.read_text()
+
+if new in text:
+    print(f"omnigent-worktree-patch: already patched ({path})")
+    sys.exit(0)
+if text.count(old) != 1:
+    print(f"omnigent-worktree-patch: anchor line not found in {path} — upstream changed", file=sys.stderr)
+    sys.exit(2)
+if mode == "--check":
+    print(f"omnigent-worktree-patch: NOT patched ({path})")
+    sys.exit(1)
+path.write_text(text.replace(old, new))
+print(f"omnigent-worktree-patch: patched {path} — restart the Omnigent host to pick it up")
+PY

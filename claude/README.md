@@ -24,8 +24,11 @@ claude/
 │   ├── claude-settings     # generate / diff / absorb settings.json
 │   ├── merge.jq            # base ⊕ overlay (deep merge, arrays union)
 │   ├── subtract.jq         # live ⊖ base (what the overlay must hold)
-│   └── check-public.sh     # gitleaks + private denylist (the repo pre-commit hook)
-└── tests/install.test.sh   # fake-HOME tests for all of the above
+│   ├── check-public.sh     # gitleaks + private denylist (the repo pre-commit hook)
+│   └── omnigent-worktree-patch  # keep Omnigent's worktrees in <repo>/.claude/worktrees
+└── tests/
+    ├── install.test.sh               # fake-HOME tests for install + settings
+    └── memory-access-tracker.test.sh # the hook finds Claude Code's real project dir
 ```
 
 ## How it installs
@@ -97,10 +100,25 @@ with `git config core.hooksPath .githooks`.
 
 ```bash
 bash claude/tests/install.test.sh
+bash claude/tests/memory-access-tracker.test.sh
 ```
 
 Runs against a throwaway `HOME`; never touches the real `~/.claude`, vault or state. Keep the
 scripts compatible with macOS `/bin/bash` 3.2.
+
+## Worktrees and Omnigent
+
+`rules/worktrees.md` keeps every repo's worktrees at `<repo>/.claude/worktrees/<name>`. Omnigent
+hardcodes a sibling `<repo>-worktrees/` directory instead, with no setting for it, so its installed
+copy is patched:
+
+```bash
+claude/scripts/omnigent-worktree-patch           # after every `uv tool upgrade omnigent`
+claude/scripts/omnigent-worktree-patch --check   # exit 1 if an upgrade reverted it
+```
+
+Restart the Omnigent host afterwards. Exit 2 means the patched line no longer exists upstream —
+read `omnigent/host/git_worktree.py` before changing the script.
 
 ## Recovery
 

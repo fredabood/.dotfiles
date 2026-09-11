@@ -1,4 +1,5 @@
 .DS_Store
+.claude/worktrees/
 .extra
 .git-aliases
 .code-workspace
