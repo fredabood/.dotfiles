@@ -102,7 +102,8 @@ Auto-memory files include staleness metadata maintained by `memory-access-tracke
 | `access_count` | integer | Cumulative access count across sessions |
 
 Files not accessed in 90+ days are candidates for archival or consolidation.
-Run `python3 scripts/memory-cleanup.py` to generate a staleness report.
+Run `python3 ~/.dotfiles/claude/scripts/memory-cleanup.py` to generate a staleness report (every
+`~/.claude/projects/*/memory` by default; `--dir` to pick one).
 Use `--archive` flag to move stale files to a `stale/` subdirectory.
 
 ### Filenames
