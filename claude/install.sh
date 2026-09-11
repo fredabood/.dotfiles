@@ -72,18 +72,21 @@ act() {
     fi
 }
 
-backup_dir() {
+ensure_backup() {
+    # Sets $_BACKUP once per run. Call it directly, never inside $(...): a subshell's assignment is
+    # lost, so every call would mint a fresh timestamp — splitting one run's backups across folders
+    # whenever the clock ticks, and leaving the "backups:" summary unprinted.
     if [ -z "$_BACKUP" ]; then
         _BACKUP="$BACKUP_ROOT/$(date +%Y%m%d_%H%M%S)"
         [ "$MODE" = "dry-run" ] || mkdir -p "$_BACKUP"
     fi
-    printf '%s' "$_BACKUP"
 }
 
 move_to_backup() {
     # move_to_backup <path under CLAUDE_DIR>: moves a file, directory or the symlink itself
     local path="$1" dest
-    dest="$(backup_dir)/${path#"$CLAUDE_DIR"/}"
+    ensure_backup
+    dest="$_BACKUP/${path#"$CLAUDE_DIR"/}"
     mkdir -p "$(dirname "$dest")"
     mv "$path" "$dest"
 }
@@ -168,8 +171,9 @@ install_statusline() {
         return 0
     fi
     if [ -f "$dest" ] && [ ! -L "$dest" ] && ! cmp -s "$src" "$dest"; then
+        ensure_backup
         act "back up differing $dest" sh -c 'mkdir -p "$(dirname "$2")" && cp -p "$1" "$2"' _ \
-            "$dest" "$(backup_dir)/statusline-command.sh"
+            "$dest" "$_BACKUP/statusline-command.sh"
     fi
     # atomic: rename(2) replaces the file or old link in one step
     act "link $dest" sh -c 'ln -s "$1" "$2" && mv -f "$2" "$3"' _ "$src" "$dest.dotfiles-tmp.$$" "$dest"

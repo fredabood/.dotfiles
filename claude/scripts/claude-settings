@@ -45,12 +45,13 @@ command -v jq >/dev/null 2>&1 || die "jq is required (brew install jq)"
 canon() { jq -S 'walk(if type == "array" then sort else . end)' "$1"; }
 same()  { [ "$(canon "$1")" = "$(canon "$2")" ]; }
 
-backup_dir() {
+ensure_backup() {
+    # Sets $_BACKUP once per run. Call it directly, never inside $(...): a subshell's assignment is
+    # lost, so the next call could mint a different timestamp than the one just written to.
     if [ -z "${_BACKUP:-}" ]; then
         _BACKUP="$BACKUP_ROOT/$(date +%Y%m%d_%H%M%S)"
         mkdir -p "$_BACKUP"
     fi
-    printf '%s' "$_BACKUP"
 }
 
 # write_json <src> <dest>: validate, then atomic rename, mode 600. Never `jq > dest`.
@@ -145,8 +146,9 @@ cmd_apply() {
         fi
     fi
     if [ -f "$LIVE" ] && ! same "$LIVE" "$TMP/merged.json"; then
-        cp -p "$LIVE" "$(backup_dir)/settings.json"
-        say "backed up live settings.json to $(backup_dir)/settings.json"
+        ensure_backup
+        cp -p "$LIVE" "$_BACKUP/settings.json"
+        say "backed up live settings.json to $_BACKUP/settings.json"
     fi
     generate
 }
@@ -176,7 +178,8 @@ cmd_absorb() {
             say "overlay already matches live"
             return 0
         fi
-        cp -p "$OVERLAY" "$(backup_dir)/settings.overlay.json"
+        ensure_backup
+        cp -p "$OVERLAY" "$_BACKUP/settings.overlay.json"
     fi
     write_json "$TMP/overlay.json" "$OVERLAY"
     say "absorbed live changes into $OVERLAY (commit it in the memory vault)"
