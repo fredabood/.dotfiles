@@ -208,6 +208,28 @@ exec zsh
 
 ## Post-Installation
 
+### Claude Code
+
+The installer's "Link Claude Code config into ~/.claude?" step needs two things first:
+
+1. **The memory vault** — it holds the private half of `settings.json`, the personal profile the
+   drafting agents read, and the public-repo denylist:
+   ```bash
+   gh auth login
+   git clone https://github.com/fredabood/memory.md ~/Repositories/memory
+   ```
+   Without it, `settings.json` is generated from the public base only and the installer warns.
+2. **Claude Code itself**, launched once so you can log in. If it created `~/.claude/settings.json`
+   before the installer ran, `claude/install.sh` refuses to guess which side wins — see
+   [Troubleshooting → Claude Code](TROUBLESHOOTING.md#claude-code-issues).
+
+Then verify:
+
+```bash
+~/.dotfiles/claude/install.sh --status   # expect: healthy
+claude -p "List every skill name available to you, one per line."
+```
+
 ### Install VS Code CLI (if using VS Code)
 
 1. Open VS Code

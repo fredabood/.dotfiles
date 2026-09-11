@@ -1,0 +1,24 @@
+{
+  "status": "ok",
+  "message-type": "work-list",
+  "message": {
+    "items": [
+      {
+        "DOI": "10.1145/3316482",
+        "title": ["Conflict-free Replicated Data Types: An Overview"],
+        "author": [
+          {"given": "Nuno", "family": "Preguica"},
+          {"given": "Carlos", "family": "Baquero"},
+          {"given": "Marc", "family": "Shapiro"}
+        ],
+        "published": {"date-parts": [[2018, 6, 1]]},
+        "container-title": ["ACM Computing Surveys"],
+        "publisher": "Association for Computing Machinery",
+        "volume": "51",
+        "issue": "2",
+        "page": "1-36",
+        "type": "journal-article"
+      }
+    ]
+  }
+}

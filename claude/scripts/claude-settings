@@ -1,0 +1,212 @@
+#!/usr/bin/env bash
+# claude-settings — generate ~/.claude/settings.json from a public base + a private overlay.
+#
+#   settings.json = merge(claude/settings.base.json, $MEMORY_VAULT_PATH/personal/claude/settings.overlay.json)
+#
+# settings.json is GENERATED, never symlinked: Claude Code writes user settings through a
+# symlink, so a linked file would put every /model, /config and "always allow" change into the
+# public dotfiles working tree. Instead, changes Claude makes are detected as drift against the
+# last generated copy and absorbed into the private overlay — only when the round trip
+# merge(base, live − base) == live proves nothing would be lost.
+#
+# Commands:
+#   status            report generation state; exit 0 when clean
+#   diff              show live settings.json vs what base+overlay would generate
+#   apply [--force]   write the merge; refuses over un-absorbed drift unless --force (backs up first)
+#   absorb [--force]  overlay := live − base; refuses on conflict or a lossy round trip unless --force
+#   sync              absorb drift if any, then apply — what install.sh runs
+#   merged            print the merge to stdout
+#
+# Written for macOS /bin/bash 3.2.
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PKG_DIR="$(dirname "$SCRIPT_DIR")"
+
+CLAUDE_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+LIVE="$CLAUDE_DIR/settings.json"
+BASE="${CLAUDE_SETTINGS_BASE:-$PKG_DIR/settings.base.json}"
+VAULT="${MEMORY_VAULT_PATH:-$HOME/Repositories/memory}"
+OVERLAY="${CLAUDE_SETTINGS_OVERLAY:-$VAULT/personal/claude/settings.overlay.json}"
+STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/dotfiles"
+LASTGEN="$STATE_DIR/claude-settings.lastgen.json"
+BACKUP_ROOT="${CLAUDE_BACKUP_DIR:-$HOME/.claude-migration-backup}"
+
+TMP="$(mktemp -d "${TMPDIR:-/tmp}/claude-settings.XXXXXX")"
+trap 'rm -rf "$TMP"' EXIT
+
+say()  { printf '%s\n' "$*"; }
+warn() { printf 'claude-settings: warning: %s\n' "$*" >&2; }
+die()  { printf 'claude-settings: %s\n' "$*" >&2; exit 1; }
+
+command -v jq >/dev/null 2>&1 || die "jq is required (brew install jq)"
+[ -f "$BASE" ] || die "base settings not found: $BASE"
+
+canon() { jq -S 'walk(if type == "array" then sort else . end)' "$1"; }
+same()  { [ "$(canon "$1")" = "$(canon "$2")" ]; }
+
+backup_dir() {
+    if [ -z "${_BACKUP:-}" ]; then
+        _BACKUP="$BACKUP_ROOT/$(date +%Y%m%d_%H%M%S)"
+        mkdir -p "$_BACKUP"
+    fi
+    printf '%s' "$_BACKUP"
+}
+
+# write_json <src> <dest>: validate, then atomic rename, mode 600. Never `jq > dest`.
+write_json() {
+    local src="$1" dest="$2" dir tmp
+    dir="$(dirname "$dest")"
+    mkdir -p "$dir"
+    tmp="$(mktemp "$dir/.$(basename "$dest").XXXXXX")"
+    if ! (umask 077 && jq . "$src" > "$tmp") || ! jq -e 'type == "object"' "$tmp" >/dev/null; then
+        rm -f "$tmp"
+        die "refusing to write invalid JSON to $dest"
+    fi
+    chmod 600 "$tmp"
+    mv -f "$tmp" "$dest"
+}
+
+build_merged() {
+    local ovl="$OVERLAY"
+    if [ ! -f "$ovl" ]; then
+        if [ -z "${_WARNED:-}" ]; then
+            warn "no private overlay at $OVERLAY — generating from the public base only"
+            _WARNED=1
+        fi
+        ovl="$TMP/empty.json"
+        printf '{}' > "$ovl"
+    fi
+    jq -n --slurpfile base "$BASE" --slurpfile ovl "$ovl" -f "$SCRIPT_DIR/merge.jq" > "$TMP/merged.json"
+}
+
+# generate: write merged → live only when content differs, then record the generation.
+generate() {
+    build_merged
+    if [ -L "$LIVE" ]; then
+        warn "$LIVE is a symlink; replacing it with a generated file"
+    fi
+    if [ -f "$LIVE" ] && [ ! -L "$LIVE" ] && same "$LIVE" "$TMP/merged.json"; then
+        say "settings.json already up to date"
+    else
+        write_json "$TMP/merged.json" "$LIVE"
+        say "wrote $LIVE"
+    fi
+    mkdir -p "$STATE_DIR"
+    write_json "$TMP/merged.json" "$LASTGEN"
+}
+
+drifted() { [ -f "$LASTGEN" ] && ! same "$LIVE" "$LASTGEN"; }
+sources_changed() { [ -f "$LASTGEN" ] && ! same "$TMP/merged.json" "$LASTGEN"; }
+
+cmd_merged() { build_merged; jq . "$TMP/merged.json"; }
+
+cmd_diff() {
+    build_merged
+    [ -f "$LIVE" ] || { say "no $LIVE yet"; return 0; }
+    canon "$LIVE" > "$TMP/live.canon"
+    canon "$TMP/merged.json" > "$TMP/merged.canon"
+    diff -u --label "live $LIVE" --label "generated (base + overlay)" "$TMP/live.canon" "$TMP/merged.canon" || true
+}
+
+cmd_status() {
+    build_merged
+    say "base:     $BASE"
+    if [ -f "$OVERLAY" ]; then say "overlay:  $OVERLAY"; else say "overlay:  (missing) $OVERLAY"; fi
+    say "live:     $LIVE"
+    if [ ! -f "$LIVE" ]; then say "state:    not generated yet"; return 1; fi
+    if [ -L "$LIVE" ]; then say "state:    live settings.json is a SYMLINK — run apply --force"; return 1; fi
+    if [ ! -f "$LASTGEN" ]; then
+        if same "$LIVE" "$TMP/merged.json"; then say "state:    in sync (no generation record yet)"; return 0; fi
+        say "state:    unmanaged — live differs and there is no generation record (see: diff)"
+        return 1
+    fi
+    local d=0 s=0
+    drifted && d=1
+    sources_changed && s=1
+    case "$d$s" in
+        00) say "state:    clean"; return 0 ;;
+        10) say "state:    drift — Claude changed settings.json since the last generation (sync absorbs it)" ;;
+        01) say "state:    base or overlay changed — apply pending (sync applies it)" ;;
+        11) say "state:    CONFLICT — live drifted AND base/overlay changed (see: diff; absorb --force makes live win)" ;;
+    esac
+    return 1
+}
+
+cmd_apply() {
+    local force=0
+    [ "${1:-}" = "--force" ] && force=1
+    build_merged
+    if [ -f "$LIVE" ] && [ "$force" -eq 0 ]; then
+        if [ -f "$LASTGEN" ]; then
+            drifted && die "live settings.json drifted since the last generation — run 'sync' to absorb it, or 'apply --force' to discard it (backed up)"
+        elif ! same "$LIVE" "$TMP/merged.json"; then
+            die "no generation record and live settings.json differs from base + overlay — inspect with 'diff', then 'absorb' (live wins) or 'apply --force' (generated wins; live is backed up)"
+        fi
+    fi
+    if [ -f "$LIVE" ] && ! same "$LIVE" "$TMP/merged.json"; then
+        cp -p "$LIVE" "$(backup_dir)/settings.json"
+        say "backed up live settings.json to $(backup_dir)/settings.json"
+    fi
+    generate
+}
+
+cmd_absorb() {
+    local force=0
+    [ "${1:-}" = "--force" ] && force=1
+    [ -f "$LIVE" ] || die "no $LIVE to absorb"
+    [ -d "$VAULT" ] || die "memory vault not found at $VAULT — the private overlay has nowhere to live"
+    build_merged
+    if [ "$force" -eq 0 ] && sources_changed && drifted; then
+        die "conflict: base or overlay changed since the last generation AND live drifted — inspect with 'diff'; 'absorb --force' makes live win"
+    fi
+    jq -n --slurpfile live "$LIVE" --slurpfile base "$BASE" -f "$SCRIPT_DIR/subtract.jq" > "$TMP/overlay.json"
+    jq -n --slurpfile base "$BASE" --slurpfile ovl "$TMP/overlay.json" -f "$SCRIPT_DIR/merge.jq" > "$TMP/roundtrip.json"
+    if ! same "$LIVE" "$TMP/roundtrip.json"; then
+        canon "$LIVE" > "$TMP/live.canon"
+        canon "$TMP/roundtrip.json" > "$TMP/rt.canon"
+        diff -u --label "live" --label "base + absorbed overlay" "$TMP/live.canon" "$TMP/rt.canon" >&2 || true
+        if [ "$force" -eq 0 ]; then
+            die "live settings.json removes or rewrites something settings.base.json defines; an overlay cannot express that — edit claude/settings.base.json in dotfiles instead (or 'absorb --force' to accept the base re-adding it)"
+        fi
+        warn "--force: absorbing anyway; base items above will be re-added on apply"
+    fi
+    if [ -f "$OVERLAY" ]; then
+        if same "$OVERLAY" "$TMP/overlay.json"; then
+            say "overlay already matches live"
+            return 0
+        fi
+        cp -p "$OVERLAY" "$(backup_dir)/settings.overlay.json"
+    fi
+    write_json "$TMP/overlay.json" "$OVERLAY"
+    say "absorbed live changes into $OVERLAY (commit it in the memory vault)"
+}
+
+cmd_sync() {
+    build_merged
+    if [ ! -f "$LIVE" ]; then
+        generate
+    elif [ ! -f "$LASTGEN" ]; then
+        if same "$LIVE" "$TMP/merged.json"; then
+            generate
+        else
+            die "no generation record and live settings.json differs from base + overlay — inspect with 'claude-settings diff', then 'absorb' (live wins) or 'apply --force' (generated wins; live is backed up)"
+        fi
+    elif drifted; then
+        cmd_absorb
+        generate
+    else
+        generate
+    fi
+}
+
+case "${1:-status}" in
+    status) cmd_status ;;
+    diff)   cmd_diff ;;
+    apply)  shift; cmd_apply "$@" ;;
+    absorb) shift; cmd_absorb "$@" ;;
+    sync)   cmd_sync ;;
+    merged) cmd_merged ;;
+    -h|--help|help) sed -n '2,24p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//' ;;
+    *) die "unknown command: $1 (try --help)" ;;
+esac

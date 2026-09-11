@@ -10,6 +10,7 @@ Detailed documentation for each component in the dotfiles repository.
 - [Homebrew Package Management](#homebrew-package-management)
 - [Editor Configurations](#editor-configurations)
 - [Git Configuration](#git-configuration)
+- [Claude Code Configuration](#claude-code-configuration)
 - [Installation Scripts](#installation-scripts)
 
 ---
@@ -654,6 +655,45 @@ nano ~/.dotfiles/git/.gitignore_global
 git config --global core.excludesfile
 # Should show: /Users/yourname/.gitignore_global
 ```
+
+---
+
+## Claude Code Configuration
+
+Location: `claude/` — full reference in [`claude/README.md`](../claude/README.md).
+
+### Overview
+
+Shared Claude Code config — agents, slash commands, rules, hooks, skills and the status line — linked
+item by item into `~/.claude`, plus the public half of `~/.claude/settings.json`. Personal facts and
+private settings live in the memory vault (`$MEMORY_VAULT_PATH/personal/`), never here.
+
+### Files
+
+| Path | Installs as | Notes |
+|---|---|---|
+| `claude/agents/*.md`, `commands/*.md`, `rules/*.md` | `~/.claude/<kind>/<name>.md` (symlink) | |
+| `claude/hooks/*` | `~/.claude/hooks/<name>` (symlink) | registered in `settings.base.json` via `$HOME/.claude/hooks/...` |
+| `claude/skills/<name>/` | `~/.claude/skills/<name>` (directory symlink) | |
+| `claude/statusline-command.sh` | `~/.claude/statusline-command.sh` (symlink) | |
+| `claude/settings.base.json` | merged into `~/.claude/settings.json` (generated) | public preferences, permissions, hooks |
+| `claude/install.sh` | — | `--status`, `--dry-run`, `--materialize` |
+| `claude/scripts/claude-settings` | — | `status`, `diff`, `apply`, `absorb`, `sync` |
+| `claude/scripts/check-public.sh` | — | gitleaks + vault denylist; the repo pre-commit hook |
+| `claude/tests/install.test.sh` | — | fake-HOME test suite |
+
+### Usage
+
+```bash
+~/.dotfiles/claude/install.sh --status          # link health + settings state
+~/.dotfiles/claude/scripts/claude-settings diff  # live settings vs base + overlay
+bash ~/.dotfiles/claude/tests/install.test.sh    # after changing the scripts
+```
+
+### Dependencies
+
+`jq` and `gitleaks` (both in the Brewfile), and — for the private overlay, profile and denylist —
+the memory vault cloned at `~/Repositories/memory` (`MEMORY_VAULT_PATH`, exported in `zsh/.zshenv`).
 
 ---
 

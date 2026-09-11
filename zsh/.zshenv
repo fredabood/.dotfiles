@@ -89,3 +89,9 @@ export OMNIGENT_AUTH_ENABLED=1
 # expired token => spec_resolver 401 => every harness/agent session fails at
 # init; diagnosed 2026-08-05). Re-login: creds in op://Homelab/Omnigent Admin.
 export OMNIGENT_ACCOUNTS_SESSION_TTL_HOURS=720
+
+# Obsidian memory vault (fredabood/memory.md). Standalone since the 2026-09-10
+# de-monorepo split — it used to be homelab/submodules/memory. Referenced by
+# ~/.claude/rules/memory-management.md, the vault-add and obsidian-lint skills,
+# and homelab's data-platform-stack vault-sync mount.
+export MEMORY_VAULT_PATH="$HOME/Repositories/memory"

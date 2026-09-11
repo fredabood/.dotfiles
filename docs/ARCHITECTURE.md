@@ -9,6 +9,7 @@ This document explains the design decisions, architecture, and philosophy behind
 - [Directory Structure](#directory-structure)
 - [Configuration Loading Order](#configuration-loading-order)
 - [Symlink Strategy](#symlink-strategy)
+- [Claude Code Configuration](#claude-code-configuration)
 - [VS Code Integration](#vs-code-integration)
 - [Design Decisions](#design-decisions)
 - [Migration From Bash](#migration-from-bash)
@@ -253,6 +254,11 @@ Symlinks allow configuration files to live in the git repository while appearing
   → ~/.dotfiles/vscode/keybindings.json
 ~/Library/Application Support/Code/User/snippets/
   → ~/.dotfiles/vscode/snippets/
+
+# Claude Code — per item, never the directory (see below)
+~/.claude/agents/<name>.md    → ~/.dotfiles/claude/agents/<name>.md
+~/.claude/skills/<name>/      → ~/.dotfiles/claude/skills/<name>/
+~/.claude/statusline-command.sh → ~/.dotfiles/claude/statusline-command.sh
 ```
 
 ### Backup Strategy
@@ -271,6 +277,48 @@ This allows rollback if needed:
 rm ~/.zshrc
 mv ~/.zshrc.backup.20250104_153045 ~/.zshrc
 ```
+
+---
+
+## Claude Code Configuration
+
+`claude/` breaks two of the patterns above, deliberately. Full detail: [`claude/README.md`](../claude/README.md).
+
+### Per-item links, not a directory link
+
+`~/.claude` is not a config directory; it is Claude Code's **runtime** directory — session
+transcripts, prompt history, background jobs, backups of `~/.claude.json` carrying OAuth data. Linking
+it (or even `~/.claude/skills`) into this public repo would put all of that in the working tree, one
+careless `git add` from publication, and would let any third-party skill installer write straight
+into the repo.
+
+So `claude/install.sh` links each agent, command, rule, hook and skill individually. The container
+directories stay real and runtime-owned; only committed items are managed. The cost is re-running
+`claude/install.sh` after adding or removing an item. Backups go to
+`~/.claude-migration-backup/<timestamp>/`, not beside the original — a backed-up skill directory
+inside `~/.claude/skills` would load as a duplicate skill.
+
+### settings.json is generated, not linked
+
+"Changes via applications → instantly in repo" is the wrong property for `~/.claude/settings.json`:
+Claude Code writes it through a symlink on every `/model`, `/config` or "always allow", and the file
+mixes portable preferences with private details (internal hostnames, machine paths). It is split:
+
+| Half | Lives in | Visibility |
+|---|---|---|
+| `claude/settings.base.json` | this repo | public |
+| `personal/claude/settings.overlay.json` | the memory vault (`$MEMORY_VAULT_PATH`) | private |
+
+`claude/scripts/claude-settings` merges them (objects recursively, arrays unioned) into a regular,
+mode-600 file, and absorbs changes Claude makes back into the private overlay when that round-trips
+losslessly — refusing, and changing nothing, when it would not.
+
+### Personal information lives in the vault
+
+Prompts that need personal facts (affiliations, email domains, voice profiles) read
+`$MEMORY_VAULT_PATH/personal/profile.md` at runtime. The repo-wide pre-commit hook
+(`.githooks/pre-commit`) runs gitleaks plus a denylist that is itself kept in the vault — a public
+denylist would publish exactly what it blocks.
 
 ---
 

@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# This repo is public. Block credentials (gitleaks) and private information (the memory vault's
+# denylist) from being committed. Enabled by install.sh via `git config core.hooksPath .githooks`.
+exec "$(git rev-parse --show-toplevel)/claude/scripts/check-public.sh" --staged

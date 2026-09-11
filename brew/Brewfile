@@ -49,6 +49,7 @@ brew "git-lfs"
 # ============================================================================
 
 brew "gnupg"
+brew "gitleaks"   # pre-commit credential scan — this repo is public (.githooks/pre-commit)
 
 # ============================================================================
 # Text Editors
