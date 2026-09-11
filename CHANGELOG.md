@@ -31,6 +31,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Personal information (affiliations, email domains, voice profiles, 1Password vault name) removed
   from the shared prompts; they read `$MEMORY_VAULT_PATH/personal/profile.md` at runtime instead.
 
+### Fixed
+- `claude/install.sh` and `claude-settings` computed their backup folder inside `$(...)`, so the path
+  was forgotten after each use: a run crossing a second boundary scattered its backups across
+  several timestamped folders, `install.sh` never printed its `backups:` line, and `apply --force`
+  could name a different folder than the one it wrote to.
+
 ## [2.0.0] - 2025-01-04
 
 ### Major Refactor - Zsh Migration

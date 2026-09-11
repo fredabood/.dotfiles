@@ -119,6 +119,30 @@ check "old skills folder kept in the backup" [ -n "$(find "$CLAUDE_BACKUP_DIR" -
 check "identical copy raises no 'differs' warning" bash -c '! grep -q differs <<<"$1"' _ "$out"
 check "no backup inside ~/.claude" [ -z "$(find "$C" -name "$first_skill" -not -path "$C/skills/*" 2>/dev/null)" ]
 
+section "one run, one backup folder — even when the clock ticks mid-run"
+# A fake `date` that returns a new timestamp on every call reproduces a run that crosses a second
+# boundary. A backup path computed per call (inside a subshell) would scatter the backups.
+mkdir -p "$T/shim"
+cat > "$T/shim/date" <<'SHIM'
+#!/bin/sh
+if [ "$1" = "+%Y%m%d_%H%M%S" ]; then
+    n=$(( $(cat "$SHIM_COUNTER" 2>/dev/null || echo 0) + 1 )); echo "$n" > "$SHIM_COUNTER"
+    printf '29990101_%06d\n' "$n"
+else
+    exec /bin/date "$@"
+fi
+SHIM
+chmod +x "$T/shim/date"
+for f in $FOLDERS; do per_item_layout "$f"; done
+backups_before="$(find "$CLAUDE_BACKUP_DIR" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')"
+out="$(PATH="$T/shim:$PATH" SHIM_COUNTER="$T/shim/count" "$INSTALL" 2>&1)"; rc=$?
+reported="$(sed -n 's/^backups: //p' <<<"$out")"
+check "exit 0" [ "$rc" -eq 0 ]
+check "exactly one new backup folder" [ "$(find "$CLAUDE_BACKUP_DIR" -mindepth 1 -maxdepth 1 -type d | wc -l | tr -d ' ')" -eq $((backups_before + 1)) ]
+check "prints where the backups went" [ -n "$reported" ]
+all_five_backed_up() { local f; for f in $FOLDERS; do [ -d "$reported/$f" ] || return 1; done; }
+check "that folder holds all five replaced folders" all_five_backed_up
+
 section "an unmanaged item blocks only its own folder"
 per_item_layout skills
 mkdir -p "$C/skills/third-party-x" && echo keep > "$C/skills/third-party-x/SKILL.md"
@@ -183,9 +207,10 @@ cp "$S" "$T/live.before"
 check "sync refuses" bash -c '! "$1" sync >/dev/null 2>&1' _ "$SETTINGS"
 check "live left untouched" cmp -s "$S" "$T/live.before"
 check "overlay left untouched" cmp -s "$OVL" "$T/ovl.before"
-"$SETTINGS" apply --force >/dev/null 2>&1
+out="$(PATH="$T/shim:$PATH" SHIM_COUNTER="$T/shim/count" "$SETTINGS" apply --force 2>&1)"
 check "apply --force restores the base entry" quiet jq -e --arg a "$base_allow0" '.permissions.allow | index($a)' "$S"
-check "apply --force backed up the discarded live file" [ -n "$(find "$CLAUDE_BACKUP_DIR" -name settings.json)" ]
+said="$(sed -n 's/^backed up live settings.json to //p' <<<"$out")"
+check "apply --force names the backup it actually wrote (clock ticking)" cmp -s "$said" "$T/live.before"
 
 section "drift plus a changed overlay is a conflict"
 set_json "$S" '.theme = "conflict-live"'
