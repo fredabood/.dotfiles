@@ -276,6 +276,33 @@ else
 fi
 
 # ============================================================================
+# Claude Code Configuration
+# ============================================================================
+
+print_header "Claude Code Configuration"
+
+# This repo is public: block credentials and private information at commit time.
+git -C "$DOTFILES_DIR" config core.hooksPath .githooks
+print_success "Enabled the public-content pre-commit check (.githooks)"
+
+if [[ -d "$DOTFILES_DIR/claude" ]]; then
+    if [[ ! -d "${MEMORY_VAULT_PATH:-$HOME/Repositories/memory}" ]]; then
+        print_warning "Memory vault not found — clone fredabood/memory.md to ~/Repositories/memory first for the private settings overlay and profile"
+    fi
+    if ask_yes_no "Link Claude Code config into ~/.claude?"; then
+        # claude/install.sh refuses rather than clobbering unabsorbed settings drift;
+        # under `set -e` that must not abort the rest of this installer.
+        if "$DOTFILES_DIR/claude/install.sh"; then
+            print_success "Claude Code config linked and settings.json generated"
+        else
+            print_warning "claude/install.sh reported a problem — see above; re-run it once resolved"
+        fi
+    fi
+else
+    print_warning "Claude Code configuration not found at $DOTFILES_DIR/claude"
+fi
+
+# ============================================================================
 # macOS Defaults
 # ============================================================================
 
@@ -312,6 +339,10 @@ echo "VS Code:"
 echo "  - Settings are now symlinked to ${BLUE}~/.dotfiles/vscode/${NC}"
 echo "  - Changes in VS Code will automatically update your dotfiles"
 echo "  - To sync VS Code config to repo: ${BLUE}./sync-vscode.sh${NC}"
+echo ""
+echo "Claude Code:"
+echo "  - Agents, commands, rules, hooks and skills are symlinked from ${BLUE}~/.dotfiles/claude/${NC}"
+echo "  - settings.json is generated: ${BLUE}~/.dotfiles/claude/scripts/claude-settings status${NC}"
 echo ""
 echo "\n${YELLOW}Note:${NC} Your original config files were backed up with timestamps."
 echo ""

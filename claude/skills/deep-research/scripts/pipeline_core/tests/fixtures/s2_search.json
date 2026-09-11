@@ -1,0 +1,18 @@
+{
+  "total": 1,
+  "data": [
+    {
+      "title": "A Comprehensive Study of CRDTs in Collaborative Editors",
+      "authors": [
+        {"name": "Hagit Attiya"},
+        {"name": "Sebastian Burckhardt"}
+      ],
+      "year": 2021,
+      "venue": "PODC",
+      "externalIds": {"DOI": "10.1145/3465084.3467900"},
+      "url": "https://www.semanticscholar.org/paper/abc123",
+      "citationCount": 87,
+      "publicationTypes": ["Conference"]
+    }
+  ]
+}

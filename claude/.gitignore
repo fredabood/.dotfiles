@@ -1,0 +1,34 @@
+# Deny-all with an explicit allowlist.
+#
+# This package is PUBLIC, and the directory it installs into (~/.claude) is Claude Code's live
+# runtime directory — transcripts, prompt history, OAuth-bearing backups. Nothing here links
+# that directory wholesale, but an allowlist fails safe if something ever lands in this tree
+# that should not be published: a new file type has to be admitted on purpose.
+/*
+!/.gitignore
+!/README.md
+!/install.sh
+!/settings.base.json
+!/statusline-command.sh
+!/agents/
+!/commands/
+!/rules/
+!/skills/
+!/hooks/
+!/scripts/
+!/tests/
+
+# settings.json is never stored here. It is GENERATED from settings.base.json plus a private
+# overlay in the memory vault ($MEMORY_VAULT_PATH/personal/claude/settings.overlay.json).
+# settings.local.json is never managed at all.
+
+# Never share, even from an allowlisted directory.
+*.log
+*.bak
+*.bak.*
+.DS_Store
+.skill-execution-context.json
+__pycache__/
+*.pyc
+.pytest_cache/
+dist/

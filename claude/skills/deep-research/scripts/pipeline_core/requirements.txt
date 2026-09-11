@@ -1,0 +1,5 @@
+# pipeline_core runtime dependencies — everything else it imports is stdlib.
+# pipeline.py declares the same set inline (PEP 723), so `uv run pipeline.py`
+# needs no install step; this file is for running the tests with pip.
+pydantic>=2
+requests>=2.31

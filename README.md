@@ -10,6 +10,7 @@ Originally forked from [Mathias' Dotfiles](https://github.com/mathiasbynens/dotf
 - 🍺 **Homebrew Bundle** - Declarative package management with Brewfile
 - 🎨 **macOS Customization** - Comprehensive system preferences automation
 - ⚡ **Development Tools** - Curated utilities and editor configurations
+- 🤖 **Claude Code** - Agents, commands, rules, hooks and skills linked into `~/.claude`; `settings.json` generated from a public base + private overlay
 - 📦 **Modular Organization** - Clean separation of concerns
 
 ## Repository Structure
@@ -35,6 +36,12 @@ Originally forked from [Mathias' Dotfiles](https://github.com/mathiasbynens/dotf
 │   ├── keybindings.json  # Custom keybindings
 │   ├── extensions.txt    # Installed extensions list
 │   └── snippets/         # Code snippets
+├── claude/                # Claude Code configuration (see claude/README.md)
+│   ├── agents/ commands/ rules/ hooks/ skills/   # linked item by item into ~/.claude
+│   ├── settings.base.json # Public half of ~/.claude/settings.json
+│   ├── install.sh        # Linker + settings generation
+│   └── scripts/          # claude-settings, check-public.sh, merge/subtract jq
+├── .githooks/             # pre-commit: gitleaks + private denylist (public repo)
 ├── brew/                  # Homebrew packages
 │   └── Brewfile          # Package definitions
 ├── deprecated/            # Archived configurations

@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Claude Code configuration** (`claude/`), moved here from the standalone `fredabood/.claude` repo
+  (copied without its history). Agents, commands, rules, hooks, skills and the status line are linked
+  into `~/.claude` one item at a time by `claude/install.sh` — never the whole runtime directory.
+- `claude/scripts/claude-settings`: generates `~/.claude/settings.json` from the public
+  `claude/settings.base.json` plus a private overlay in the memory vault, and absorbs changes Claude
+  Code makes back into the overlay when that is lossless.
+- `.githooks/pre-commit` → `claude/scripts/check-public.sh`: gitleaks plus a private denylist on
+  every staged change. `install.sh` enables it (`core.hooksPath`). `gitleaks` added to the Brewfile.
+- `MEMORY_VAULT_PATH` export in `zsh/.zshenv`.
+
+### Changed
+- Personal information (affiliations, email domains, voice profiles, 1Password vault name) removed
+  from the shared prompts; they read `$MEMORY_VAULT_PATH/personal/profile.md` at runtime instead.
+
 ## [2.0.0] - 2025-01-04
 
 ### Major Refactor - Zsh Migration

@@ -12,6 +12,7 @@ Common issues and solutions for the dotfiles installation and usage.
 - [macOS Settings Issues](#macos-settings-issues)
 - [Performance Issues](#performance-issues)
 - [Git Issues](#git-issues)
+- [Claude Code Issues](#claude-code-issues)
 
 ---
 
@@ -636,6 +637,67 @@ git config --global core.excludesfile ~/.gitignore_global
 ```bash
 ls -la ~/.gitignore_global
 ```
+
+---
+
+## Claude Code Issues
+
+Start with the health check; it names the problem:
+
+```bash
+~/.dotfiles/claude/install.sh --status
+~/.dotfiles/claude/scripts/claude-settings status
+```
+
+### Issue: A skill, agent or command is missing
+
+**Cause:** an item was added to `claude/` without re-running the linker, or a third-party installer
+replaced a managed link with a real directory (`--status` reports "not a link").
+
+**Solution:**
+```bash
+~/.dotfiles/claude/install.sh     # backs the real copy up to ~/.claude-migration-backup/ and relinks
+```
+
+### Issue: "live settings.json drifted" / "removes or rewrites something settings.base.json defines"
+
+**Cause:** Claude Code changed `~/.claude/settings.json` in a way the private overlay cannot hold —
+usually removing a permission or hook the public base defines.
+
+**Solution:** inspect, then pick a side:
+```bash
+~/.dotfiles/claude/scripts/claude-settings diff
+# keep the removal: edit claude/settings.base.json, then
+~/.dotfiles/claude/scripts/claude-settings sync
+# or discard live's change (live is backed up first):
+~/.dotfiles/claude/scripts/claude-settings apply --force
+```
+
+### Issue: "CONFLICT" or "no generation record and live settings.json differs"
+
+**Cause:** live settings changed **and** the base or overlay changed since the last generation
+(e.g. pulled on another machine) — or Claude Code ran before the installer on a fresh Mac.
+
+**Solution:** `claude-settings diff`, then `claude-settings absorb --force` (live wins; the old
+overlay is backed up) followed by `claude-settings apply`, or `claude-settings apply --force`
+(generated wins; live is backed up). Commit the overlay in the vault afterwards.
+
+### Issue: A Claude Code update stops loading linked skills
+
+**Solution:** switch to real copies until it is fixed, then relink:
+```bash
+~/.dotfiles/claude/install.sh --materialize
+# later
+~/.dotfiles/claude/install.sh
+```
+
+### Issue: Commit blocked by `check-public`
+
+**Cause:** gitleaks found a credential, or a staged change matched the private denylist in the
+vault (`personal/claude/denylist.txt`) — a hostname, internal domain, client name or address.
+
+**Solution:** move the value out of the repo (personal facts → the vault's `personal/profile.md`;
+private settings → the overlay) and re-stage. If gitleaks is missing: `brew install gitleaks`.
 
 ---
 

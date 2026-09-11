@@ -1,0 +1,22 @@
+{
+  "results": [
+    {
+      "id": "https://openalex.org/W2900000000",
+      "doi": "https://doi.org/10.1109/TPDS.2019.2900000",
+      "title": "Local-First Software: Availability Under Partition",
+      "authorships": [
+        {"author": {"display_name": "Martin Kleppmann"}},
+        {"author": {"display_name": "Adam Wiggins"}}
+      ],
+      "publication_year": 2019,
+      "primary_location": {
+        "source": {
+          "display_name": "IEEE Transactions on Parallel and Distributed Systems",
+          "host_organization_name": "IEEE"
+        }
+      },
+      "type": "article",
+      "cited_by_count": 412
+    }
+  ]
+}
