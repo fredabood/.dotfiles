@@ -169,5 +169,64 @@ mv "$C/rules" "$T/rules-real" && ln -s "$T/rules-real" "$C/rules"
 check "install exits non-zero" bash -c '! "$1" >/dev/null 2>&1' _ "$INSTALL"
 rm "$C/rules" && mv "$T/rules-real" "$C/rules"
 
+section "SessionStart hook keeps settings in sync without anyone remembering"
+HOOK="$C/hooks/claude-settings-sync.sh"
+SYNC_LOG="$XDG_STATE_HOME/dotfiles/claude-settings-sync.log"
+SYNC_LOCK="$XDG_STATE_HOME/dotfiles/claude-settings-sync.lock"
+V="$MEMORY_VAULT_PATH"
+git -C "$V" init -q && git -C "$V" config user.email test@example.com && git -C "$V" config user.name test
+git -C "$V" add -A && git -C "$V" commit -q -m "fixture"
+log_lines() { if [ -f "$SYNC_LOG" ]; then wc -l < "$SYNC_LOG" | tr -d ' '; else echo 0; fi; }
+vault_commits() { git -C "$V" rev-list --count HEAD; }
+check "hook is linked from the package" [ "$(readlink "$HOOK")" = "$PKG/hooks/claude-settings-sync.sh" ]
+check "base registers it on SessionStart" quiet jq -e '.hooks.SessionStart[].hooks[] | select(.command == "$HOME/.claude/hooks/claude-settings-sync.sh")' "$PKG/settings.base.json"
+
+out="$("$HOOK")"; rc=$?
+check "clean state: exit 0" [ "$rc" -eq 0 ]
+check "clean state: silent" [ -z "$out" ]
+before="$(log_lines)"
+"$HOOK" >/dev/null
+check "unchanged files take the fast path (no sync run)" [ "$(log_lines)" = "$before" ]
+
+commits="$(vault_commits)"
+set_json "$S" '.theme = "hook-drift"'
+out="$("$HOOK")"; rc=$?
+check "drift: exit 0 and silent" [ "$rc$out" = "0" ]
+check "drift: absorbed into the overlay" [ "$(jq -r .theme "$OVL")" = "hook-drift" ]
+check "drift: overlay committed in the vault" [ "$(vault_commits)" -eq $((commits + 1)) ]
+check "drift: commit touches only the overlay" [ "$(git -C "$V" show --name-only --format= HEAD)" = "personal/claude/settings.overlay.json" ]
+check "drift: vault left clean" [ -z "$(git -C "$V" status --porcelain -- personal/claude/settings.overlay.json)" ]
+check "drift: settings.json still a regular 600 file" regular_600 "$S"
+
+cp "$S" "$T/live.hook-before"
+set_json "$S" --arg a "$base_allow0" '.permissions.allow -= [$a]'
+cp "$S" "$T/live.hook-lossy"
+out="$("$HOOK")"; rc=$?
+check "lossy change: exit 0 (never blocks a session)" [ "$rc" -eq 0 ]
+check "lossy change: warns the user" quiet jq -e '.systemMessage | test("needs attention")' <<<"$out"
+check "lossy change: warns the session" quiet jq -e '.hookSpecificOutput.hookEventName == "SessionStart" and (.hookSpecificOutput.additionalContext | length > 0)' <<<"$out"
+check "lossy change: live left untouched" cmp -s "$S" "$T/live.hook-lossy"
+out="$("$HOOK")"
+check "lossy change: keeps warning until resolved" quiet jq -e '.systemMessage' <<<"$out"
+"$SETTINGS" apply --force >/dev/null 2>&1
+
+set_json "$S" '.theme = "while-locked"'
+mkdir -p "$SYNC_LOCK"
+out="$("$HOOK")"; rc=$?
+check "held lock: exit 0 and silent" [ "$rc$out" = "0" ]
+check "held lock: another session's sync is not duplicated" [ "$(jq -r .theme "$OVL")" != "while-locked" ]
+touch -t 202001010000 "$SYNC_LOCK"
+"$HOOK" >/dev/null
+check "stale lock: recovered and synced" [ "$(jq -r .theme "$OVL")" = "while-locked" ]
+check "lock released afterwards" [ ! -d "$SYNC_LOCK" ]
+
+set_json "$S" '.theme = "sync-disabled"'
+CLAUDE_SETTINGS_SYNC=0 "$HOOK" >/dev/null
+check "CLAUDE_SETTINGS_SYNC=0 does nothing" [ "$(jq -r .theme "$OVL")" != "sync-disabled" ]
+commits="$(vault_commits)"
+CLAUDE_SETTINGS_AUTOCOMMIT=0 "$HOOK" >/dev/null
+check "CLAUDE_SETTINGS_AUTOCOMMIT=0 still absorbs" [ "$(jq -r .theme "$OVL")" = "sync-disabled" ]
+check "CLAUDE_SETTINGS_AUTOCOMMIT=0 does not commit" [ "$(vault_commits)" -eq "$commits" ]
+
 printf '\n%d passed, %d failed\n' "$pass" "$failed"
 [ "$failed" -eq 0 ]

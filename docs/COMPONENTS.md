@@ -673,7 +673,7 @@ private settings live in the memory vault (`$MEMORY_VAULT_PATH/personal/`), neve
 | Path | Installs as | Notes |
 |---|---|---|
 | `claude/agents/*.md`, `commands/*.md`, `rules/*.md` | `~/.claude/<kind>/<name>.md` (symlink) | |
-| `claude/hooks/*` | `~/.claude/hooks/<name>` (symlink) | registered in `settings.base.json` via `$HOME/.claude/hooks/...` |
+| `claude/hooks/*` | `~/.claude/hooks/<name>` (symlink) | registered in `settings.base.json` via `$HOME/.claude/hooks/...`; `claude-settings-sync.sh` keeps settings in sync on every SessionStart |
 | `claude/skills/<name>/` | `~/.claude/skills/<name>` (directory symlink) | |
 | `claude/statusline-command.sh` | `~/.claude/statusline-command.sh` (symlink) | |
 | `claude/settings.base.json` | merged into `~/.claude/settings.json` (generated) | public preferences, permissions, hooks |

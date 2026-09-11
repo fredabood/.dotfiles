@@ -659,6 +659,14 @@ replaced a managed link with a real directory (`--status` reports "not a link").
 ~/.dotfiles/claude/install.sh     # backs the real copy up to ~/.claude-migration-backup/ and relinks
 ```
 
+### Issue: A session says "Claude settings sync needs attention"
+
+That warning comes from the `SessionStart` hook (`claude/hooks/claude-settings-sync.sh`), which
+normally syncs `settings.json` silently. It only speaks when `claude-settings sync` refused, and it
+left `settings.json` untouched. The reason is in the warning and in
+`~/.local/state/dotfiles/claude-settings-sync.log`; it is one of the two issues below. Once
+resolved, the next session is silent again.
+
 ### Issue: "live settings.json drifted" / "removes or rewrites something settings.base.json defines"
 
 **Cause:** Claude Code changed `~/.claude/settings.json` in a way the private overlay cannot hold —

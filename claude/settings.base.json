@@ -71,6 +71,17 @@
           }
         ]
       }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/claude-settings-sync.sh",
+            "timeout": 30
+          }
+        ]
+      }
     ]
   },
   "statusLine": {
