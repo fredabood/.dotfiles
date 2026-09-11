@@ -19,7 +19,9 @@ set -uo pipefail
 
 [ "${CLAUDE_SETTINGS_SYNC:-1}" = "0" ] && exit 0
 
-# Resolve this script through its ~/.claude/hooks symlink to find the package.
+# Find the package from wherever Claude runs this: ~/.claude/hooks is a symlink to claude/hooks,
+# so resolve the script's directory PHYSICALLY (cd -P) before stepping up — a logical `..` would
+# land in ~/.claude. The loop also handles the script itself being a per-file link.
 self="${BASH_SOURCE[0]}"
 while [ -L "$self" ]; do
     target="$(readlink "$self")"
@@ -28,9 +30,13 @@ while [ -L "$self" ]; do
         *)  self="$(dirname "$self")/$target" ;;
     esac
 done
-PKG_DIR="$(cd "$(dirname "$self")/.." && pwd)"
+PKG_DIR="$(cd -P "$(dirname "$self")" && cd .. && pwd -P)"
 SETTINGS_CMD="$PKG_DIR/scripts/claude-settings"
-[ -x "$SETTINGS_CMD" ] || exit 0
+if [ ! -x "$SETTINGS_CMD" ]; then
+    # Never die silently: a sync hook that quietly stops syncing is the failure this exists to prevent.
+    printf '{"systemMessage": "Claude settings sync hook could not find claude-settings next to %s — settings are not being synced. Re-run ~/.dotfiles/claude/install.sh."}\n' "$self"
+    exit 0
+fi
 
 CLAUDE_DIR="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
 LIVE="$CLAUDE_DIR/settings.json"

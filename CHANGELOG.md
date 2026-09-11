@@ -9,8 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **Claude Code configuration** (`claude/`), moved here from the standalone `fredabood/.claude` repo
-  (copied without its history). Agents, commands, rules, hooks, skills and the status line are linked
-  into `~/.claude` one item at a time by `claude/install.sh` — never the whole runtime directory.
+  (copied without its history). `claude/install.sh` links the five content folders (agents, commands,
+  rules, hooks, skills) and the status line into `~/.claude` — never the whole runtime directory.
 - `claude/scripts/claude-settings`: generates `~/.claude/settings.json` from the public
   `claude/settings.base.json` plus a private overlay in the memory vault, and absorbs changes Claude
   Code makes back into the overlay when that is lossless.
@@ -22,6 +22,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `MEMORY_VAULT_PATH` export in `zsh/.zshenv`.
 
 ### Changed
+- `~/.claude/{agents,commands,rules,hooks,skills}` are now **folder** links instead of one link per
+  item, so anything added to `claude/` is live immediately with nothing to re-run. `install.sh`
+  migrates the per-item layout, refuses to hide items the repo does not manage, and `--status` lists
+  uncommitted items in the linked folders. The SessionStart sync hook now resolves its package
+  through a folder link (it would otherwise have stopped syncing silently) and warns instead of
+  exiting quietly if it cannot.
 - Personal information (affiliations, email domains, voice profiles, 1Password vault name) removed
   from the shared prompts; they read `$MEMORY_VAULT_PATH/personal/profile.md` at runtime instead.
 

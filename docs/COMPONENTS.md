@@ -664,17 +664,18 @@ Location: `claude/` — full reference in [`claude/README.md`](../claude/README.
 
 ### Overview
 
-Shared Claude Code config — agents, slash commands, rules, hooks, skills and the status line — linked
-item by item into `~/.claude`, plus the public half of `~/.claude/settings.json`. Personal facts and
-private settings live in the memory vault (`$MEMORY_VAULT_PATH/personal/`), never here.
+Shared Claude Code config — agents, slash commands, rules, hooks, skills and the status line — whose
+five content folders are linked whole into `~/.claude` (new items are live immediately), plus the
+public half of `~/.claude/settings.json`. Personal facts and private settings live in the memory
+vault (`$MEMORY_VAULT_PATH/personal/`), never here.
 
 ### Files
 
 | Path | Installs as | Notes |
 |---|---|---|
-| `claude/agents/*.md`, `commands/*.md`, `rules/*.md` | `~/.claude/<kind>/<name>.md` (symlink) | |
-| `claude/hooks/*` | `~/.claude/hooks/<name>` (symlink) | registered in `settings.base.json` via `$HOME/.claude/hooks/...`; `claude-settings-sync.sh` keeps settings in sync on every SessionStart |
-| `claude/skills/<name>/` | `~/.claude/skills/<name>` (directory symlink) | |
+| `claude/agents/`, `commands/`, `rules/` | `~/.claude/<folder>` (folder symlink) | add a `.md` and it is live |
+| `claude/hooks/` | `~/.claude/hooks` (folder symlink) | registered in `settings.base.json` via `$HOME/.claude/hooks/...`; `claude-settings-sync.sh` keeps settings in sync on every SessionStart |
+| `claude/skills/` | `~/.claude/skills` (folder symlink) | one directory per skill |
 | `claude/statusline-command.sh` | `~/.claude/statusline-command.sh` (symlink) | |
 | `claude/settings.base.json` | merged into `~/.claude/settings.json` (generated) | public preferences, permissions, hooks |
 | `claude/install.sh` | — | `--status`, `--dry-run`, `--materialize` |

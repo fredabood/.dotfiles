@@ -12,11 +12,11 @@ them read `$MEMORY_VAULT_PATH/personal/profile.md` at runtime.
 
 ```
 claude/
-├── agents/                 # subagents              → ~/.claude/agents/<name>.md
-├── commands/               # slash commands         → ~/.claude/commands/<name>.md
-├── rules/                  # global rules           → ~/.claude/rules/<name>.md
-├── hooks/                  # hook scripts           → ~/.claude/hooks/<name>
-├── skills/                 # skills (one dir each)  → ~/.claude/skills/<name>/
+├── agents/                 # subagents              ← ~/.claude/agents   (folder link)
+├── commands/               # slash commands         ← ~/.claude/commands (folder link)
+├── rules/                  # global rules           ← ~/.claude/rules    (folder link)
+├── hooks/                  # hook scripts           ← ~/.claude/hooks    (folder link)
+├── skills/                 # skills (one dir each)  ← ~/.claude/skills   (folder link)
 ├── statusline-command.sh   #                        → ~/.claude/statusline-command.sh
 ├── settings.base.json      # public half of settings.json (generated, never linked)
 ├── install.sh              # linker + settings generation
@@ -30,23 +30,35 @@ claude/
 
 ## How it installs
 
-`~/.claude` is Claude Code's live runtime directory — transcripts, prompt history, jobs, backups
-of `~/.claude.json` with OAuth data. It is **never linked as a whole**. Each item is linked on its
-own, so `~/.claude/{agents,commands,rules,hooks,skills}` stay real directories: anything Claude or
-a third-party installer writes there stays out of this repo, and only what is committed here is
-managed.
+The five content folders — `agents`, `commands`, `rules`, `hooks`, `skills` — are each linked
+whole: `~/.claude/skills → ~/.dotfiles/claude/skills`, and so on. **Anything added, edited or
+removed here takes effect in `~/.claude` immediately; nothing needs re-running.** Run `install.sh`
+once per machine.
+
+`~/.claude` **itself is never linked.** It is Claude Code's live runtime directory — transcripts,
+prompt history, jobs, backups of `~/.claude.json` with OAuth data, `settings.local.json` — and it
+stays out of this public repo.
+
+The trade-off of linking the folders: anything written *into* them lands in this working tree — a
+skill installed by a third-party tool, an agent created with `/agents`. That is what makes new items
+sync, and it also means a stray install is one `git add -A` from being published. `install.sh
+--status` lists every uncommitted item in the five folders; commit what you mean to share, delete
+the rest.
 
 ```bash
-~/.dotfiles/claude/install.sh             # link everything, prune dangling links, sync settings
-~/.dotfiles/claude/install.sh --status    # health check; exit 1 if anything is off
+~/.dotfiles/claude/install.sh             # link the folders + statusline, sync settings
+~/.dotfiles/claude/install.sh --status    # health check + uncommitted items; exit 1 if unhealthy
 ~/.dotfiles/claude/install.sh --dry-run   # show what would change
 ```
 
-Anything it replaces is moved to `~/.claude-migration-backup/<timestamp>/` — never inside
-`~/.claude`, where a backed-up skill directory would load as a duplicate skill.
+If a folder in `~/.claude` is a real directory (a fresh machine where Claude ran first, or the
+earlier per-item layout), `install.sh` checks what is inside before replacing it. Links into this
+package and identical copies are safe; a copy that differs is kept in the backup with a warning;
+**anything it does not manage blocks that folder**, which is left untouched and listed — move those
+items into the repo (to share them) or out of `~/.claude`, then re-run.
 
-**After adding or removing an item, re-run `install.sh`.** Edits to an existing item need nothing:
-the link already points here.
+Replaced folders go to `~/.claude-migration-backup/<timestamp>/` — never inside `~/.claude`, where a
+backed-up skill directory would load as a duplicate skill.
 
 ## settings.json
 
@@ -98,10 +110,12 @@ paths and anything else private go in the overlay.
 
 ## Adding things
 
-- **A skill**: `claude/skills/<name>/SKILL.md`, then `install.sh`.
-- **An agent / command / rule**: `claude/<kind>/<name>.md`, then `install.sh`.
+Create it here and commit it; it is live in `~/.claude` as soon as the file exists.
+
+- **A skill**: `claude/skills/<name>/SKILL.md`.
+- **An agent / command / rule**: `claude/<kind>/<name>.md`.
 - **A hook**: script in `claude/hooks/` (executable), then register it in `settings.base.json` with
-  `$HOME/.claude/hooks/<name>` and run `install.sh`.
+  `$HOME/.claude/hooks/<name>` — the SessionStart sync picks the registration up next session.
 - **Anything needing a personal fact**: add the fact to the vault's `personal/profile.md` and have the
   prompt read it there.
 
@@ -120,12 +134,13 @@ scripts compatible with macOS `/bin/bash` 3.2.
 
 ## Recovery
 
-- **A Claude Code update stops loading linked items**: `install.sh --materialize` replaces every
-  managed link with a real copy; re-run plain `install.sh` to relink once fixed.
+- **A Claude Code update stops loading linked folders**: `install.sh --materialize` replaces the
+  agents/commands/rules/skills links with real copies (hooks stays linked); re-run plain
+  `install.sh` to relink once fixed — identical copies are replaced without complaint.
 - **Settings look wrong**: `claude-settings diff`, then `apply --force` (live is backed up), or
   restore a `settings.json` from `~/.claude-migration-backup/`.
-- **Undo the links entirely**:
-  `find ~/.claude/{agents,commands,rules,hooks,skills} -maxdepth 1 -type l -lname "$HOME/.dotfiles/claude/*" -delete`
+- **Undo the links entirely**: `for f in agents commands rules hooks skills; do rm ~/.claude/$f && cp -R ~/.dotfiles/claude/$f ~/.claude/$f; done`
+  (no trailing slash on `rm`, so only the links go).
 
 ## History
 

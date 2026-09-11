@@ -651,13 +651,29 @@ Start with the health check; it names the problem:
 
 ### Issue: A skill, agent or command is missing
 
-**Cause:** an item was added to `claude/` without re-running the linker, or a third-party installer
-replaced a managed link with a real directory (`--status` reports "not a link").
+**Cause:** one of `~/.claude/{agents,commands,rules,hooks,skills}` is not linked to the repo — e.g. a
+tool recreated it as a real folder (`--status` reports "a real folder, not a link").
 
 **Solution:**
 ```bash
-~/.dotfiles/claude/install.sh     # backs the real copy up to ~/.claude-migration-backup/ and relinks
+~/.dotfiles/claude/install.sh     # inspects the folder, backs it up to ~/.claude-migration-backup/, relinks
 ```
+
+### Issue: install.sh says a folder "was NOT linked — it holds items this repo does not manage"
+
+**Cause:** that real folder in `~/.claude` contains something that is not in `claude/` — typically a
+skill a third-party tool installed there. `install.sh` will not hide it behind a link, so it left
+that folder alone (the others were still linked).
+
+**Solution:** for each listed item, move it into `~/.dotfiles/claude/<folder>/` to share it (it is a
+public repo — check it first) or move it out of `~/.claude`, then re-run `install.sh`.
+
+### Issue: `--status` lists "uncommitted" items
+
+**Cause:** the folders are linked into the repo, so anything created in `~/.claude/skills` etc. is
+created here — by you, by `/agents`, or by a third-party installer.
+
+**Solution:** commit what you want to share (the pre-commit check scans it); delete anything else.
 
 ### Issue: A session says "Claude settings sync needs attention"
 
