@@ -25,10 +25,12 @@ claude/
 │   ├── merge.jq            # base ⊕ overlay (deep merge, arrays union)
 │   ├── subtract.jq         # live ⊖ base (what the overlay must hold)
 │   ├── check-public.sh     # gitleaks + private denylist (the repo pre-commit hook)
+│   ├── memory-cleanup.py   # auto-memory staleness report (reads memory-access-tracker frontmatter)
 │   └── omnigent-worktree-patch  # keep Omnigent's worktrees in <repo>/.claude/worktrees
 └── tests/
     ├── install.test.sh               # fake-HOME tests for install + settings
-    └── memory-access-tracker.test.sh # the hook finds Claude Code's real project dir
+    ├── memory-access-tracker.test.sh # the hook finds Claude Code's real project dir
+    └── memory-cleanup.test.sh        # the staleness report scans every project memory dir
 ```
 
 ## How it installs
