@@ -96,5 +96,6 @@
   "skipDangerousModePermissionPrompt": true,
   "skipWorkflowUsageWarning": true,
   "theme": "dark-daltonized",
+  "outputStyle": "Concise",
   "agentPushNotifEnabled": true
 }
