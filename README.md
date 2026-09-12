@@ -92,10 +92,10 @@ Originally forked from [Mathias' Dotfiles](https://github.com/mathiasbynens/dotf
 
 ```bash
 # Clone the repository
-git clone https://github.com/fredabood/.dotfiles.git ~/.dotfiles
+git clone https://github.com/fredabood/.dotfiles.git ~/Repositories/dotfiles
 
 # Navigate to the directory
-cd ~/.dotfiles
+cd ~/Repositories/dotfiles
 
 # Run the installation script
 ./install.sh
@@ -115,16 +115,16 @@ If you prefer manual installation:
 
 ```bash
 # Install Homebrew packages
-cd ~/.dotfiles
+cd ~/Repositories/dotfiles
 brew bundle --file=brew/Brewfile
 
 # Symlink zsh config
-ln -sf ~/.dotfiles/zsh/.zshrc ~/.zshrc
-ln -sf ~/.dotfiles/zsh/.zshenv ~/.zshenv
+ln -sf ~/Repositories/dotfiles/zsh/.zshrc ~/.zshrc
+ln -sf ~/Repositories/dotfiles/zsh/.zshenv ~/.zshenv
 
 # Symlink editor configs
-ln -sf ~/.dotfiles/editors/.vimrc ~/.vimrc
-ln -sf ~/.dotfiles/editors/.editorconfig ~/.editorconfig
+ln -sf ~/Repositories/dotfiles/editors/.vimrc ~/.vimrc
+ln -sf ~/Repositories/dotfiles/editors/.editorconfig ~/.editorconfig
 
 # Optionally apply macOS preferences
 ./macos/defaults.sh
@@ -189,7 +189,7 @@ cask "application-name"
 Then run:
 
 ```bash
-brew bundle --file=~/.dotfiles/brew/Brewfile
+brew bundle --file=~/Repositories/dotfiles/brew/Brewfile
 ```
 
 ### macOS Preferences
@@ -198,7 +198,7 @@ The `macos/defaults.sh` script configures macOS system preferences. Review and c
 
 ```bash
 # Preview what will change
-less ~/.dotfiles/macos/defaults.sh
+less ~/Repositories/dotfiles/macos/defaults.sh
 
 # Apply settings
 ./macos/defaults.sh
@@ -214,7 +214,7 @@ VS Code settings, keybindings, snippets, and extensions are fully managed by thi
 
 1. **Sync your current VS Code config to the repo:**
    ```bash
-   cd ~/.dotfiles
+   cd ~/Repositories/dotfiles
    ./sync-vscode.sh
    ```
    This will copy your current VS Code settings, keybindings, snippets, and export your extensions list.
@@ -265,7 +265,7 @@ If the `code` command isn't available:
 3. Type "Shell Command: Install 'code' command in PATH"
 4. Select it
 
-**How it works:** Settings and keybindings are symlinked to `~/.dotfiles/vscode/`, so changes in VS Code automatically update your dotfiles. Run `./sync-vscode.sh` to capture extension changes.
+**How it works:** Settings and keybindings are symlinked to `~/Repositories/dotfiles/vscode/`, so changes in VS Code automatically update your dotfiles. Run `./sync-vscode.sh` to capture extension changes.
 
 ## Useful Aliases
 
@@ -313,7 +313,7 @@ See `zsh/functions.zsh` for the complete list.
 To update your dotfiles:
 
 ```bash
-cd ~/.dotfiles
+cd ~/Repositories/dotfiles
 git pull origin main
 
 # Reinstall Homebrew packages if Brewfile changed
@@ -354,8 +354,8 @@ Add to `zsh/aliases.zsh` or `zsh/functions.zsh`, or create `~/.zshrc.local` for 
 ### Permission Issues
 
 ```bash
-chmod +x ~/.dotfiles/install.sh
-chmod +x ~/.dotfiles/macos/defaults.sh
+chmod +x ~/Repositories/dotfiles/install.sh
+chmod +x ~/Repositories/dotfiles/macos/defaults.sh
 ```
 
 ### Oh-My-Zsh Not Loading
@@ -378,7 +378,7 @@ Remove and recreate:
 
 ```bash
 rm ~/.zshrc
-ln -sf ~/.dotfiles/zsh/.zshrc ~/.zshrc
+ln -sf ~/Repositories/dotfiles/zsh/.zshrc ~/.zshrc
 ```
 
 ## Deprecated Files
@@ -420,7 +420,7 @@ This README provides a quick overview. For comprehensive information, see the fu
 **Regular Maintenance:**
 ```bash
 # Update packages
-cd ~/.dotfiles
+cd ~/Repositories/dotfiles
 brew bundle --file=brew/Brewfile
 
 # Sync VS Code extensions (after installing new ones)

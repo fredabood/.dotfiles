@@ -185,7 +185,7 @@ All old files have been preserved in `deprecated/` for reference:
 ### Immediate Actions
 1. Test the new configuration:
    ```bash
-   cd ~/.dotfiles
+   cd ~/Repositories/dotfiles
    ./install.sh
    ```
 
@@ -214,7 +214,7 @@ All old files have been preserved in `deprecated/` for reference:
 ### Future Maintenance
 1. Regularly review `brew/Brewfile` and remove unused packages
 2. Keep oh-my-zsh updated: `omz update`
-3. Update Homebrew packages: `brew bundle --file=~/.dotfiles/brew/Brewfile`
+3. Update Homebrew packages: `brew bundle --file=~/Repositories/dotfiles/brew/Brewfile`
 4. Review `macos/defaults.sh` when updating macOS versions
 5. Commit changes to git and push to remote
 
@@ -229,11 +229,11 @@ If you need to rollback to the old configuration:
 To restore:
 ```bash
 # Restore from deprecated
-cd ~/.dotfiles/deprecated/home
+cd ~/Repositories/dotfiles/deprecated/home
 stow -t ~/ .
 
 # Or manually symlink specific files
-ln -sf ~/.dotfiles/deprecated/home/.bash_profile ~/.bash_profile
+ln -sf ~/Repositories/dotfiles/deprecated/home/.bash_profile ~/.bash_profile
 ```
 
 **Note**: You would need to install `stow` first: `brew install stow`

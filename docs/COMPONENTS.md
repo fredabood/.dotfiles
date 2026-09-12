@@ -48,7 +48,7 @@ The zsh configuration is split into multiple files for modularity and maintainab
 **Customization:**
 ```bash
 # Edit theme
-nano ~/.dotfiles/zsh/.zshrc
+nano ~/Repositories/dotfiles/zsh/.zshrc
 # Change: ZSH_THEME="agnoster"
 
 # Enable plugins
@@ -80,7 +80,7 @@ plugins=(
 
 **Customization:**
 ```bash
-nano ~/.dotfiles/zsh/.zshenv
+nano ~/Repositories/dotfiles/zsh/.zshenv
 # Add:
 export MY_CUSTOM_VAR="value"
 ```
@@ -112,7 +112,7 @@ export MY_CUSTOM_VAR="value"
 
 **Adding Aliases:**
 ```bash
-nano ~/.dotfiles/zsh/aliases.zsh
+nano ~/Repositories/dotfiles/zsh/aliases.zsh
 # Add:
 alias myalias="my command"
 ```
@@ -143,7 +143,7 @@ echo 'alias myalias="my command"' >> ~/.zshrc.local
 
 **Adding Functions:**
 ```bash
-nano ~/.dotfiles/zsh/functions.zsh
+nano ~/Repositories/dotfiles/zsh/functions.zsh
 # Add:
 function myfunction() {
     echo "My function"
@@ -168,7 +168,7 @@ function myfunction() {
 
 **Customization:**
 ```bash
-nano ~/.dotfiles/zsh/path.zsh
+nano ~/Repositories/dotfiles/zsh/path.zsh
 # Add:
 [[ -d "$HOME/my-tools" ]] && export PATH="$HOME/my-tools:$PATH"
 ```
@@ -239,12 +239,12 @@ publisher.extension-name
 
 **Viewing:**
 ```bash
-cat ~/.dotfiles/vscode/extensions.txt
+cat ~/Repositories/dotfiles/vscode/extensions.txt
 ```
 
 **Installing:**
 ```bash
-cd ~/.dotfiles/vscode
+cd ~/Repositories/dotfiles/vscode
 ./install-extensions.sh
 ```
 
@@ -369,7 +369,7 @@ Automates macOS system preferences configuration using the `defaults` command.
 **Usage:**
 ```bash
 # Review first!
-less ~/.dotfiles/macos/defaults.sh
+less ~/Repositories/dotfiles/macos/defaults.sh
 
 # Apply settings
 ./macos/defaults.sh
@@ -390,7 +390,7 @@ killall Dock
 
 **Customization:**
 ```bash
-nano ~/.dotfiles/macos/defaults.sh
+nano ~/Repositories/dotfiles/macos/defaults.sh
 # Add your preferred settings
 ```
 
@@ -460,13 +460,13 @@ cask "font-fira-code"
 
 **Installation:**
 ```bash
-cd ~/.dotfiles
+cd ~/Repositories/dotfiles
 brew bundle --file=brew/Brewfile
 ```
 
 **Adding Packages:**
 ```bash
-nano ~/.dotfiles/brew/Brewfile
+nano ~/Repositories/dotfiles/brew/Brewfile
 # Add:
 brew "package-name"
 cask "app-name"
@@ -544,7 +544,7 @@ Configuration files for text editors.
 
 **Customization:**
 ```bash
-nano ~/.dotfiles/editors/.vimrc
+nano ~/Repositories/dotfiles/editors/.vimrc
 ```
 
 #### `.editorconfig`
@@ -621,7 +621,7 @@ Git settings and global ignore patterns.
 git config --global user.name "Your Name"
 
 # Or edit directly
-nano ~/.dotfiles/git/.gitconfig
+nano ~/Repositories/dotfiles/git/.gitconfig
 ```
 
 #### `.gitignore_global`
@@ -647,7 +647,7 @@ node_modules/
 
 **Adding Patterns:**
 ```bash
-nano ~/.dotfiles/git/.gitignore_global
+nano ~/Repositories/dotfiles/git/.gitignore_global
 ```
 
 **Verify It's Active:**
@@ -686,9 +686,9 @@ vault (`$MEMORY_VAULT_PATH/personal/`), never here.
 ### Usage
 
 ```bash
-~/.dotfiles/claude/install.sh --status          # link health + settings state
-~/.dotfiles/claude/scripts/claude-settings diff  # live settings vs base + overlay
-bash ~/.dotfiles/claude/tests/install.test.sh    # after changing the scripts
+~/Repositories/dotfiles/claude/install.sh --status          # link health + settings state
+~/Repositories/dotfiles/claude/scripts/claude-settings diff  # live settings vs base + overlay
+bash ~/Repositories/dotfiles/claude/tests/install.test.sh    # after changing the scripts
 ```
 
 ### Dependencies
@@ -778,17 +778,17 @@ User opens terminal
   ↓
 zsh starts
   ↓
-Sources ~/.zshrc (symlink to ~/.dotfiles/zsh/.zshrc)
+Sources ~/.zshrc (symlink to ~/Repositories/dotfiles/zsh/.zshrc)
   ↓
 Loads Oh-My-Zsh
   ↓
-Sources ~/.dotfiles/zsh/.zshenv (environment)
+Sources ~/Repositories/dotfiles/zsh/.zshenv (environment)
   ↓
-Sources ~/.dotfiles/zsh/path.zsh (PATH)
+Sources ~/Repositories/dotfiles/zsh/path.zsh (PATH)
   ↓
-Sources ~/.dotfiles/zsh/aliases.zsh (aliases)
+Sources ~/Repositories/dotfiles/zsh/aliases.zsh (aliases)
   ↓
-Sources ~/.dotfiles/zsh/functions.zsh (functions)
+Sources ~/Repositories/dotfiles/zsh/functions.zsh (functions)
   ↓
 Sources ~/.zshrc.local (if exists, machine-specific)
   ↓
@@ -849,7 +849,7 @@ Ready to commit
 
 1. **Update packages:**
    ```bash
-   cd ~/.dotfiles
+   cd ~/Repositories/dotfiles
    brew bundle --file=brew/Brewfile
    ```
 

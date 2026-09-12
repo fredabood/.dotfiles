@@ -264,7 +264,7 @@ fi
 print_header "iTerm2 Configuration"
 
 if [[ -d "$DOTFILES_DIR/iterm" ]]; then
-    if ask_yes_no "Point iTerm2 at ~/.dotfiles/iterm for preferences?"; then
+    if ask_yes_no "Point iTerm2 at ~/Repositories/dotfiles/iterm for preferences?"; then
         print_warning "Quit iTerm2 before continuing if it's running."
         defaults write com.googlecode.iterm2 PrefsCustomFolder -string "$DOTFILES_DIR/iterm"
         defaults write com.googlecode.iterm2 LoadPrefsFromCustomFolder -bool true
@@ -336,13 +336,13 @@ echo "     - zsh-syntax-highlighting"
 echo "     - brew, docker, node, python, etc."
 echo ""
 echo "VS Code:"
-echo "  - Settings are now symlinked to ${BLUE}~/.dotfiles/vscode/${NC}"
+echo "  - Settings are now symlinked to ${BLUE}~/Repositories/dotfiles/vscode/${NC}"
 echo "  - Changes in VS Code will automatically update your dotfiles"
 echo "  - To sync VS Code config to repo: ${BLUE}./sync-vscode.sh${NC}"
 echo ""
 echo "Claude Code:"
-echo "  - Agents, commands, rules, hooks and skills are symlinked from ${BLUE}~/.dotfiles/claude/${NC}"
-echo "  - settings.json is generated: ${BLUE}~/.dotfiles/claude/scripts/claude-settings status${NC}"
+echo "  - Agents, commands, rules, hooks and skills are symlinked from ${BLUE}~/Repositories/dotfiles/claude/${NC}"
+echo "  - settings.json is generated: ${BLUE}~/Repositories/dotfiles/claude/scripts/claude-settings status${NC}"
 echo ""
 echo "\n${YELLOW}Note:${NC} Your original config files were backed up with timestamps."
 echo ""

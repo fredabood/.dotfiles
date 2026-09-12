@@ -45,7 +45,7 @@ Save immediately when these occur — don't defer to session end:
 **Auto-memory** (`~/.claude/projects/.../memory/`) answers: "How should Claude behave?"
 **Vault** (`$MEMORY_VAULT_PATH/`) answers: "What does the project know?"
 
-`$MEMORY_VAULT_PATH` is exported from `~/.dotfiles/zsh/.zshenv` and resolves to
+`$MEMORY_VAULT_PATH` is exported from `~/Repositories/dotfiles/zsh/.zshenv` and resolves to
 `~/Repositories/memory` — the standalone `fredabood/memory.md` repo. It was
 `homelab/submodules/memory` until the 2026-09-10 de-monorepo split. The vault
 stays ONE central repo across every project (`homelab/`, `projects/<name>/`)

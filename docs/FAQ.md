@@ -100,7 +100,7 @@ For work computers, consider:
 
 **Option 1: Edit the main aliases file**
 ```bash
-nano ~/.dotfiles/zsh/aliases.zsh
+nano ~/Repositories/dotfiles/zsh/aliases.zsh
 # Add your aliases
 git commit -am "Add custom aliases"
 ```
@@ -113,9 +113,9 @@ echo 'alias myalias="my command"' >> ~/.zshrc.local
 
 ### How do I change the zsh theme?
 
-Edit `~/.dotfiles/zsh/.zshrc`:
+Edit `~/Repositories/dotfiles/zsh/.zshrc`:
 ```bash
-nano ~/.dotfiles/zsh/.zshrc
+nano ~/Repositories/dotfiles/zsh/.zshrc
 ```
 
 Find the line:
@@ -139,7 +139,7 @@ exec zsh
 
 Edit the Brewfile:
 ```bash
-nano ~/.dotfiles/brew/Brewfile
+nano ~/Repositories/dotfiles/brew/Brewfile
 ```
 
 Add packages:
@@ -150,7 +150,7 @@ cask "application-name"
 
 Install:
 ```bash
-cd ~/.dotfiles
+cd ~/Repositories/dotfiles
 brew bundle --file=brew/Brewfile
 ```
 
@@ -172,7 +172,7 @@ This file is sourced by `.zshrc` but not tracked in git.
 
 **Option 1: Comment them out**
 ```bash
-nano ~/.dotfiles/zsh/aliases.zsh
+nano ~/Repositories/dotfiles/zsh/aliases.zsh
 # Add # before the alias you want to disable
 ```
 
@@ -196,7 +196,7 @@ This repository is zsh-focused, but the deprecated bash configurations are prese
 ### How does VS Code sync work?
 
 **Automatic sync** (after initial setup):
-- `settings.json` is symlinked to `~/.dotfiles/vscode/`
+- `settings.json` is symlinked to `~/Repositories/dotfiles/vscode/`
 - Changes in VS Code → automatically update your dotfiles
 - Changes in dotfiles → automatically appear in VS Code
 
@@ -223,7 +223,7 @@ Choose one method, not both.
 
 On the new machine, just run:
 ```bash
-cd ~/.dotfiles
+cd ~/Repositories/dotfiles
 ./install.sh
 ```
 
@@ -238,13 +238,13 @@ Everything will match your other machine.
 
 The extension installer will skip unavailable extensions and continue. Check the output:
 ```bash
-cd ~/.dotfiles/vscode
+cd ~/Repositories/dotfiles/vscode
 ./install-extensions.sh
 ```
 
 Remove unavailable extensions from `extensions.txt`:
 ```bash
-nano ~/.dotfiles/vscode/extensions.txt
+nano ~/Repositories/dotfiles/vscode/extensions.txt
 ```
 
 ---
@@ -256,26 +256,26 @@ nano ~/.dotfiles/vscode/extensions.txt
 **Initial sync:**
 ```bash
 # Machine A (main machine)
-cd ~/.dotfiles
+cd ~/Repositories/dotfiles
 ./sync-vscode.sh  # If using VS Code
 git push
 
 # Machine B (other machine)
-git clone https://github.com/yourusername/.dotfiles.git ~/.dotfiles
-cd ~/.dotfiles
+git clone https://github.com/yourusername/.dotfiles.git ~/Repositories/dotfiles
+cd ~/Repositories/dotfiles
 ./install.sh
 ```
 
 **Ongoing sync:**
 ```bash
 # After making changes on any machine
-cd ~/.dotfiles
+cd ~/Repositories/dotfiles
 git add .
 git commit -m "Update configuration"
 git push
 
 # On other machines
-cd ~/.dotfiles
+cd ~/Repositories/dotfiles
 git pull
 brew bundle --file=brew/Brewfile  # Install any new packages
 ```
@@ -334,7 +334,7 @@ fi
 ### How do I update my dotfiles?
 
 ```bash
-cd ~/.dotfiles
+cd ~/Repositories/dotfiles
 git pull
 brew bundle --file=brew/Brewfile  # Update packages
 exec zsh  # Reload shell
@@ -344,7 +344,7 @@ exec zsh  # Reload shell
 
 Whenever you install or remove extensions:
 ```bash
-cd ~/.dotfiles
+cd ~/Repositories/dotfiles
 ./sync-vscode.sh
 git commit -am "Update VS Code extensions"
 git push
@@ -370,7 +370,7 @@ brew upgrade
 
 Or use the Brewfile:
 ```bash
-cd ~/.dotfiles
+cd ~/Repositories/dotfiles
 brew bundle --file=brew/Brewfile
 ```
 
@@ -389,7 +389,7 @@ brew bundle --file=brew/Brewfile
 ### How do I see what changed?
 
 ```bash
-cd ~/.dotfiles
+cd ~/Repositories/dotfiles
 git status
 git diff
 ```
@@ -440,7 +440,7 @@ echo ".gitconfig" >> .gitignore
 
 Review your `settings.json` before committing:
 ```bash
-cat ~/.dotfiles/vscode/settings.json
+cat ~/Repositories/dotfiles/vscode/settings.json
 ```
 
 Look for:
@@ -457,7 +457,7 @@ Absolutely! In fact, it's recommended if:
 
 Change the remote:
 ```bash
-cd ~/.dotfiles
+cd ~/Repositories/dotfiles
 git remote set-url origin git@github.com:yourusername/dotfiles-private.git
 ```
 
@@ -503,7 +503,7 @@ Yes, with Ansible, scripts, or remote commands:
 
 ```bash
 # Example: Deploy to remote machine via SSH
-ssh user@remote-machine "git clone https://github.com/yourusername/.dotfiles.git ~/.dotfiles && ~/.dotfiles/install.sh"
+ssh user@remote-machine "git clone https://github.com/yourusername/.dotfiles.git ~/Repositories/dotfiles && ~/Repositories/dotfiles/install.sh"
 ```
 
 ### How do I contribute improvements?

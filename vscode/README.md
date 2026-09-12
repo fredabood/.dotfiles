@@ -17,7 +17,7 @@ This directory contains VS Code settings, keybindings, snippets, and extensions 
 The main `install.sh` script will automatically symlink these configs:
 
 ```bash
-cd ~/.dotfiles
+cd ~/Repositories/dotfiles
 ./install.sh
 ```
 
@@ -27,15 +27,15 @@ If you prefer to set up VS Code manually:
 
 ```bash
 # Symlink settings
-ln -sf ~/.dotfiles/vscode/settings.json ~/Library/Application\ Support/Code/User/settings.json
-ln -sf ~/.dotfiles/vscode/keybindings.json ~/Library/Application\ Support/Code/User/keybindings.json
+ln -sf ~/Repositories/dotfiles/vscode/settings.json ~/Library/Application\ Support/Code/User/settings.json
+ln -sf ~/Repositories/dotfiles/vscode/keybindings.json ~/Library/Application\ Support/Code/User/keybindings.json
 
 # Install extensions
 ./install-extensions.sh
 
 # Symlink snippets (optional)
 rm -rf ~/Library/Application\ Support/Code/User/snippets
-ln -sf ~/.dotfiles/vscode/snippets ~/Library/Application\ Support/Code/User/snippets
+ln -sf ~/Repositories/dotfiles/vscode/snippets ~/Library/Application\ Support/Code/User/snippets
 ```
 
 ### Update Dotfiles with Current VS Code Config
@@ -43,7 +43,7 @@ ln -sf ~/.dotfiles/vscode/snippets ~/Library/Application\ Support/Code/User/snip
 After making changes to VS Code settings, sync them back to the repo:
 
 ```bash
-cd ~/.dotfiles
+cd ~/Repositories/dotfiles
 ./sync-vscode.sh
 git add vscode/
 git commit -m "Update VS Code configuration"

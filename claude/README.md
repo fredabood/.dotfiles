@@ -36,7 +36,7 @@ claude/
 ## How it installs
 
 The five content folders — `agents`, `commands`, `rules`, `hooks`, `skills` — are each linked
-whole: `~/.claude/skills → ~/.dotfiles/claude/skills`, and so on. **Anything added, edited or
+whole: `~/.claude/skills → ~/Repositories/dotfiles/claude/skills`, and so on. **Anything added, edited or
 removed here takes effect in `~/.claude` immediately; nothing needs re-running.** Run `install.sh`
 once per machine.
 
@@ -51,9 +51,9 @@ sync, and it also means a stray install is one `git add -A` from being published
 the rest.
 
 ```bash
-~/.dotfiles/claude/install.sh             # link the folders + statusline, sync settings
-~/.dotfiles/claude/install.sh --status    # health check + uncommitted items; exit 1 if unhealthy
-~/.dotfiles/claude/install.sh --dry-run   # show what would change
+~/Repositories/dotfiles/claude/install.sh             # link the folders + statusline, sync settings
+~/Repositories/dotfiles/claude/install.sh --status    # health check + uncommitted items; exit 1 if unhealthy
+~/Repositories/dotfiles/claude/install.sh --dry-run   # show what would change
 ```
 
 If a folder in `~/.claude` is a real directory (a fresh machine where Claude ran first, or the
@@ -159,7 +159,7 @@ read `omnigent/host/git_worktree.py` before changing the script.
   `install.sh` to relink once fixed — identical copies are replaced without complaint.
 - **Settings look wrong**: `claude-settings diff`, then `apply --force` (live is backed up), or
   restore a `settings.json` from `~/.claude-migration-backup/`.
-- **Undo the links entirely**: `for f in agents commands rules hooks skills; do rm ~/.claude/$f && cp -R ~/.dotfiles/claude/$f ~/.claude/$f; done`
+- **Undo the links entirely**: `for f in agents commands rules hooks skills; do rm ~/.claude/$f && cp -R ~/Repositories/dotfiles/claude/$f ~/.claude/$f; done`
   (no trailing slash on `rm`, so only the links go).
 
 ## History
