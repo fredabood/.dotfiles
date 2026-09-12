@@ -20,14 +20,14 @@ How to customize and personalize your dotfiles.
 
 **1. Change zsh theme:**
 ```bash
-nano ~/.dotfiles/zsh/.zshrc
+nano ~/Repositories/dotfiles/zsh/.zshrc
 # Change: ZSH_THEME="robbyrussell" to your preferred theme
 ```
 
 **2. Add aliases:**
 ```bash
 # For all machines (tracked in git):
-nano ~/.dotfiles/zsh/aliases.zsh
+nano ~/Repositories/dotfiles/zsh/aliases.zsh
 
 # For this machine only:
 echo 'alias myalias="command"' >> ~/.zshrc.local
@@ -35,15 +35,15 @@ echo 'alias myalias="command"' >> ~/.zshrc.local
 
 **3. Change default editor:**
 ```bash
-nano ~/.dotfiles/zsh/.zshenv
+nano ~/Repositories/dotfiles/zsh/.zshenv
 # Change: export EDITOR='vim' to your preferred editor
 ```
 
 **4. Add Homebrew packages:**
 ```bash
-nano ~/.dotfiles/brew/Brewfile
+nano ~/Repositories/dotfiles/brew/Brewfile
 # Add: brew "package-name"
-brew bundle --file=~/.dotfiles/brew/Brewfile
+brew bundle --file=~/Repositories/dotfiles/brew/Brewfile
 ```
 
 ---
@@ -76,7 +76,7 @@ p10k configure
 
 **Enable built-in plugins:**
 ```bash
-nano ~/.dotfiles/zsh/.zshrc
+nano ~/Repositories/dotfiles/zsh/.zshrc
 ```
 
 Add to plugins array:
@@ -115,7 +115,7 @@ plugins=(
 
 **Add to aliases.zsh:**
 ```bash
-nano ~/.dotfiles/zsh/aliases.zsh
+nano ~/Repositories/dotfiles/zsh/aliases.zsh
 ```
 
 Examples:
@@ -140,15 +140,15 @@ alias pip="pip3"
 alias venv="python3 -m venv"
 
 # Quick edits
-alias zshconfig="nano ~/.dotfiles/zsh/.zshrc"
-alias aliasconfig="nano ~/.dotfiles/zsh/aliases.zsh"
+alias zshconfig="nano ~/Repositories/dotfiles/zsh/.zshrc"
+alias aliasconfig="nano ~/Repositories/dotfiles/zsh/aliases.zsh"
 ```
 
 ### Custom Functions
 
 **Add to functions.zsh:**
 ```bash
-nano ~/.dotfiles/zsh/functions.zsh
+nano ~/Repositories/dotfiles/zsh/functions.zsh
 ```
 
 Examples:
@@ -191,7 +191,7 @@ function weather() {
 
 **Add to path.zsh:**
 ```bash
-nano ~/.dotfiles/zsh/path.zsh
+nano ~/Repositories/dotfiles/zsh/path.zsh
 ```
 
 Examples:
@@ -211,7 +211,7 @@ eval "$(pyenv init -)"
 
 **Add to .zshenv:**
 ```bash
-nano ~/.dotfiles/zsh/.zshenv
+nano ~/Repositories/dotfiles/zsh/.zshenv
 ```
 
 Examples:
@@ -241,7 +241,7 @@ export PAGER="less"
 
 **Edit settings directly:**
 ```bash
-nano ~/.dotfiles/vscode/settings.json
+nano ~/Repositories/dotfiles/vscode/settings.json
 ```
 
 **Common customizations:**
@@ -293,7 +293,7 @@ Changes appear immediately in VS Code (symlinked).
 
 **Edit keybindings:**
 ```bash
-nano ~/.dotfiles/vscode/keybindings.json
+nano ~/Repositories/dotfiles/vscode/keybindings.json
 ```
 
 **Examples:**
@@ -318,7 +318,7 @@ nano ~/.dotfiles/vscode/keybindings.json
 
 **Create snippet file:**
 ```bash
-nano ~/.dotfiles/vscode/snippets/language.json
+nano ~/Repositories/dotfiles/vscode/snippets/language.json
 ```
 
 **Example (JavaScript):**
@@ -351,7 +351,7 @@ nano ~/.dotfiles/vscode/snippets/language.json
 
 **Add CLI tools:**
 ```bash
-nano ~/.dotfiles/brew/Brewfile
+nano ~/Repositories/dotfiles/brew/Brewfile
 ```
 
 Add:
@@ -376,7 +376,7 @@ cask "spotify"
 
 **Install:**
 ```bash
-brew bundle --file=~/.dotfiles/brew/Brewfile
+brew bundle --file=~/Repositories/dotfiles/brew/Brewfile
 ```
 
 ### Programming Languages
@@ -416,7 +416,7 @@ brew "rbenv"
 
 **Edit macOS settings:**
 ```bash
-nano ~/.dotfiles/macos/defaults.sh
+nano ~/Repositories/dotfiles/macos/defaults.sh
 ```
 
 **Common customizations:**
@@ -593,7 +593,7 @@ _mycmd() {
 ```zsh
 # Auto-commit dotfiles on change
 function dotfiles-autocommit() {
-    cd ~/.dotfiles
+    cd ~/Repositories/dotfiles
     git add -A
     git commit -m "Auto-commit: $(date)"
     git push
@@ -601,7 +601,7 @@ function dotfiles-autocommit() {
 
 # Commit before running sync
 function sync-vscode-and-commit() {
-    cd ~/.dotfiles
+    cd ~/Repositories/dotfiles
     ./sync-vscode.sh
     git add vscode/
     git commit -m "Update VS Code config: $(date +%Y-%m-%d)"
@@ -617,7 +617,7 @@ function sync-vscode-and-commit() {
 **1. Test in new shell without committing:**
 ```bash
 # Edit files
-nano ~/.dotfiles/zsh/aliases.zsh
+nano ~/Repositories/dotfiles/zsh/aliases.zsh
 
 # Test in new shell
 zsh
@@ -630,20 +630,20 @@ git commit -m "Add new aliases"
 **2. Test specific component:**
 ```bash
 # Test alias file
-source ~/.dotfiles/zsh/aliases.zsh
+source ~/Repositories/dotfiles/zsh/aliases.zsh
 
 # Test function
-source ~/.dotfiles/zsh/functions.zsh
+source ~/Repositories/dotfiles/zsh/functions.zsh
 myfunction
 ```
 
 **3. Syntax check:**
 ```bash
 # Check zsh syntax
-zsh -n ~/.dotfiles/zsh/.zshrc
+zsh -n ~/Repositories/dotfiles/zsh/.zshrc
 
 # Check for errors without executing
-zsh -f -c 'source ~/.dotfiles/zsh/.zshrc'
+zsh -f -c 'source ~/Repositories/dotfiles/zsh/.zshrc'
 ```
 
 ---
@@ -662,14 +662,14 @@ zsh -f -c 'source ~/.dotfiles/zsh/.zshrc'
 **Example:**
 ```bash
 # 1. Make changes
-nano ~/.dotfiles/zsh/aliases.zsh
+nano ~/Repositories/dotfiles/zsh/aliases.zsh
 
 # 2. Test
 exec zsh
 myalias  # Test it works
 
 # 3. Commit
-cd ~/.dotfiles
+cd ~/Repositories/dotfiles
 git add zsh/aliases.zsh
 git commit -m "Add alias for quick project navigation"
 
@@ -678,7 +678,7 @@ git push
 
 # 5. Apply on other machines
 # (on other machine)
-cd ~/.dotfiles
+cd ~/Repositories/dotfiles
 git pull
 exec zsh
 ```

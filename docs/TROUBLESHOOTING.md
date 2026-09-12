@@ -83,7 +83,7 @@ Installation script stops responding during package installation.
 2. Cancel (Ctrl+C) and try again
 3. Install Homebrew packages manually:
 ```bash
-cd ~/.dotfiles
+cd ~/Repositories/dotfiles
 brew bundle --file=brew/Brewfile --verbose
 ```
 
@@ -148,7 +148,7 @@ grep "aliases.zsh" ~/.zshrc
 
 2. Manually source it to test:
 ```bash
-source ~/.dotfiles/zsh/aliases.zsh
+source ~/Repositories/dotfiles/zsh/aliases.zsh
 ```
 
 3. Reload zsh:
@@ -190,12 +190,12 @@ echo $PATH
 
 2. Verify path.zsh content:
 ```bash
-cat ~/.dotfiles/zsh/path.zsh
+cat ~/Repositories/dotfiles/zsh/path.zsh
 ```
 
 3. Source it manually to test:
 ```bash
-source ~/.dotfiles/zsh/path.zsh
+source ~/Repositories/dotfiles/zsh/path.zsh
 echo $PATH
 ```
 
@@ -235,7 +235,7 @@ load_nvm() {
 ### Issue: VS Code Settings Not Syncing
 
 **Symptom:**
-Changes in VS Code don't appear in `~/.dotfiles/vscode/settings.json`
+Changes in VS Code don't appear in `~/Repositories/dotfiles/vscode/settings.json`
 
 **Solution:**
 
@@ -250,7 +250,7 @@ ls -la ~/Library/Application\ Support/Code/User/settings.json
 If not symlinked, create it:
 ```bash
 rm ~/Library/Application\ Support/Code/User/settings.json
-ln -sf ~/.dotfiles/vscode/settings.json ~/Library/Application\ Support/Code/User/settings.json
+ln -sf ~/Repositories/dotfiles/vscode/settings.json ~/Library/Application\ Support/Code/User/settings.json
 ```
 
 ### Issue: "code" Command Not Found
@@ -299,7 +299,7 @@ code --install-extension ms-python.python
 while IFS= read -r extension; do
     echo "Installing: $extension"
     code --install-extension "$extension" || echo "Failed: $extension"
-done < ~/.dotfiles/vscode/extensions.txt
+done < ~/Repositories/dotfiles/vscode/extensions.txt
 ```
 
 ### Issue: Snippets Not Working
@@ -317,7 +317,7 @@ ls -la ~/Library/Application\ Support/Code/User/snippets
 2. Recreate symlink if needed:
 ```bash
 rm -rf ~/Library/Application\ Support/Code/User/snippets
-ln -sf ~/.dotfiles/vscode/snippets ~/Library/Application\ Support/Code/User/snippets
+ln -sf ~/Repositories/dotfiles/vscode/snippets ~/Library/Application\ Support/Code/User/snippets
 ```
 
 3. Reload VS Code
@@ -380,7 +380,7 @@ brew search package-name
 
 3. Comment out the failing package in Brewfile and continue:
 ```bash
-nano ~/.dotfiles/brew/Brewfile
+nano ~/Repositories/dotfiles/brew/Brewfile
 # Add # before the failing package
 ```
 
@@ -423,9 +423,9 @@ ls -la ~/.zshrc
 Remove and recreate symlinks:
 
 ```bash
-cd ~/.dotfiles
+cd ~/Repositories/dotfiles
 rm ~/.zshrc
-ln -sf ~/.dotfiles/zsh/.zshrc ~/.zshrc
+ln -sf ~/Repositories/dotfiles/zsh/.zshrc ~/.zshrc
 ```
 
 ### Issue: Can't Edit Symlinked Files
@@ -439,13 +439,13 @@ This is expected behavior. When files are symlinked:
 
 1. Edit the file in the dotfiles repo:
 ```bash
-nano ~/.dotfiles/zsh/.zshrc
+nano ~/Repositories/dotfiles/zsh/.zshrc
 ```
 
 2. Or edit the symlinked file (it will update the source):
 ```bash
 nano ~/.zshrc
-# This actually edits ~/.dotfiles/zsh/.zshrc
+# This actually edits ~/Repositories/dotfiles/zsh/.zshrc
 ```
 
 3. Reload:
@@ -474,7 +474,7 @@ rm ~/.zshrc
 
 3. Recreate from dotfiles:
 ```bash
-cd ~/.dotfiles
+cd ~/Repositories/dotfiles
 ./install.sh
 ```
 
@@ -556,7 +556,7 @@ time zsh -i -c exit
 
 2. Disable plugins temporarily to find the culprit:
 ```bash
-# Edit ~/.dotfiles/zsh/.zshrc
+# Edit ~/Repositories/dotfiles/zsh/.zshrc
 # Comment out plugins one by one
 ```
 
@@ -568,8 +568,8 @@ time zsh -i -c exit
 
 4. Benchmark individual components:
 ```bash
-time source ~/.dotfiles/zsh/aliases.zsh
-time source ~/.dotfiles/zsh/functions.zsh
+time source ~/Repositories/dotfiles/zsh/aliases.zsh
+time source ~/Repositories/dotfiles/zsh/functions.zsh
 ```
 
 ### Issue: VS Code Slow to Start
@@ -578,7 +578,7 @@ time source ~/.dotfiles/zsh/functions.zsh
 
 1. Too many extensions. Review and disable unused ones:
 ```bash
-cat ~/.dotfiles/vscode/extensions.txt
+cat ~/Repositories/dotfiles/vscode/extensions.txt
 # Comment out extensions you don't use
 ```
 
@@ -606,7 +606,7 @@ ls -la ~/.gitconfig
 
 2. Verify content:
 ```bash
-cat ~/.dotfiles/git/.gitconfig
+cat ~/Repositories/dotfiles/git/.gitconfig
 ```
 
 3. Set manually:
@@ -645,8 +645,8 @@ ls -la ~/.gitignore_global
 Start with the health check; it names the problem:
 
 ```bash
-~/.dotfiles/claude/install.sh --status
-~/.dotfiles/claude/scripts/claude-settings status
+~/Repositories/dotfiles/claude/install.sh --status
+~/Repositories/dotfiles/claude/scripts/claude-settings status
 ```
 
 ### Issue: A skill, agent or command is missing
@@ -656,7 +656,7 @@ tool recreated it as a real folder (`--status` reports "a real folder, not a lin
 
 **Solution:**
 ```bash
-~/.dotfiles/claude/install.sh     # inspects the folder, backs it up to ~/.claude-migration-backup/, relinks
+~/Repositories/dotfiles/claude/install.sh     # inspects the folder, backs it up to ~/.claude-migration-backup/, relinks
 ```
 
 ### Issue: install.sh says a folder "was NOT linked — it holds items this repo does not manage"
@@ -665,7 +665,7 @@ tool recreated it as a real folder (`--status` reports "a real folder, not a lin
 skill a third-party tool installed there. `install.sh` will not hide it behind a link, so it left
 that folder alone (the others were still linked).
 
-**Solution:** for each listed item, move it into `~/.dotfiles/claude/<folder>/` to share it (it is a
+**Solution:** for each listed item, move it into `~/Repositories/dotfiles/claude/<folder>/` to share it (it is a
 public repo — check it first) or move it out of `~/.claude`, then re-run `install.sh`.
 
 ### Issue: `--status` lists "uncommitted" items
@@ -690,11 +690,11 @@ usually removing a permission or hook the public base defines.
 
 **Solution:** inspect, then pick a side:
 ```bash
-~/.dotfiles/claude/scripts/claude-settings diff
+~/Repositories/dotfiles/claude/scripts/claude-settings diff
 # keep the removal: edit claude/settings.base.json, then
-~/.dotfiles/claude/scripts/claude-settings sync
+~/Repositories/dotfiles/claude/scripts/claude-settings sync
 # or discard live's change (live is backed up first):
-~/.dotfiles/claude/scripts/claude-settings apply --force
+~/Repositories/dotfiles/claude/scripts/claude-settings apply --force
 ```
 
 ### Issue: "CONFLICT" or "no generation record and live settings.json differs"
@@ -710,9 +710,9 @@ overlay is backed up) followed by `claude-settings apply`, or `claude-settings a
 
 **Solution:** switch to real copies until it is fixed, then relink:
 ```bash
-~/.dotfiles/claude/install.sh --materialize
+~/Repositories/dotfiles/claude/install.sh --materialize
 # later
-~/.dotfiles/claude/install.sh
+~/Repositories/dotfiles/claude/install.sh
 ```
 
 ### Issue: Commit blocked by `check-public`
@@ -744,8 +744,8 @@ If you're still experiencing problems:
    zsh -f
 
    # Manually source components
-   source ~/.dotfiles/zsh/.zshenv
-   source ~/.dotfiles/zsh/path.zsh
+   source ~/Repositories/dotfiles/zsh/.zshenv
+   source ~/Repositories/dotfiles/zsh/path.zsh
    ```
 
 5. **Check system logs**:

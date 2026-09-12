@@ -57,7 +57,7 @@ This document explains the design decisions, architecture, and philosophy behind
                  │ symlinks to
                  ▼
 ┌─────────────────────────────────────────┐
-│        ~/.dotfiles Repository           │
+│        ~/Repositories/dotfiles Repository           │
 │  ┌──────────────────────────────────┐   │
 │  │  zsh/   - Shell configuration    │   │
 │  │  vscode/ - Editor configuration  │   │
@@ -168,20 +168,20 @@ When a new zsh shell starts, files are loaded in this order:
 ```
 1. /etc/zshenv        (system-wide, always)
 2. ~/.zshenv          (user-level, always)
-   └── sources ~/.dotfiles/zsh/.zshenv
+   └── sources ~/Repositories/dotfiles/zsh/.zshenv
 3. ~/.zshrc           (interactive shells)
-   └── sources ~/.dotfiles/zsh/.zshrc
+   └── sources ~/Repositories/dotfiles/zsh/.zshrc
        ├── Loads Oh-My-Zsh
-       ├── sources ~/.dotfiles/zsh/.zshenv  (explicit)
-       ├── sources ~/.dotfiles/zsh/path.zsh
-       ├── sources ~/.dotfiles/zsh/aliases.zsh
-       ├── sources ~/.dotfiles/zsh/functions.zsh
+       ├── sources ~/Repositories/dotfiles/zsh/.zshenv  (explicit)
+       ├── sources ~/Repositories/dotfiles/zsh/path.zsh
+       ├── sources ~/Repositories/dotfiles/zsh/aliases.zsh
+       ├── sources ~/Repositories/dotfiles/zsh/functions.zsh
        └── sources ~/.zshrc.local  (if exists)
 ```
 
 ### Our Loading Strategy
 
-**~/.zshrc → ~/.dotfiles/zsh/.zshrc:**
+**~/.zshrc → ~/Repositories/dotfiles/zsh/.zshrc:**
 ```zsh
 # 1. Oh-My-Zsh Configuration
 export ZSH="$HOME/.oh-my-zsh"
@@ -190,16 +190,16 @@ plugins=(git macos)
 source $ZSH/oh-my-zsh.sh
 
 # 2. Environment Variables
-source ~/.dotfiles/zsh/.zshenv
+source ~/Repositories/dotfiles/zsh/.zshenv
 
 # 3. PATH Configuration
-source ~/.dotfiles/zsh/path.zsh
+source ~/Repositories/dotfiles/zsh/path.zsh
 
 # 4. Aliases
-source ~/.dotfiles/zsh/aliases.zsh
+source ~/Repositories/dotfiles/zsh/aliases.zsh
 
 # 5. Functions
-source ~/.dotfiles/zsh/functions.zsh
+source ~/Repositories/dotfiles/zsh/functions.zsh
 
 # 6. Local Customizations
 [[ -f ~/.zshrc.local ]] && source ~/.zshrc.local
@@ -241,27 +241,27 @@ Symlinks allow configuration files to live in the git repository while appearing
 
 **Created by install.sh:**
 ```bash
-~/.zshrc        → ~/.dotfiles/zsh/.zshrc
-~/.zshenv       → ~/.dotfiles/zsh/.zshenv
-~/.vimrc        → ~/.dotfiles/editors/.vimrc
-~/.gitconfig    → ~/.dotfiles/git/.gitconfig
-~/.editorconfig → ~/.dotfiles/editors/.editorconfig
+~/.zshrc        → ~/Repositories/dotfiles/zsh/.zshrc
+~/.zshenv       → ~/Repositories/dotfiles/zsh/.zshenv
+~/.vimrc        → ~/Repositories/dotfiles/editors/.vimrc
+~/.gitconfig    → ~/Repositories/dotfiles/git/.gitconfig
+~/.editorconfig → ~/Repositories/dotfiles/editors/.editorconfig
 
 # VS Code
 ~/Library/Application Support/Code/User/settings.json
-  → ~/.dotfiles/vscode/settings.json
+  → ~/Repositories/dotfiles/vscode/settings.json
 ~/Library/Application Support/Code/User/keybindings.json
-  → ~/.dotfiles/vscode/keybindings.json
+  → ~/Repositories/dotfiles/vscode/keybindings.json
 ~/Library/Application Support/Code/User/snippets/
-  → ~/.dotfiles/vscode/snippets/
+  → ~/Repositories/dotfiles/vscode/snippets/
 
 # Claude Code — the five content folders, never ~/.claude itself (see below)
-~/.claude/agents     → ~/.dotfiles/claude/agents
-~/.claude/commands   → ~/.dotfiles/claude/commands
-~/.claude/rules      → ~/.dotfiles/claude/rules
-~/.claude/hooks      → ~/.dotfiles/claude/hooks
-~/.claude/skills     → ~/.dotfiles/claude/skills
-~/.claude/statusline-command.sh → ~/.dotfiles/claude/statusline-command.sh
+~/.claude/agents     → ~/Repositories/dotfiles/claude/agents
+~/.claude/commands   → ~/Repositories/dotfiles/claude/commands
+~/.claude/rules      → ~/Repositories/dotfiles/claude/rules
+~/.claude/hooks      → ~/Repositories/dotfiles/claude/hooks
+~/.claude/skills     → ~/Repositories/dotfiles/claude/skills
+~/.claude/statusline-command.sh → ~/Repositories/dotfiles/claude/statusline-command.sh
 ```
 
 ### Backup Strategy
@@ -547,8 +547,8 @@ brew.sh               # Homebrew packages installation
 **1. Per-Machine Profiles**
 ```bash
 # Could implement:
-~/.dotfiles/profiles/work/
-~/.dotfiles/profiles/personal/
+~/Repositories/dotfiles/profiles/work/
+~/Repositories/dotfiles/profiles/personal/
 ```
 
 **2. Secrets Management**

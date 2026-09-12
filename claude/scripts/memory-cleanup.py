@@ -13,7 +13,7 @@ Pass --dir (repeatable) to scan specific ones. --archive moves stale files into 
 subdirectory of their own memory dir.
 
 Usage:
-    python3 ~/.dotfiles/claude/scripts/memory-cleanup.py [--days 90] [--dir PATH]... [--archive]
+    python3 ~/Repositories/dotfiles/claude/scripts/memory-cleanup.py [--days 90] [--dir PATH]... [--archive]
 
 Moved from fredabood/homelab internal/scripts/memory-cleanup.py (LAB-93, homelab#1861).
 """

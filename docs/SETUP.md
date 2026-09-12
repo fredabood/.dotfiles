@@ -47,10 +47,10 @@ For experienced users who want to get up and running quickly:
 
 ```bash
 # Clone the repository
-git clone https://github.com/fredabood/.dotfiles.git ~/.dotfiles
+git clone https://github.com/fredabood/.dotfiles.git ~/Repositories/dotfiles
 
 # Navigate to the directory
-cd ~/.dotfiles
+cd ~/Repositories/dotfiles
 
 # Run the installation script
 ./install.sh
@@ -65,11 +65,11 @@ exec zsh
 
 ### Step 1: Clone the Repository
 
-Choose a location for your dotfiles. We recommend `~/.dotfiles`:
+Choose a location for your dotfiles. We recommend `~/Repositories/dotfiles`:
 
 ```bash
 # Clone to home directory
-git clone https://github.com/fredabood/.dotfiles.git ~/.dotfiles
+git clone https://github.com/fredabood/.dotfiles.git ~/Repositories/dotfiles
 ```
 
 **Alternative locations:**
@@ -80,7 +80,7 @@ git clone https://github.com/fredabood/.dotfiles.git ~/.dotfiles
 ### Step 2: Navigate to Directory
 
 ```bash
-cd ~/.dotfiles
+cd ~/Repositories/dotfiles
 ```
 
 ### Step 3: Review the Scripts (Recommended)
@@ -144,7 +144,7 @@ If you haven't already, update the git configuration with your details:
 
 ```bash
 # Edit git config
-nano ~/.dotfiles/git/.gitconfig
+nano ~/Repositories/dotfiles/git/.gitconfig
 
 # Or use git commands
 git config --global user.name "Your Name"
@@ -179,10 +179,10 @@ echo 'alias work="cd ~/work"' >> ~/.zshrc.local
 
 ### Enable Oh-My-Zsh Plugins
 
-Edit `~/.dotfiles/zsh/.zshrc` to enable additional plugins:
+Edit `~/Repositories/dotfiles/zsh/.zshrc` to enable additional plugins:
 
 ```bash
-nano ~/.dotfiles/zsh/.zshrc
+nano ~/Repositories/dotfiles/zsh/.zshrc
 ```
 
 Find the `plugins=()` array and add desired plugins:
@@ -226,7 +226,7 @@ The installer's "Link Claude Code config into ~/.claude?" step needs two things 
 Then verify:
 
 ```bash
-~/.dotfiles/claude/install.sh --status   # expect: healthy
+~/Repositories/dotfiles/claude/install.sh --status   # expect: healthy
 claude -p "List every skill name available to you, one per line."
 ```
 
@@ -267,13 +267,13 @@ cd .. && rmdir test_directory
 Review the Brewfile and uncomment any additional tools you want:
 
 ```bash
-nano ~/.dotfiles/brew/Brewfile
+nano ~/Repositories/dotfiles/brew/Brewfile
 ```
 
 Then install:
 
 ```bash
-cd ~/.dotfiles
+cd ~/Repositories/dotfiles
 brew bundle --file=brew/Brewfile
 ```
 
@@ -283,7 +283,7 @@ brew bundle --file=brew/Brewfile
 
 ```bash
 # Review what will change
-less ~/.dotfiles/macos/defaults.sh
+less ~/Repositories/dotfiles/macos/defaults.sh
 
 # Apply settings
 ./macos/defaults.sh
@@ -332,7 +332,7 @@ type mkd
 ```bash
 # Check settings symlink
 ls -la ~/Library/Application\ Support/Code/User/settings.json
-# Should point to ~/.dotfiles/vscode/settings.json
+# Should point to ~/Repositories/dotfiles/vscode/settings.json
 
 # Check extensions
 code --list-extensions
@@ -347,7 +347,7 @@ code --list-extensions
 
 ```bash
 # On your first machine
-cd ~/.dotfiles
+cd ~/Repositories/dotfiles
 ./sync-vscode.sh  # If using VS Code
 git add .
 git commit -m "My dotfiles configuration"
@@ -358,8 +358,8 @@ git push origin master
 
 ```bash
 # On your new machine
-git clone https://github.com/fredabood/.dotfiles.git ~/.dotfiles
-cd ~/.dotfiles
+git clone https://github.com/fredabood/.dotfiles.git ~/Repositories/dotfiles
+cd ~/Repositories/dotfiles
 ./install.sh
 ```
 
@@ -374,7 +374,7 @@ The installer will:
 On any machine, after making changes:
 
 ```bash
-cd ~/.dotfiles
+cd ~/Repositories/dotfiles
 
 # If you changed zsh configs, aliases, etc.
 git add zsh/
@@ -411,14 +411,14 @@ You can manually symlink only the components you want:
 
 ```bash
 # Just zsh
-ln -sf ~/.dotfiles/zsh/.zshrc ~/.zshrc
-ln -sf ~/.dotfiles/zsh/.zshenv ~/.zshenv
+ln -sf ~/Repositories/dotfiles/zsh/.zshrc ~/.zshrc
+ln -sf ~/Repositories/dotfiles/zsh/.zshenv ~/.zshenv
 
 # Just vim
-ln -sf ~/.dotfiles/editors/.vimrc ~/.vimrc
+ln -sf ~/Repositories/dotfiles/editors/.vimrc ~/.vimrc
 
 # Just git
-ln -sf ~/.dotfiles/git/.gitconfig ~/.gitconfig
+ln -sf ~/Repositories/dotfiles/git/.gitconfig ~/.gitconfig
 ```
 
 ### Custom Installation Location
@@ -472,7 +472,7 @@ mv ~/.zshrc.backup.20250104_103045 ~/.zshrc
 ### 3. Remove Repository
 
 ```bash
-rm -rf ~/.dotfiles
+rm -rf ~/Repositories/dotfiles
 ```
 
 ### 4. Uninstall Oh-My-Zsh (Optional)

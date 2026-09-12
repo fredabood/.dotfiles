@@ -34,7 +34,7 @@ PKG_DIR="$(cd -P "$(dirname "$self")" && cd .. && pwd -P)"
 SETTINGS_CMD="$PKG_DIR/scripts/claude-settings"
 if [ ! -x "$SETTINGS_CMD" ]; then
     # Never die silently: a sync hook that quietly stops syncing is the failure this exists to prevent.
-    printf '{"systemMessage": "Claude settings sync hook could not find claude-settings next to %s — settings are not being synced. Re-run ~/.dotfiles/claude/install.sh."}\n' "$self"
+    printf '{"systemMessage": "Claude settings sync hook could not find claude-settings next to %s — settings are not being synced. Re-run ~/Repositories/dotfiles/claude/install.sh."}\n' "$self"
     exit 0
 fi
 
@@ -88,7 +88,7 @@ log "sync rc=$rc: $(printf '%s' "$output" | tr '\n' ' ')"
 
 if [ "$rc" -ne 0 ]; then
     reason="$(printf '%s\n' "$output" | grep -E '^claude-settings: ' | grep -v 'warning:' | tail -1)"
-    warn_user "Claude settings sync needs attention — ~/.claude/settings.json was left as-is. ${reason:-See $LOG.} Inspect with: ~/.dotfiles/claude/scripts/claude-settings diff"
+    warn_user "Claude settings sync needs attention — ~/.claude/settings.json was left as-is. ${reason:-See $LOG.} Inspect with: ~/Repositories/dotfiles/claude/scripts/claude-settings diff"
     exit 0
 fi
 

@@ -86,17 +86,24 @@ source $ZSH/oh-my-zsh.sh
 # User Configuration
 # ============================================================================
 
+# Locate the dotfiles repo from this file's own path. ~/.zshrc is a symlink into
+# the repo, and ${0:A} resolves it, so the repo can be cloned anywhere without
+# editing this file. Falls back to the conventional location if $0 is not a path.
+DOTFILES_DIR="${${0:A}:h:h}"
+[[ -d "$DOTFILES_DIR/zsh" ]] || DOTFILES_DIR="$HOME/Repositories/dotfiles"
+export DOTFILES_DIR
+
 # Source environment variables
-[[ -f "$HOME/.dotfiles/zsh/.zshenv" ]] && source "$HOME/.dotfiles/zsh/.zshenv"
+[[ -f "$DOTFILES_DIR/zsh/.zshenv" ]] && source "$DOTFILES_DIR/zsh/.zshenv"
 
 # Source PATH configuration
-[[ -f "$HOME/.dotfiles/zsh/path.zsh" ]] && source "$HOME/.dotfiles/zsh/path.zsh"
+[[ -f "$DOTFILES_DIR/zsh/path.zsh" ]] && source "$DOTFILES_DIR/zsh/path.zsh"
 
 # Source custom aliases
-[[ -f "$HOME/.dotfiles/zsh/aliases.zsh" ]] && source "$HOME/.dotfiles/zsh/aliases.zsh"
+[[ -f "$DOTFILES_DIR/zsh/aliases.zsh" ]] && source "$DOTFILES_DIR/zsh/aliases.zsh"
 
 # Source custom functions
-[[ -f "$HOME/.dotfiles/zsh/functions.zsh" ]] && source "$HOME/.dotfiles/zsh/functions.zsh"
+[[ -f "$DOTFILES_DIR/zsh/functions.zsh" ]] && source "$DOTFILES_DIR/zsh/functions.zsh"
 
 # Source local customizations (not tracked in git)
 # Create ~/.zshrc.local for machine-specific settings
