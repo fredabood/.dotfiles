@@ -1,0 +1,247 @@
+{
+  "created": "2026-01-15",
+  "id": "2026-01-15-team-offsite",
+  "intro": "A **synthetic** board used by the test suite. Every card exists to put the board in one of the seven card states.\n\nNothing here is real. Run `board.py validate` against it.",
+  "repo": "example/offsite",
+  "schema": "decision-board/1",
+  "sections": [
+    {
+      "blurb": "Where the offsite happens. Everything else inherits from this.",
+      "cards": [
+        {
+          "decides": "Travel budget and how many days the offsite can run.",
+          "id": "A1",
+          "options": [
+            {
+              "detail": "No travel, no booking lead time, and nobody feels away from work.",
+              "key": "office",
+              "recommended": false,
+              "title": "Our own office"
+            },
+            {
+              "detail": "A change of scene within an hour's drive; needs a booking two months out.",
+              "key": "retreat",
+              "recommended": true,
+              "title": "A nearby retreat centre"
+            },
+            {
+              "detail": "Most memorable, most expensive, and it rules out anyone who cannot travel.",
+              "key": "abroad",
+              "recommended": false,
+              "title": "Somewhere abroad"
+            }
+          ],
+          "q": "Where should the offsite be held?",
+          "retired": false,
+          "rev": 1
+        },
+        {
+          "decides": "Whether catering is booked or improvised.",
+          "id": "A2",
+          "options": [
+            {
+              "detail": "One order, one invoice, and dietary needs handled once.",
+              "key": "caterer",
+              "recommended": true,
+              "title": "A caterer"
+            },
+            {
+              "detail": "Cheaper and more flexible; someone has to organise it every day.",
+              "key": "local",
+              "recommended": false,
+              "title": "Local restaurants"
+            }
+          ],
+          "q": "How is food handled?",
+          "retired": false,
+          "rev": 1
+        },
+        {
+          "decides": "The size of the room and the booking.",
+          "id": "A3",
+          "options": [
+            {
+              "detail": "Only the core team; decisions are faster.",
+              "key": "core",
+              "recommended": false,
+              "title": "Core team only"
+            },
+            {
+              "detail": "Everyone who works with the team weekly.",
+              "key": "extended",
+              "recommended": true,
+              "title": "Extended team"
+            }
+          ],
+          "q": "Who is invited?",
+          "retired": false,
+          "rev": 1
+        },
+        {
+          "decides": "Whether partners or families are part of the plan.",
+          "id": "A4",
+          "options": [
+            {
+              "detail": "A work event, kept as one.",
+              "key": "no",
+              "recommended": true,
+              "title": "Team only"
+            },
+            {
+              "detail": "One evening open to partners; changes the venue requirements.",
+              "key": "evening",
+              "recommended": false,
+              "title": "One partner evening"
+            }
+          ],
+          "q": "Are partners invited to any part of it?",
+          "retired": false,
+          "rev": 1
+        }
+      ],
+      "id": "A",
+      "title": "Place"
+    },
+    {
+      "cards": [
+        {
+          "decides": "Which quarter the booking lands in.",
+          "id": "B1",
+          "options": [
+            {
+              "detail": "Before planning season starts.",
+              "key": "spring",
+              "recommended": true,
+              "title": "Spring"
+            },
+            {
+              "detail": "After the summer holidays.",
+              "key": "autumn",
+              "recommended": false,
+              "title": "Autumn"
+            }
+          ],
+          "q": "Which season, now that the budget year moved?",
+          "retired": false,
+          "rev": 2
+        },
+        {
+          "decides": "Nothing any more; the answer is kept for the record.",
+          "id": "B2",
+          "options": [
+            {
+              "detail": "Monday to Wednesday.",
+              "key": "early",
+              "recommended": false,
+              "title": "Early week"
+            },
+            {
+              "detail": "Wednesday to Friday.",
+              "key": "late",
+              "recommended": true,
+              "title": "Late week"
+            }
+          ],
+          "q": "Which days of the week?",
+          "retired": true,
+          "rev": 1
+        },
+        {
+          "decides": "How long the agenda can be.",
+          "id": "B3",
+          "options": [
+            {
+              "detail": "One focused day.",
+              "key": "one",
+              "recommended": false,
+              "title": "One day"
+            },
+            {
+              "detail": "Two days with a night away.",
+              "key": "two",
+              "recommended": true,
+              "title": "Two days"
+            }
+          ],
+          "q": "How many days?",
+          "retired": false,
+          "rev": 1
+        }
+      ],
+      "id": "B",
+      "title": "Time"
+    },
+    {
+      "blurb": "The details that make it run.",
+      "cards": [
+        {
+          "decides": "Whether a facilitator is budgeted.",
+          "id": "C1",
+          "options": [
+            {
+              "detail": "Someone neutral runs the sessions.",
+              "key": "external",
+              "recommended": true,
+              "title": "External facilitator"
+            },
+            {
+              "detail": "A team lead runs them.",
+              "key": "internal",
+              "recommended": false,
+              "title": "Internal facilitator"
+            }
+          ],
+          "q": "Who facilitates?",
+          "retired": false,
+          "rev": 1
+        },
+        {
+          "decides": "How people get there.",
+          "id": "C2",
+          "options": [
+            {
+              "detail": "One coach from the office.",
+              "key": "coach",
+              "recommended": true,
+              "title": "A shared coach"
+            },
+            {
+              "detail": "Everyone makes their own way; travel is expensed.",
+              "key": "own",
+              "recommended": false,
+              "title": "Own travel"
+            }
+          ],
+          "q": "How does everyone travel?",
+          "retired": false,
+          "rev": 1
+        },
+        {
+          "decides": "Whether the agenda goes out in advance.",
+          "id": "C3",
+          "options": [
+            {
+              "detail": "People arrive prepared.",
+              "key": "advance",
+              "recommended": true,
+              "title": "A week in advance"
+            },
+            {
+              "detail": "Keeps it flexible.",
+              "key": "day-of",
+              "recommended": false,
+              "title": "On the day"
+            }
+          ],
+          "q": "When is the agenda shared?",
+          "retired": false,
+          "rev": 1
+        }
+      ],
+      "id": "C",
+      "title": "Logistics"
+    }
+  ],
+  "status": "open",
+  "title": "Team Offsite Planning"
+}
