@@ -28,6 +28,7 @@ claude/
 │   ├── memory-cleanup.py   # auto-memory staleness report (reads memory-access-tracker frontmatter)
 │   └── omnigent-worktree-patch  # keep Omnigent's worktrees in <repo>/.claude/worktrees
 └── tests/
+    ├── decision-board.test.sh        # board.py: schema, states, revision, serve, harvest
     ├── install.test.sh               # fake-HOME tests for install + settings
     ├── memory-access-tracker.test.sh # the hook finds Claude Code's real project dir
     └── memory-cleanup.test.sh        # the staleness report scans every project memory dir
@@ -133,6 +134,7 @@ with `git config core.hooksPath .githooks`.
 ```bash
 bash claude/tests/install.test.sh
 bash claude/tests/memory-access-tracker.test.sh
+bash claude/tests/decision-board.test.sh   # starts local servers on 127.0.0.1; uses docker for markdownlint if present
 ```
 
 Runs against a throwaway `HOME`; never touches the real `~/.claude`, vault or state. Keep the

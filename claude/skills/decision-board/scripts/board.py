@@ -22,6 +22,7 @@ Usage:
     board.py index <root> [--check]
     board.py serve <dir> [--port N]
     board.py harvest-plan <dir> [--format json|text]
+    board.py harvest-apply <dir> --drafts <drafts.json> [--dry-run | --execute] [--out DIR]
     board.py mark-harvested <dir> --cards IDS --target <owner/repo#N | vault:path.md>
 
 Exit codes: 0 ok, 1 validation or check failure, 2 usage error.
@@ -845,6 +846,307 @@ def cmd_mark_harvested(args):
     return 0
 
 
+# --------------------------------------------------------------------------- harvest-apply
+
+DRAFTS_SCHEMA = "decision-board-drafts/1"
+ROUTES = ("issue", "comment", "vault")
+ISSUE_REF_RE = re.compile(r"^([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)#(\d+)$")
+VAULT_PATH_RE = re.compile(r"^(?!/)(?!.*(?:^|/)\.\.(?:/|$))[A-Za-z0-9_./ -]+\.md$")
+MARKER_RE = re.compile(r"<!-- decision-board: board=(\S+) cards=([A-Z0-9,]+) hash=([0-9a-f]+) -->")
+# Repos whose hooks gate GitHub issue writes by inspecting the agent's own gh commands. A script that
+# called gh itself would walk past those gates, so --execute is refused there.
+GATED_HOOKS = (".claude/hooks/github-skill-gate.sh", ".claude/hooks/label-taxonomy-check.sh")
+
+
+def marker_hash(cards, board):
+    joined = ",".join("%s:%s" % (cid, answer_hash(board.answer(cid))) for cid in sorted(cards))
+    return hashlib.sha256(joined.encode("utf-8")).hexdigest()[:16]
+
+
+def draft_marker(board_id, cards, board):
+    return "<!-- decision-board: board=%s cards=%s hash=%s -->" % (board_id, ",".join(sorted(cards)), marker_hash(cards, board))
+
+
+def git_facts(path):
+    """(repo_root, head_sha, path_in_repo, dirty) for a board directory, or None outside git."""
+    import subprocess
+
+    def git(*args):
+        return subprocess.run(["git", "-C", str(path)] + list(args), capture_output=True, text=True, timeout=20)
+
+    top = git("rev-parse", "--show-toplevel")
+    if top.returncode != 0:
+        return None
+    root = Path(top.stdout.strip())
+    head = git("rev-parse", "HEAD")
+    # Only the inputs must be committed. harvest.json and the generated markdown are what a harvest
+    # writes, so a rerun before committing them must still be allowed (and be a no-op).
+    dirty = git("status", "--porcelain", "--", AGENDA_FILE, ANSWERS_FILE)
+    return {
+        "root": root,
+        "sha": head.stdout.strip() if head.returncode == 0 else None,
+        "rel": str(Path(path).resolve().relative_to(root.resolve())),
+        "dirty": bool(dirty.stdout.strip()),
+    }
+
+
+def validate_drafts(board, drafts):
+    """Check a drafts file against the board. Returns (errors, drafts list)."""
+    errs = []
+    if not isinstance(drafts, dict) or drafts.get("schema") != DRAFTS_SCHEMA or not isinstance(drafts.get("drafts"), list):
+        return ["drafts file must be {\"schema\": \"%s\", \"drafts\": [...]}" % DRAFTS_SCHEMA], []
+    seen = {}
+    records = board.harvest.get("cards", {})
+    for i, d in enumerate(drafts["drafts"]):
+        where = "drafts[%d]" % i
+        if not isinstance(d, dict):
+            errs.append("%s: must be an object" % where)
+            continue
+        route = d.get("route")
+        allowed = {"issue": {"route", "cards", "repo", "title", "body", "labels"},
+                   "comment": {"route", "cards", "issue", "body"},
+                   "vault": {"route", "cards", "path", "body"}}.get(route)
+        if allowed is None:
+            errs.append("%s.route: must be one of %s" % (where, ", ".join(ROUTES)))
+            continue
+        for key in set(d) - allowed:
+            errs.append("%s: unknown field '%s' for route %s" % (where, key, route))
+        cards = d.get("cards")
+        if not isinstance(cards, list) or not cards or not all(isinstance(c, str) for c in cards):
+            errs.append("%s.cards: must be a non-empty list of card ids" % where)
+            continue
+        body = d.get("body")
+        if not isinstance(body, str) or not body.strip():
+            errs.append("%s.body: must be a non-empty string" % where)
+        else:
+            if MARKER_RE.search(body):
+                errs.append("%s.body: already contains a decision-board marker; harvest-apply adds it" % where)
+            rep = Report()
+            _secrets(rep, where + ".body", body)
+            errs += rep.errors
+        if route == "issue":
+            if not (isinstance(d.get("repo"), str) and REPO_RE.match(d["repo"])):
+                errs.append("%s.repo: must be owner/name" % where)
+            if not (isinstance(d.get("title"), str) and 0 < len(d["title"].strip()) <= 200):
+                errs.append("%s.title: must be 1-200 characters" % where)
+            if "labels" in d and not (isinstance(d["labels"], list) and all(isinstance(x, str) and x for x in d["labels"])):
+                errs.append("%s.labels: must be a list of label names" % where)
+        elif route == "comment":
+            if not (isinstance(d.get("issue"), str) and ISSUE_REF_RE.match(d["issue"])):
+                errs.append("%s.issue: must be owner/repo#N" % where)
+        elif route == "vault":
+            if not (isinstance(d.get("path"), str) and VAULT_PATH_RE.match(d["path"])):
+                errs.append("%s.path: must be a relative path ending in .md, with no '..'" % where)
+        for cid in cards:
+            if cid in seen:
+                errs.append("%s: card %s is already in drafts[%d]" % (where, cid, seen[cid]))
+                continue
+            seen[cid] = i
+            if cid not in board.cards:
+                errs.append("%s: card %s is not on the board" % (where, cid))
+                continue
+            state = board.state(cid)
+            if state == "harvested":
+                continue  # reported and skipped at apply time: this is what makes a rerun a no-op
+            if state == "changed-since-harvest":
+                if route != "comment" or d.get("issue") != records[cid]["target"]:
+                    errs.append("%s: card %s changed since it was harvested into %s; route it as a comment on "
+                                "that issue, not a new target" % (where, cid, records[cid]["target"]))
+            elif state != "decided":
+                errs.append("%s: card %s is %s; only decided cards are harvested" % (where, cid, state))
+    return errs, drafts["drafts"]
+
+
+def cmd_harvest_apply(args):
+    import shlex
+    import subprocess
+
+    board = Board.load(args.dir)
+    errs, drafts = validate_drafts(board, read_json(args.drafts))
+    if errs:
+        raise BoardError("\n".join(["drafts refused:"] + ["  " + e for e in errs]))
+    board_id = board.agenda["id"]
+    facts = git_facts(board.path)
+    if not args.dry_run:
+        if facts is None:
+            raise BoardError("%s is not inside a git repository; a board must be versioned before it is harvested" % board.path)
+        if facts["dirty"]:
+            raise BoardError("%s has uncommitted changes; commit the answers first so the harvested issues can "
+                             "link to the exact record (or use --dry-run)" % board.path)
+    if args.execute:
+        gated = [h for h in GATED_HOOKS if (facts["root"] / h).exists()]
+        if gated:
+            raise BoardError("refusing --execute: %s gates GitHub writes with %s. Run without --execute and "
+                             "issue the printed gh commands yourself so those gates apply."
+                             % (facts["root"], ", ".join(gated)))
+
+    link = None
+    if facts and facts["sha"]:
+        link = "https://github.com/%s/blob/%s/%s/%s" % (board.agenda["repo"], facts["sha"], facts["rel"], BOARD_FILE)
+    outdir = Path(args.out) if args.out else Path(tempfile.mkdtemp(prefix="decision-board-%s-" % board_id))
+    outdir.mkdir(parents=True, exist_ok=True)
+
+    def gh(*argv):
+        res = subprocess.run(["gh"] + list(argv), capture_output=True, text=True, timeout=120)
+        if res.returncode != 0:
+            raise BoardError("gh %s failed: %s" % (" ".join(argv[:2]), (res.stderr or res.stdout).strip()))
+        return res.stdout
+
+    existing_cache = {}
+
+    def markers_in(texts, ref):
+        """This board's markers in some issue or comment bodies: [(ref, cards, hash)]."""
+        found = []
+        for text in texts:
+            for m in MARKER_RE.finditer(text or ""):
+                if m.group(1) == board_id:
+                    found.append((ref, m.group(2).split(","), m.group(3)))
+        return found
+
+    def existing_markers(route, where):
+        """Markers already on GitHub for this board: in issue bodies of a repo, or comments of an issue."""
+        key = (route, where)
+        if key not in existing_cache:
+            if route == "issue":
+                out = gh("issue", "list", "--repo", where, "--state", "all", "--limit", "200",
+                         "--search", "\"%s\" in:body" % board_id, "--json", "number,body")
+                existing_cache[key] = sum((markers_in([i.get("body")], "%s#%d" % (where, i["number"]))
+                                           for i in json.loads(out or "[]")), [])
+            else:
+                repo, num = ISSUE_REF_RE.match(where).groups()
+                out = gh("issue", "view", num, "--repo", repo, "--json", "comments")
+                existing_cache[key] = markers_in([c.get("body") for c in json.loads(out or "{}").get("comments", [])], where)
+        return existing_cache[key]
+
+    def repair(route, where, live):
+        """Record cards whose current answer is already on GitHub; return the cards still to write.
+
+        Only a marker whose hash matches the current answers counts: an issue made for an older answer
+        is not this decision, and the card needs an update instead."""
+        remaining = list(live)
+        for ref, cards, digest in existing_markers(route, where):
+            covered = [c for c in cards if c in remaining]
+            if not covered or set(cards) - set(board.cards):
+                continue
+            if marker_hash(cards, board) != digest:
+                skipped.append("%s: %s carries an older answer; not treated as harvested" % (",".join(covered), ref))
+                continue
+            _mark(board, covered, ref)
+            skipped.append("%s found in existing %s (harvest record repaired)" % (",".join(covered), ref))
+            remaining = [c for c in remaining if c not in covered]
+        return remaining
+
+    created, skipped, pending_cmds = [], [], []
+    for n, d in enumerate(drafts, 1):
+        live = [c for c in d["cards"] if board.state(c) != "harvested"]
+        for cid in d["cards"]:
+            if cid not in live:
+                skipped.append("%s already harvested → %s" % (cid, board.harvest["cards"][cid]["target"]))
+        if not live:
+            continue
+        marker = draft_marker(board_id, live, board)
+        footer = "\n\n---\n\nHarvested from decision board `%s`%s · cards %s\n\n%s\n" % (
+            board_id, " ([record](%s))" % link if link else "", ", ".join(sorted(live)), marker)
+        body = d["body"].rstrip("\n") + footer
+        body_file = outdir / ("draft-%02d.md" % n)
+        body_file.write_text(body, encoding="utf-8")
+        if d["route"] == "issue":
+            target_desc = "new issue in %s: %s" % (d["repo"], d["title"])
+            cmd = ["gh", "issue", "create", "--repo", d["repo"], "--title", d["title"], "--body-file", str(body_file)]
+            for label in d.get("labels", []):
+                cmd += ["--label", label]
+        elif d["route"] == "comment":
+            repo, num = ISSUE_REF_RE.match(d["issue"]).groups()
+            target_desc = "comment on %s" % d["issue"]
+            cmd = ["gh", "issue", "comment", num, "--repo", repo, "--body-file", str(body_file)]
+        else:
+            target_desc = "vault note %s" % d["path"]
+            cmd = None
+
+        print("── draft %d · %s · cards %s" % (n, target_desc, ", ".join(live)))
+        if args.dry_run:
+            print(body)
+            continue
+
+        if d["route"] in ("issue", "comment"):
+            # A previous run may have written this already and lost its harvest record: repair, never duplicate.
+            remaining = repair(d["route"], d["repo"] if d["route"] == "issue" else d["issue"], live)
+            if not remaining:
+                continue
+            if remaining != live:
+                raise BoardError("draft %d is only partly on GitHub already (%s still missing); split the draft "
+                                 "so each part can be written once" % (n, ", ".join(remaining)))
+        if d["route"] == "vault":
+            vault = os.environ.get("MEMORY_VAULT_PATH")
+            if not vault:
+                raise BoardError("route vault needs MEMORY_VAULT_PATH")
+            dest = Path(vault) / d["path"]
+            if args.execute:
+                if dest.exists() and marker.split(" hash=")[0] not in dest.read_text(encoding="utf-8"):
+                    raise BoardError("%s already exists and is not from this board; choose another path" % dest)
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                atomic_write(dest, body)
+                _mark(board, live, "vault:" + d["path"])
+                created.append("vault:" + d["path"])
+            else:
+                pending_cmds.append("cp %s %s" % (shlex.quote(str(body_file)), shlex.quote(str(dest))))
+                pending_cmds.append(_mark_cmd(board, live, "vault:" + d["path"]))
+            continue
+        if args.execute:
+            out = gh(*cmd[1:]).strip()
+            m = re.search(r"/issues/(\d+)", out)
+            if not m:
+                raise BoardError("could not read the issue number from gh output: %r" % out)
+            ref = ("%s#%s" % (d["repo"], m.group(1))) if d["route"] == "issue" else d["issue"]
+            _mark(board, live, ref)
+            created.append(ref)
+        else:
+            pending_cmds.append(" ".join(shlex.quote(c) for c in cmd))
+            pending_cmds.append(_mark_cmd(board, live, d["repo"] + "#<N from the line above>" if d["route"] == "issue" else d["issue"]))
+
+    plan = harvest_plan(Board.load(board.path))
+    print()
+    for line in skipped:
+        print("skip: " + line)
+    if args.dry_run:
+        print("dry run: nothing written, nothing created. Drafts are above.")
+    elif args.execute:
+        print("created: %s" % (", ".join(created) or "nothing"))
+    elif pending_cmds:
+        print("run these, in order (each gh command, then the mark-harvested that follows it):")
+        for line in pending_cmds:
+            print("  " + line)
+    else:
+        print("nothing to do.")
+    left = [c for c in plan["to_harvest"] if c not in set(sum((d["cards"] for d in drafts), []))]
+    if left:
+        print("decided but in no draft: %s" % ", ".join(left))
+    opened = plan["open"]["flagged"] + plan["open"]["stale"] + plan["open"]["untouched"]
+    if opened:
+        print("still open on the board: %s" % ", ".join(opened))
+    print("%d to harvest · %d to update · %d harvested" % (len(plan["to_harvest"]), len(plan["to_update"]), len(plan["harvested"])))
+    return 0
+
+
+def _mark(board, cards, target):
+    records = board.harvest.setdefault("cards", {})
+    stamp = now_iso()
+    for cid in cards:
+        records[cid] = {"target": target, "hash": answer_hash(board.answer(cid)), "at": stamp}
+    atomic_write(board.path / HARVEST_FILE, dump_json(board.harvest))
+    marked = Board.load(board.path)
+    write_generated(marked.path / BOARD_FILE, render_board(marked), check=False)
+    if (marked.path.parent / INDEX_FILE).exists():
+        write_generated(marked.path.parent / INDEX_FILE, render_index(marked.path.parent), check=False)
+    board.harvest = marked.harvest
+
+
+def _mark_cmd(board, cards, target):
+    import shlex
+    return "python3 %s mark-harvested %s --cards %s --target %s" % (
+        shlex.quote(str(Path(__file__).resolve())), shlex.quote(str(board.path)), ",".join(cards), shlex.quote(target))
+
+
 # --------------------------------------------------------------------------- serve
 
 PAGE_TEMPLATE = Path(__file__).resolve().parent.parent / "assets" / "board.html"
@@ -1114,6 +1416,15 @@ def build_parser():
     s.add_argument("dir")
     s.add_argument("--format", choices=("json", "text"), default="json")
     s.set_defaults(func=cmd_harvest_plan)
+    s = sub.add_parser("harvest-apply", help="turn reviewed drafts into issues, comments or vault notes")
+    s.add_argument("dir")
+    s.add_argument("--drafts", required=True, help="drafts JSON (schema decision-board-drafts/1)")
+    mode = s.add_mutually_exclusive_group()
+    mode.add_argument("--dry-run", action="store_true", help="print the drafts; write and create nothing")
+    mode.add_argument("--execute", action="store_true",
+                      help="create the issues/comments/notes and record them (refused in repos whose hooks gate issue writes)")
+    s.add_argument("--out", help="directory for the prepared body files (default: a new temp dir)")
+    s.set_defaults(func=cmd_harvest_apply)
     s = sub.add_parser("mark-harvested", help="record where decided cards landed")
     s.add_argument("dir")
     s.add_argument("--cards", required=True)

@@ -165,6 +165,54 @@ agenda with the current one and protects every answer:
 `revise` also rewrites `rev` itself: whatever `rev` the new file carries is ignored in favour of the
 current value, plus one when bumped.
 
+## Harvesting: `harvest-plan`, drafts, `harvest-apply`
+
+`harvest-plan` lists every card with its state and answer. Claude groups the `decided` cards into
+**drafts**, one per issue, comment or vault note to write:
+
+```json
+{
+  "schema": "decision-board-drafts/1",
+  "drafts": [
+    {"route": "issue", "cards": ["A1", "C1"], "repo": "owner/name", "title": "…", "body": "…", "labels": ["…"]},
+    {"route": "comment", "cards": ["A3"], "issue": "owner/name#13", "body": "…"},
+    {"route": "vault", "cards": ["B1"], "path": "project/decisions/note.md", "body": "…"}
+  ]
+}
+```
+
+`harvest-apply` refuses a drafts file in any of these cases:
+
+- a card appears twice, is not on the board, or is not `decided`;
+- a `changed-since-harvest` card is routed anywhere except a comment on its existing target;
+- a vault path is absolute or climbs out with `..`;
+- a body already carries a marker, or looks like it holds a secret.
+
+To every body it appends a footer with the board id, the cards, a link to `BOARD.md` pinned to the
+current commit, and a marker:
+
+```text
+<!-- decision-board: board=<board id> cards=A1,C1 hash=<16 hex> -->
+```
+
+The marker hash covers each card's answer hash, so a marker identifies **this answer**, not merely
+this card.
+
+| Mode | GitHub | `harvest.json` |
+|---|---|---|
+| `--dry-run` | no calls | untouched |
+| *(default)* prepare | reads only: looks for existing markers | repaired if a marker is found; otherwise untouched. Prints the `gh` commands and the `mark-harvested` that follows each |
+| `--execute` | looks for markers, then creates issues and comments; writes vault notes | recorded after each write. **Refused** in repos whose hooks gate issue writes, so those gates are never bypassed |
+
+Uncommitted `agenda.json` or `answers.json` are refused outside `--dry-run`: the pinned link must
+point at the answers that were harvested. Idempotency has two layers:
+
+1. **`harvest.json`.** Cards already `harvested` are skipped before anything else happens, so a rerun
+   makes no GitHub calls at all.
+2. **Markers on GitHub.** If `harvest.json` was lost, an issue body or issue comment that already
+   carries a marker **with the current hash** is recorded instead of written again. A marker for an
+   older answer is reported, and does not count.
+
 ## Answering: `board.py serve`
 
 `serve` opens the board as a local page and writes every pick straight into `answers.json`. The page
@@ -196,6 +244,7 @@ board.py render <dir> [--check]                        regenerate BOARD.md
 board.py index <root> [--check]                        regenerate <root>/README.md
 board.py serve <dir> [--port N]                        answer in the browser; writes answers.json
 board.py harvest-plan <dir> [--format json|text]       classify every card by state
+board.py harvest-apply <dir> --drafts <file> [--dry-run | --execute] [--out DIR]
 board.py mark-harvested <dir> --cards IDS --target <owner/repo#N | vault:path.md>
 ```
 
