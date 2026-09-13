@@ -20,6 +20,7 @@ Usage:
     board.py revise <dir> --from <agenda.json> [--bump IDS] [--keep-answer IDS]
     board.py render <dir> [--check]
     board.py index <root> [--check]
+    board.py serve <dir> [--port N]
     board.py harvest-plan <dir> [--format json|text]
     board.py mark-harvested <dir> --cards IDS --target <owner/repo#N | vault:path.md>
 
@@ -844,6 +845,242 @@ def cmd_mark_harvested(args):
     return 0
 
 
+# --------------------------------------------------------------------------- serve
+
+PAGE_TEMPLATE = Path(__file__).resolve().parent.parent / "assets" / "board.html"
+MAX_BODY = 16 * 1024
+CARD_PATH_RE = re.compile(r"^/answers/([A-Z]{1,3}[0-9]{1,3})$")
+
+
+def board_snapshot(board):
+    """What the page needs besides the agenda: answers, computed states and harvest targets."""
+    records = board.harvest.get("cards", {})
+    return {
+        "answers": board.answers,
+        "states": dict((cid, board.state(cid)) for cid in board.cards),
+        "harvest": dict((cid, rec["target"]) for cid, rec in records.items()),
+    }
+
+
+def apply_answer(board_dir, cid, body):
+    """Validate one answer from the page and merge it into answers.json on disk.
+
+    Re-reads the files on every call so a hand edit to another card made while the page is open
+    is preserved. Returns (status, payload)."""
+    board = Board.load(board_dir)
+    cards = board.cards
+    if cid not in cards:
+        return 400, {"error": "card %s is not on the agenda" % cid}
+    card = cards[cid]
+    if card.get("retired"):
+        return 400, {"error": "card %s is retired" % cid}
+    if not isinstance(body, dict):
+        return 400, {"error": "body must be a JSON object"}
+    unknown = set(body) - {"choice", "note", "flagged", "resolution", "rev"}
+    if unknown:
+        return 400, {"error": "unknown field(s): %s" % ", ".join(sorted(unknown))}
+    if body.get("rev") != card.get("rev", 1):
+        return 409, {"error": "card %s is now at rev %d; reload the board" % (cid, card.get("rev", 1)),
+                     "rev": card.get("rev", 1)}
+    entry = {
+        "choice": body.get("choice"),
+        "note": body.get("note", ""),
+        "flagged": body.get("flagged", False),
+        "rev": card.get("rev", 1),
+        "at": now_iso(),
+    }
+    if body.get("resolution") is not None:
+        entry["resolution"] = body["resolution"]
+    rep = validate_answer_entry(card, entry, "answers.%s" % cid)
+    keys = [o["key"] for o in card["options"]]
+    if isinstance(entry["choice"], str) and entry["choice"] not in keys and entry["choice"] != RESOLUTION:
+        rep.err("answers.%s.choice" % cid, "'%s' is not an option of %s" % (entry["choice"], cid))
+    if entry["flagged"] is True and entry["choice"] is not None:
+        rep.err("answers.%s" % cid, "a card flagged for discussion has no choice")
+    if rep.errors:
+        return 400, {"error": "; ".join(rep.errors)}
+    cards_answers = board.answers.setdefault("cards", {})
+    if entry["choice"] is None and not entry["flagged"] and not (entry["note"] or "").strip():
+        cards_answers.pop(cid, None)
+    else:
+        cards_answers[cid] = entry
+    atomic_write(board.path / ANSWERS_FILE, dump_json(board.answers))
+    saved = Board.load(board.path)
+    write_generated(saved.path / BOARD_FILE, render_board(saved), check=False)
+    if (saved.path.parent / INDEX_FILE).exists():
+        write_generated(saved.path.parent / INDEX_FILE, render_index(saved.path.parent), check=False)
+    return 200, {"ok": True, "entry": saved.answer(cid), "state": saved.state(cid), "snapshot": board_snapshot(saved)}
+
+
+def make_handler(board_dir, token, port_holder, lock):
+    import http.server
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        server_version = "decision-board"
+        sys_version = ""
+
+        def log_message(self, fmt, *args):  # quiet by default; writes are logged explicitly
+            pass
+
+        def _send(self, status, body, content_type="application/json; charset=utf-8", nonce=None):
+            data = body if isinstance(body, bytes) else (dump_json(body) if not isinstance(body, str) else body).encode("utf-8")
+            self.send_response(status)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(len(data)))
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("Referrer-Policy", "no-referrer")
+            self.send_header("X-Frame-Options", "DENY")
+            csp = "default-src 'none'; connect-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+            if nonce:
+                csp += "; script-src 'nonce-%s'; style-src 'nonce-%s'" % (nonce, nonce)
+            self.send_header("Content-Security-Policy", csp)
+            self.end_headers()
+            if self.command != "HEAD":
+                self.wfile.write(data)
+
+        def _allowed_hosts(self):
+            port = port_holder[0]
+            return {"127.0.0.1:%d" % port, "localhost:%d" % port}
+
+        def _guard(self, token_value):
+            """Host, Origin and token checks shared by every route. Returns True when the request may proceed."""
+            if self.headers.get("Host", "") not in self._allowed_hosts():
+                self._send(403, {"error": "forbidden host"})
+                return False
+            origin = self.headers.get("Origin")
+            if origin is not None and origin not in set("http://" + h for h in self._allowed_hosts()):
+                self._send(403, {"error": "forbidden origin"})
+                return False
+            import hmac
+            if not token_value or not hmac.compare_digest(token_value, token):
+                self._send(403, {"error": "missing or wrong token"})
+                return False
+            return True
+
+        def do_GET(self):
+            from urllib.parse import urlsplit, parse_qs
+            parts = urlsplit(self.path)
+            if parts.path == "/":
+                if not self._guard((parse_qs(parts.query).get("t") or [""])[0]):
+                    return
+                import secrets
+                nonce = secrets.token_urlsafe(16)
+                page = PAGE_TEMPLATE.read_text(encoding="utf-8").replace("__NONCE__", nonce)
+                self._send(200, page, "text/html; charset=utf-8", nonce=nonce)
+                return
+            if parts.path not in ("/agenda", "/answers"):
+                self._send(404, {"error": "not found"})
+                return
+            if not self._guard(self.headers.get("X-Board-Token", "")):
+                return
+            try:
+                with lock:
+                    board = Board.load(board_dir)
+            except BoardError as exc:
+                self._send(409, {"error": str(exc)})
+                return
+            if parts.path == "/agenda":
+                self._send(200, dict(board.agenda, path=str(board.path)))
+            else:
+                self._send(200, board_snapshot(board))
+
+        do_HEAD = do_GET
+
+        def do_PUT(self):
+            match = CARD_PATH_RE.match(self.path)
+            if not match:
+                self._send(404, {"error": "not found"})
+                return
+            if not self._guard(self.headers.get("X-Board-Token", "")):
+                return
+            if not self.headers.get("Content-Type", "").startswith("application/json"):
+                self._send(415, {"error": "Content-Type must be application/json"})
+                return
+            try:
+                length = int(self.headers.get("Content-Length", ""))
+            except ValueError:
+                self._send(411, {"error": "Content-Length required"})
+                return
+            if length > MAX_BODY:
+                self._send(413, {"error": "body over %d bytes" % MAX_BODY})
+                return
+            try:
+                body = json.loads(self.rfile.read(length).decode("utf-8"))
+            except (ValueError, UnicodeDecodeError):
+                self._send(400, {"error": "body is not valid JSON"})
+                return
+            try:
+                with lock:
+                    status, payload = apply_answer(board_dir, match.group(1), body)
+            except BoardError as exc:
+                status, payload = 409, {"error": str(exc)}
+            if status == 200:
+                sys.stderr.write("%s saved %s → %s\n" % (now_iso(), match.group(1), payload["state"]))
+                sys.stderr.flush()
+            self._send(status, payload)
+
+        def do_POST(self):
+            self._send(405, {"error": "method not allowed"})
+
+        do_DELETE = do_PATCH = do_POST
+
+    return Handler
+
+
+def default_port(board_id):
+    """A stable port in 20000-29999 derived from the board id."""
+    return 20000 + int(hashlib.sha256(board_id.encode("utf-8")).hexdigest()[:8], 16) % 10000
+
+
+def cmd_serve(args):
+    import http.server
+    import secrets
+    import threading
+
+    board = Board.load(args.dir)
+    if not PAGE_TEMPLATE.is_file():
+        raise BoardError("page template missing: %s" % PAGE_TEMPLATE)
+    token = secrets.token_urlsafe(24)
+    port_holder, lock = [0], threading.Lock()
+    handler = make_handler(board.path, token, port_holder, lock)
+    # A board gets the same port every run. The page keeps unsaved answers in the browser's storage,
+    # which is scoped to 127.0.0.1:<port>; a random port would strand them after a restart.
+    port = args.port if args.port is not None else default_port(board.agenda["id"])
+    try:
+        httpd = http.server.ThreadingHTTPServer(("127.0.0.1", port), handler)
+    except OSError as exc:
+        if args.port is not None:
+            raise BoardError("cannot listen on 127.0.0.1:%d: %s" % (port, exc))
+        print("warning: port %d is busy (%s); using a free port. Answers kept in the browser from an "
+              "earlier run of this board will not be visible on it." % (port, exc.strerror or exc), file=sys.stderr)
+        httpd = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+    port_holder[0] = httpd.server_address[1]
+    print("serving %s" % board.path)
+    print("open    http://127.0.0.1:%d/?t=%s" % (port_holder[0], token), flush=True)
+    print("answers are written to %s; stop with Ctrl-C" % (board.path / ANSWERS_FILE), flush=True)
+
+    def stop(signum, frame):
+        raise KeyboardInterrupt
+
+    import signal
+    signal.signal(signal.SIGTERM, stop)
+    try:
+        httpd.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        httpd.server_close()
+        import subprocess
+        try:
+            diff = subprocess.run(["git", "-C", str(board.path), "diff", "--stat", "--", "."],
+                                  capture_output=True, text=True, timeout=10).stdout.strip()
+            print("\nstopped. uncommitted changes:\n%s" % diff if diff else "\nstopped. no uncommitted changes.")
+        except (OSError, subprocess.SubprocessError):
+            print("\nstopped.")
+    return 0
+
+
 def build_parser():
     p = argparse.ArgumentParser(prog="board.py", description="Decision boards versioned in the repo they decide.")
     sub = p.add_subparsers(dest="command")
@@ -868,6 +1105,11 @@ def build_parser():
     s.add_argument("root")
     s.add_argument("--check", action="store_true", help="exit 1 if README.md is out of date; write nothing")
     s.set_defaults(func=cmd_index)
+    s = sub.add_parser("serve", help="answer a board in the browser; writes answers.json")
+    s.add_argument("dir")
+    s.add_argument("--port", type=int, default=None,
+                   help="port on 127.0.0.1; 0 for any free port (default: a stable port derived from the board id)")
+    s.set_defaults(func=cmd_serve)
     s = sub.add_parser("harvest-plan", help="classify every card for harvesting")
     s.add_argument("dir")
     s.add_argument("--format", choices=("json", "text"), default="json")

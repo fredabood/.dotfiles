@@ -165,6 +165,27 @@ agenda with the current one and protects every answer:
 `revise` also rewrites `rev` itself: whatever `rev` the new file carries is ignored in favour of the
 current value, plus one when bumped.
 
+## Answering: `board.py serve`
+
+`serve` opens the board as a local page and writes every pick straight into `answers.json`. The page
+works the same everywhere; the file stays hand-editable for when it is not running.
+
+| Property | Behaviour |
+|---|---|
+| Reach | Binds `127.0.0.1` only. Nothing on the network can see it |
+| Port | Stable per board (derived from its id), so a restart keeps the page's origin. Falls back to a free port, with a warning, when that one is busy. `--port 0` asks for any free port |
+| Access | Each run prints a link with a fresh random token. Requests without it, with a foreign `Host`, or with a foreign `Origin` get 403 |
+| Routes | `GET /` (the page), `GET /agenda`, `GET /answers`, `PUT /answers/<card>`. Nothing else is served. There are no static files and no directory access |
+| Writes | One card per request, validated like `answers.json` itself, then merged into the file on disk. A hand edit to another card made while the page is open survives. `BOARD.md` and the index are regenerated after each write |
+| Rejections | 400 invalid answer · 409 the card was revised (reload) or the file on disk is invalid · 413 body over 16 KiB · 415 not JSON |
+| Page | Recommendations marked, never pre-selected. No external requests (strict CSP with a per-request nonce, system fonts). Every piece of answer text is inserted as text, never as markup |
+| Save state | `saved to <repo> · answers.json` — on disk. `not saved — kept in this browser` — the server is down or the link is from an earlier run; answers wait in browser storage and replay when the page reaches a server again. `replaying N unsaved answers…` while that happens |
+| Revision under an open page | An unsaved answer for a card that was revised is held as stale and never re-sent until the answerer confirms it against the new wording |
+| Git | `serve` never commits. On exit it prints `git diff --stat` for the board directory |
+
+**Without the server.** Edit `answers.json` in any editor, including GitHub's web editor. Then run
+`board.py validate` to catch mistakes and `board.py render` to update `BOARD.md`.
+
 ## Commands
 
 ```text
@@ -173,6 +194,7 @@ board.py validate <dir>                                check everything above; e
 board.py revise <dir> --from <agenda.json> [--bump IDS] [--keep-answer IDS]
 board.py render <dir> [--check]                        regenerate BOARD.md
 board.py index <root> [--check]                        regenerate <root>/README.md
+board.py serve <dir> [--port N]                        answer in the browser; writes answers.json
 board.py harvest-plan <dir> [--format json|text]       classify every card by state
 board.py mark-harvested <dir> --cards IDS --target <owner/repo#N | vault:path.md>
 ```

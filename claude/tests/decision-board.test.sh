@@ -223,5 +223,94 @@ check "editing a harvested answer marks it changed-since-harvest" test "$(state_
 mutate "$dir/answers.json" 'd["cards"]["A1"]["note"] = ""; d["cards"]["A1"]["at"] = "2030-01-01T00:00:00Z"'
 check "re-saving an unchanged answer keeps it harvested" test "$(state_of "$dir" A1)" = harvested
 
+echo "serve"
+dir="$(fresh serve)"
+log="$T/serve.log"
+# wait_url <log>: print the URL a serve run announced, waiting up to 5s.
+wait_url() {
+    local u=""
+    for _ in $(seq 1 50); do
+        u="$(sed -n 's/^open *//p' "$1")"
+        [ -n "$u" ] && break
+        sleep 0.1
+    done
+    printf '%s' "$u"
+}
+python3 "$BOARD" serve "$dir" >"$T/default-1.log" 2>&1 &
+first_pid=$!
+first_url="$(wait_url "$T/default-1.log")"
+python3 "$BOARD" serve "$dir" >"$T/default-2.log" 2>&1 &
+second_pid=$!
+second_url="$(wait_url "$T/default-2.log")"
+kill -TERM "$second_pid" "$first_pid" 2>/dev/null; wait "$second_pid" "$first_pid" 2>/dev/null
+expected_port="$(python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); import board; print(board.default_port("2026-01-15-team-offsite"))' "$SKILL/scripts")"
+check "by default a board is served on its stable port" bash -c '[[ "$1" == "http://127.0.0.1:$2/?t="* ]]' _ "$first_url" "$expected_port"
+check "a busy stable port falls back to a free one, with a warning" bash -c '[ -n "$1" ] && [[ "$1" != "http://127.0.0.1:$2/"* ]] && grep -q "port $2 is busy" "$3"' _ "$second_url" "$expected_port" "$T/default-2.log"
+
+python3 "$BOARD" serve "$dir" --port 0 >"$log" 2>&1 &
+server_pid=$!
+url="$(wait_url "$log")"
+check "serve prints a loopback URL with a token" bash -c '[[ "$1" =~ ^http://127\.0\.0\.1:[0-9]+/\?t=[A-Za-z0-9_-]{20,}$ ]]' _ "$url"
+base="${url%%/?t=*}"; token="${url##*t=}"; hostport="${base#http://}"; port="${hostport##*:}"
+
+code() { curl -s -o "$T/body" -w '%{http_code}' "$@"; }
+put() { # put <card> <json> [extra curl args...]
+    local card="$1" json="$2"; shift 2
+    code -X PUT -H "X-Board-Token: $token" -H "Content-Type: application/json" --data "$json" "$@" "$base/answers/$card"
+}
+
+check "the page without a token is 403" test "$(code "$base/")" = 403
+check "the page with the token is 200" test "$(code "$base/?t=$token")" = 200
+check "the page makes no external requests" bash -c '! grep -Eq "(src|href)=\"(https?:)?//" "$1" && ! grep -q "fonts.googleapis" "$1"' _ "$T/body"
+check "the page carries a nonce CSP" bash -c 'curl -s -D - -o /dev/null "$1" | grep -qi "content-security-policy: default-src '"'"'none'"'"'.*script-src '"'"'nonce-"' _ "$base/?t=$token"
+check "a foreign Host header is 403" test "$(code -H "Host: evil.example:$port" "$base/?t=$token")" = 403
+check "the API without the token header is 403" test "$(code "$base/answers")" = 403
+check "the API with the token header is 200" test "$(code -H "X-Board-Token: $token" "$base/answers")" = 200
+check "the API reports computed states" grep -q '"A3": "changed-since-harvest"' "$T/body"
+check "a wrong token is 403" test "$(code -H "X-Board-Token: nope" "$base/agenda")" = 403
+check "a PUT from a foreign Origin is 403" test "$(put B3 '{"choice":"two","note":"","flagged":false,"rev":1}' -H "Origin: https://evil.example")" = 403
+check "a PUT from the page's own Origin is accepted" test "$(put B3 '{"choice":"two","note":"","flagged":false,"rev":1}' -H "Origin: http://127.0.0.1:$port")" = 200
+check "the answer lands in answers.json" python3 -c 'import json, sys
+a = json.load(open(sys.argv[1]))["cards"]
+sys.exit(0 if a["B3"]["choice"] == "two" and a["B3"]["rev"] == 1 else 1)' "$dir/answers.json"
+check "other answers are preserved" python3 -c 'import json, sys
+a = json.load(open(sys.argv[1]))["cards"]
+sys.exit(0 if a["A1"]["choice"] == "retreat" and a["A4"]["flagged"] else 1)' "$dir/answers.json"
+board render "$dir" --check >/dev/null 2>&1; rc=$?
+check "serve keeps BOARD.md in sync" test "$rc" -eq 0
+check "an unknown card is 400" test "$(put Z9 '{"choice":null,"note":"","flagged":true,"rev":1}')" = 400
+check "an option the card does not have is 400" test "$(put B3 '{"choice":"seven","note":"","flagged":false,"rev":1}')" = 400
+check "a retired card is 400" test "$(put B2 '{"choice":"late","note":"","flagged":false,"rev":1}')" = 400
+check "flagged with a choice is 400" test "$(put B3 '{"choice":"two","note":"","flagged":true,"rev":1}')" = 400
+check "an unknown field is 400" test "$(put B3 '{"choice":"two","note":"","flagged":false,"rev":1,"admin":true}')" = 400
+check "an answer against an old card rev is 409" test "$(put B1 '{"choice":"spring","note":"","flagged":false,"rev":1}')" = 409
+check "confirming against the current rev clears stale" bash -c '[ "$(curl -s -o /dev/null -w "%{http_code}" -X PUT -H "X-Board-Token: $2" -H "Content-Type: application/json" --data "{\"choice\":\"spring\",\"note\":\"\",\"flagged\":false,\"rev\":2}" "$1/answers/B1")" = 200 ]' _ "$base" "$token"
+check "the confirmed card is decided" test "$(state_of "$dir" B1)" = decided
+big="$(python3 -c 'print("x" * 20000)')"
+check "an oversized body is 413" test "$(put B3 "{\"choice\":\"two\",\"note\":\"$big\",\"flagged\":false,\"rev\":1}")" = 413
+check "a non-JSON content type is 415" test "$(code -X PUT -H "X-Board-Token: $token" -H "Content-Type: text/plain" --data 'x' "$base/answers/B3")" = 415
+check "a credential in a note is 400" test "$(put B3 "{\"choice\":\"two\",\"note\":\"pass""word=hunter2hunter2hunter2\",\"flagged\":false,\"rev\":1}")" = 400
+check "an unknown path is 404" test "$(code -H "X-Board-Token: $token" "$base/etc/passwd")" = 404
+check "a traversal path is 404" test "$(code --path-as-is -H "X-Board-Token: $token" "$base/../agenda.json")" = 404
+check "POST is not allowed" test "$(code -X POST -H "X-Board-Token: $token" "$base/answers/B3")" = 405
+mutate "$dir/answers.json" 'd["cards"]["C3"]["note"] = "Edited by hand while the page was open."'
+check "a PUT after a hand edit succeeds" test "$(put A4 '{"choice":"no","note":"Talked it through.","flagged":false,"rev":1}')" = 200
+check "the concurrent hand edit to another card survives" grep -q "Edited by hand while the page was open." "$dir/answers.json"
+check "clearing an answer with no note removes it" bash -c '[ "$(curl -s -o /dev/null -w "%{http_code}" -X PUT -H "X-Board-Token: $2" -H "Content-Type: application/json" --data "{\"choice\":null,\"note\":\"\",\"flagged\":false,\"rev\":1}" "$1/answers/B3")" = 200 ] && ! grep -q "\"B3\"" "$3"' _ "$base" "$token" "$dir/answers.json"
+mutate "$dir/answers.json" 'd["cards"]["C2"] = "broken"'
+check "an invalid answers.json on disk is 409, not overwritten" bash -c '[ "$(curl -s -o /dev/null -w "%{http_code}" -X PUT -H "X-Board-Token: $2" -H "Content-Type: application/json" --data "{\"choice\":\"advance\",\"note\":\"\",\"flagged\":false,\"rev\":1}" "$1/answers/C3")" = 409 ] && grep -q "\"broken\"" "$3"' _ "$base" "$token" "$dir/answers.json"
+kill -TERM "$server_pid" 2>/dev/null; wait "$server_pid" 2>/dev/null
+check "serve stops cleanly on SIGTERM" grep -q "^stopped" "$log"
+check "the server is gone" bash -c '! curl -s -o /dev/null --max-time 2 "$1/"' _ "$base"
+
+echo "no server"
+dir="$(fresh by-hand)"
+mutate "$dir/answers.json" 'd["cards"]["B3"] = {"choice": "one", "note": "Answered on my phone, in the GitHub editor.", "flagged": False, "rev": 1}'
+board validate "$dir" >/dev/null 2>&1; rc=$?
+check "a hand-edited answers.json validates" test "$rc" -eq 0
+board render "$dir" >/dev/null
+check "a hand-edited answer renders" grep -q "Answered on my phone" "$dir/BOARD.md"
+check "a hand-edited answer counts as decided" test "$(state_of "$dir" B3)" = decided
+
 printf '\n%d passed, %d failed, %d skipped\n' "$pass" "$failed" "$skipped"
 [ "$failed" -eq 0 ]
