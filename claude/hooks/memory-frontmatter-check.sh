@@ -86,7 +86,9 @@ except ValueError as e:
 
 PUNCT = set("();<>|&\n")
 ASSIGN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
-WRAPPERS = {"command", "exec", "env", "time", "nohup", "builtin"}
+# Words that may precede a command in the same segment: wrappers and shell reserved words.
+PREFIXES = {"command", "exec", "env", "time", "nohup", "builtin", "sudo",
+            "if", "then", "elif", "else", "do", "while", "until", "!", "{"}
 
 def resolve(base, path):
     if any(c in path for c in "$`*?["):
@@ -100,23 +102,24 @@ def resolve(base, path):
 
 def segment(words, cur):
     """Returns the working directory after this segment; emits any commit it contains."""
-    i, git_dir_env = 0, False
-    while i < len(words) and (ASSIGN.match(words[i]) or words[i] in WRAPPERS):
-        if words[i].startswith(("GIT_DIR=", "GIT_WORK_TREE=")):
-            git_dir_env = True
+    i = 0
+    while i < len(words) and (ASSIGN.match(words[i]) or words[i] in PREFIXES):
         i += 1
-    if i >= len(words):
-        return cur
-    verb, args = words[i], words[i + 1:]
-    if verb in ("cd", "pushd"):
-        args = [a for a in args if a not in ("-L", "-P", "--")]
+    if i < len(words) and words[i] in ("cd", "pushd"):
+        args = [a for a in words[i + 1:] if a not in ("-L", "-P", "--")]
         if not args:
             return os.path.expanduser("~")
         if args[0] == "-":
             return Unknown("cd - (previous directory is not known)")
         return resolve(cur, args[0])
-    if os.path.basename(verb) != "git":
+    # The FIRST `git` word anywhere in the segment, not only in command position: a wrapper
+    # this list does not know (sudo -u x, xargs, env -u VAR) must not turn into a silent pass.
+    # Over-matching `echo git commit` can at worst block a vault commit that has bad notes.
+    k = next((n for n, w in enumerate(words) if os.path.basename(w) == "git"), None)
+    if k is None:
         return cur
+    git_dir_env = any(w.startswith(("GIT_DIR=", "GIT_WORK_TREE=")) for w in words[:k])
+    args = words[k + 1:]
     target, j = cur, 0
     while j < len(args):
         a = args[j]

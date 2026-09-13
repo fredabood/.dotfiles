@@ -104,6 +104,20 @@ t_multiline_message() { setup; stage "$WT" bad.md "$BAD"; run_hook "$OTHER" "cd 
 line two\""; blocked bad.md; }
 check "multi-line quoted commit message does not break parsing" t_multiline_message
 
+echo "wrappers and reserved words are not a silent pass"
+# One check per shape; each passed silently (exit 0, no output) before the PR #10 review fix.
+for shape in "if git -C '@' commit -m x; then echo ok; fi" \
+             "true && { cd '@' && git commit -m x; }" \
+             "! git -C '@' commit -m x" \
+             "env -u FOO git -C '@' commit -m x" \
+             "sudo -u someone git -C '@' commit -m x" \
+             "xargs git -C '@' commit -m x"; do
+    t_wrapped() { setup; stage "$WT" bad.md "$BAD"; run_hook "$OTHER" "${1//@/$WT}"; blocked bad.md; }
+    check "$shape -> blocked" t_wrapped "$shape"
+done
+t_second_git_word() { setup; stage "$WT" bad.md "$BAD"; run_hook "$WT" "git log --grep git commit"; silent_pass; }
+check "only the first git word counts: git log --grep git commit -> silent" t_second_git_word
+
 echo "skip paths are visible"
 t_skip_expansion() { setup; stage "$WT" bad.md "$BAD"; run_hook "$OTHER" "cd \"\$HOME/x\" && git commit -m x"; one_skip_notice; }
 check "cd \$VAR && git commit -> one-line skip notice" t_skip_expansion
