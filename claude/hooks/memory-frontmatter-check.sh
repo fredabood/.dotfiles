@@ -213,6 +213,9 @@ if [[ ${#VAULT_TOPS[@]} -eq 0 ]]; then
   exit 0
 fi
 
+# Every line of a BLOCK goes to stderr. On exit 2 Claude Code hands the model stderr only; when
+# this report went to stdout the agent saw "No stderr output" and could not tell what to fix
+# (LAB-1996 post-merge live control, 2026-09-12).
 ERRORS=0
 CHECKED=0
 for TOP in "${VAULT_TOPS[@]}"; do
@@ -229,7 +232,7 @@ while IFS= read -r file; do
 
   # Check frontmatter exists
   if [[ "$(head -1 "$file")" != "---" ]]; then
-    echo "ERROR: $file — missing frontmatter (no opening ---)"
+    echo "ERROR: $file — missing frontmatter (no opening ---)" >&2
     ERRORS=$((ERRORS + 1))
     continue
   fi
@@ -238,7 +241,7 @@ while IFS= read -r file; do
   FM=$(awk '/^---$/{n++; if(n==2) exit} n==1{print}' "$file")
 
   if [[ -z "$FM" ]]; then
-    echo "ERROR: $file — unclosed frontmatter block (missing closing ---)"
+    echo "ERROR: $file — unclosed frontmatter block (missing closing ---)" >&2
     ERRORS=$((ERRORS + 1))
     continue
   fi
@@ -251,7 +254,7 @@ while IFS= read -r file; do
   # `!`, meaning a valid file would be reported as missing a required field.
   for field in title tags created; do
     if ! grep -q "^${field}:" <<<"$FM"; then
-      echo "ERROR: $file — missing required field: $field"
+      echo "ERROR: $file — missing required field: $field" >&2
       ERRORS=$((ERRORS + 1))
     fi
   done
@@ -261,7 +264,7 @@ while IFS= read -r file; do
   # -q test below is the herestring form for the same reason as the loop above.
   CREATED=$(grep "^created:" <<<"$FM" | sed 's/created: *//' | sed 's/^["'"'"']//;s/["'"'"']$//')
   if [[ -n "$CREATED" ]] && ! grep -qE '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' <<<"$CREATED"; then
-    echo "ERROR: $file — created date not in YYYY-MM-DD format: $CREATED"
+    echo "ERROR: $file — created date not in YYYY-MM-DD format: $CREATED" >&2
     ERRORS=$((ERRORS + 1))
   fi
 done <<< "$STAGED_FILES"
@@ -272,9 +275,11 @@ if [[ $CHECKED -eq 0 ]]; then
 fi
 
 if [[ $ERRORS -gt 0 ]]; then
-  echo ""
-  echo "Vault frontmatter validation failed ($ERRORS errors)."
-  echo "Run /obsidian-lint --fix to auto-repair, or fix manually."
+  {
+    echo ""
+    echo "Vault frontmatter validation failed ($ERRORS errors)."
+    echo "Run /obsidian-lint --fix to auto-repair, or fix manually."
+  } >&2
   exit 2
 fi
 

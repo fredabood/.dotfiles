@@ -52,7 +52,9 @@ print(json.dumps(d))' "$1" "$2")
     ERR=$(cat "$T/stderr")
 }
 
-blocked() { [ "$RC" -eq 2 ] && grep -q "$1" <<<"$OUT"; }
+# The reason goes to STDERR: on exit 2 Claude Code shows the model stderr only, so a reason on
+# stdout reaches it as "No stderr output" (seen in the LAB-1996 post-merge live control).
+blocked() { [ "$RC" -eq 2 ] && grep -q "ERROR: $1" <<<"$ERR" && grep -q 'obsidian-lint' <<<"$ERR"; }
 silent_pass() { [ "$RC" -eq 0 ] && [ -z "$OUT" ] && [ -z "$ERR" ]; }
 one_skip_notice() { [ "$RC" -eq 0 ] && [ "$(printf '%s\n' "$ERR" | wc -l | tr -d ' ')" -eq 1 ] && grep -q 'skipped' <<<"$ERR"; }
 
@@ -64,13 +66,13 @@ check "primary vault checkout, bad .md staged -> blocked" t_primary_blocked
 t_own_index() {
     setup; stage "$VAULT" primary-bad.md "$BAD"; stage "$WT" good.md "$GOOD"
     run_hook "$WT" "git commit -m x"
-    [ "$RC" -eq 0 ] && ! grep -q primary-bad.md <<<"$OUT"
+    [ "$RC" -eq 0 ] && ! grep -q primary-bad.md <<<"$OUT$ERR"
 }
 check "worktree with valid .md passes although primary has a bad .md staged" t_own_index
 t_primary_ignores_worktree() {
     setup; stage "$WT" wt-bad.md "$BAD"; stage "$VAULT" good.md "$GOOD"
     run_hook "$VAULT" "git commit -m x"
-    [ "$RC" -eq 0 ] && ! grep -q wt-bad.md <<<"$OUT"
+    [ "$RC" -eq 0 ] && ! grep -q wt-bad.md <<<"$OUT$ERR"
 }
 check "primary with valid .md passes although a worktree has a bad .md staged" t_primary_ignores_worktree
 t_subdir() { setup; mkdir -p "$WT/notes"; stage "$WT" notes/bad.md "$BAD"; run_hook "$WT/notes" "git commit -m x"; blocked notes/bad.md; }
