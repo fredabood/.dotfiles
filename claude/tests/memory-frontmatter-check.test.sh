@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # memory-frontmatter-check.test.sh — the gate must validate the index of the repo being COMMITTED:
-# the vault's primary checkout or any worktree of it, and nothing else (LAB-1996).
+# the vault's primary checkout or any worktree of it, and nothing else (LAB-1996) — and the files the
+# commit will actually contain, including ones staged by the same command (LAB-2062).
 # Runs against a throwaway HOME and temp repos. Run: bash claude/tests/memory-frontmatter-check.test.sh
 set -uo pipefail
 
@@ -36,8 +37,12 @@ setup() {
     export MEMORY_VAULT_PATH="$VAULT"
 }
 
+# put <repo> <file> <content>: write to the working tree only.
+put() { printf '%s' "$3" > "$1/$2"; }
 # stage <repo> <file> <content>
-stage() { printf '%s' "$3" > "$1/$2" && git -C "$1" add -- "$2"; }
+stage() { put "$@" && git -C "$1" add -- "$2"; }
+# commit_tracked <repo> <file>: commit a valid version, then overwrite it with BAD, unstaged.
+commit_tracked() { stage "$1" "$2" "$GOOD" && git -C "$1" commit -qm "$2" && put "$1" "$2" "$BAD"; }
 
 # run_hook <cwd, or "" for none> <command>: sets RC, OUT (stdout) and ERR (stderr).
 run_hook() {
@@ -120,6 +125,63 @@ done
 t_second_git_word() { setup; stage "$WT" bad.md "$BAD"; run_hook "$WT" "git log --grep git commit"; silent_pass; }
 check "only the first git word counts: git log --grep git commit -> silent" t_second_git_word
 
+echo "stage and commit in one command (LAB-2062)"
+# The hook runs BEFORE the command, so the index it can read is the one from before any `git add`
+# in the same command. Every check below passed silently (exit 0, no output) before LAB-2062.
+t_add_then_commit() { setup; put "$WT" bad.md "$BAD"; run_hook "$WT" "git add bad.md && git commit -m x"; blocked bad.md; }
+check "git add bad.md && git commit, nothing staged before -> blocked" t_add_then_commit
+t_add_then_commit_c() { setup; put "$WT" bad.md "$BAD"; run_hook "$OTHER" "git -C '$WT' add bad.md && git -C '$WT' commit -m x"; blocked bad.md; }
+check "git -C <wt> add && git -C <wt> commit (cwd elsewhere) -> blocked" t_add_then_commit_c
+t_cd_add_commit() { setup; put "$WT" bad.md "$BAD"; run_hook "$OTHER" "cd '$WT' && git add bad.md && git commit -m x"; blocked bad.md; }
+check "cd <wt> && git add bad.md && git commit -> blocked" t_cd_add_commit
+t_add_subdir() { setup; mkdir -p "$WT/notes"; put "$WT" notes/bad.md "$BAD"; run_hook "$WT/notes" "git add bad.md && git commit -m x"; blocked notes/bad.md; }
+check "git add pathspec is relative to the cwd subdirectory -> blocked" t_add_subdir
+t_add_all() { setup; put "$WT" bad.md "$BAD"; run_hook "$WT" "git add -A && git commit -m x"; blocked bad.md; }
+check "git add -A && git commit, untracked bad .md -> blocked" t_add_all
+t_add_dot() { setup; put "$WT" bad.md "$BAD"; run_hook "$WT" "git add . && git commit -m x"; blocked bad.md; }
+check "git add . && git commit, untracked bad .md -> blocked" t_add_dot
+t_add_glob() { setup; put "$WT" bad.md "$BAD"; run_hook "$WT" "git add '*.md' && git commit -m x"; blocked bad.md; }
+check "git add '*.md' && git commit -> blocked (pathspec glob, not shell-expanded)" t_add_glob
+t_add_update() { setup; commit_tracked "$WT" bad.md; run_hook "$WT" "git add -u && git commit -m x"; blocked bad.md; }
+check "git add -u && git commit, tracked bad .md modified -> blocked" t_add_update
+for shape in "git commit -am x" "git commit -a -m x" "git commit --all -m x"; do
+    t_commit_all() { setup; commit_tracked "$WT" bad.md; run_hook "$WT" "$1"; blocked bad.md; }
+    check "$shape, tracked bad .md modified -> blocked" t_commit_all "$shape"
+done
+for shape in "git commit -m x bad.md" "git commit -m x -- bad.md" "git commit -i -m x bad.md" "git commit --only -m x bad.md"; do
+    t_commit_path() { setup; commit_tracked "$WT" bad.md; run_hook "$WT" "$1"; blocked bad.md; }
+    check "$shape (pathspec), tracked bad .md modified -> blocked" t_commit_path "$shape"
+done
+t_add_good_untracked_bad() {
+    setup; put "$WT" good.md "$GOOD"; put "$WT" bad.md "$BAD"
+    run_hook "$WT" "git add good.md && git commit -m x"
+    [ "$RC" -eq 0 ] && ! grep -q bad.md <<<"$OUT$ERR"
+}
+check "git add good.md && git commit passes with an unrelated untracked bad .md" t_add_good_untracked_bad
+t_commit_path_excludes_index() {
+    setup; put "$WT" good.md "$GOOD"; git -C "$WT" add good.md && git -C "$WT" commit -qm good
+    put "$WT" good.md "${GOOD}more"; stage "$WT" bad.md "$BAD"
+    run_hook "$WT" "git commit -m x good.md"
+    [ "$RC" -eq 0 ] && ! grep -q bad.md <<<"$OUT$ERR"
+}
+check "git commit <good path> is not blocked by a bad .md staged outside the pathspec" t_commit_path_excludes_index
+t_commit_msg_file() { setup; put "$WT" msg.md "$BAD"; run_hook "$WT" "git commit -F msg.md"; silent_pass; }
+check "git commit -F msg.md: an option value is not a pathspec -> silent" t_commit_msg_file
+t_add_after_commit() { setup; put "$WT" bad.md "$BAD"; run_hook "$WT" "git commit -m x; git add bad.md"; silent_pass; }
+check "git add after the commit is not counted -> silent" t_add_after_commit
+t_add_other_repo() { setup; put "$OTHER" x.md "$BAD"; run_hook "$OTHER" "git -C '$OTHER' add x.md && git -C '$WT' commit -m x"; silent_pass; }
+check "git add in another repo does not count toward a vault commit -> silent" t_add_other_repo
+t_add_dry_run() { setup; put "$WT" bad.md "$BAD"; run_hook "$WT" "git add -n bad.md && git commit -m x"; silent_pass; }
+check "git add -n (dry run) stages nothing -> silent" t_add_dry_run
+t_add_rm() { setup; commit_tracked "$WT" bad.md; run_hook "$WT" "git rm -q --cached bad.md && git commit -m x"; silent_pass; }
+check "git rm stages no content -> silent" t_add_rm
+t_add_patch_skip() { setup; put "$WT" bad.md "$BAD"; run_hook "$WT" "git add -p && git commit -m x"; one_skip_notice; }
+check "git add -p && git commit -> one-line skip notice" t_add_patch_skip
+t_add_subst_skip() { setup; put "$WT" bad.md "$BAD"; run_hook "$WT" "git add \$(ls) && git commit -m x"; one_skip_notice; }
+check "git add \$(ls) && git commit -> one-line skip notice" t_add_subst_skip
+t_add_skip_still_validates() { setup; stage "$WT" staged-bad.md "$BAD"; run_hook "$WT" "git add -p && git commit -m x"; blocked staged-bad.md && grep -q skipped <<<"$ERR"; }
+check "a skipped git add does not cancel validation of the index -> blocked" t_add_skip_still_validates
+
 echo "skip paths are visible"
 t_skip_expansion() { setup; stage "$WT" bad.md "$BAD"; run_hook "$OTHER" "cd \"\$HOME/x\" && git commit -m x"; one_skip_notice; }
 check "cd \$VAR && git commit -> one-line skip notice" t_skip_expansion
@@ -155,6 +217,8 @@ t_no_exec_backtick() { setup; run_hook "$OTHER" "cd \`touch '$T/pwned2'\` && git
 check "backticks in a cd argument are not run" t_no_exec_backtick
 t_no_exec_semicolon() { setup; run_hook "$OTHER" "git -C '$WT; touch $T/pwned3' commit -m x"; [ ! -e "$T/pwned3" ] && [ "$RC" -eq 0 ]; }
 check "a quoted ';' in a -C path is a path, not a command" t_no_exec_semicolon
+t_no_exec_add_pathspec() { setup; run_hook "$WT" "git add \"\$(touch '$T/pwned4')\" && git commit -m x"; [ ! -e "$T/pwned4" ] && one_skip_notice; }
+check "\$(...) in a git add pathspec is not run -> one-line skip notice" t_no_exec_add_pathspec
 
 printf '\n%d passed, %d failed\n' "$pass" "$failed"
 [ "$failed" -eq 0 ]
