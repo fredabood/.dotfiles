@@ -1,0 +1,15 @@
+{
+  "cards": {
+    "A2": {
+      "at": "2026-01-21T09:00:00Z",
+      "hash": "a46f6accbffebff9",
+      "target": "example/offsite#12"
+    },
+    "A3": {
+      "at": "2026-01-21T09:00:00Z",
+      "hash": "e0e797c33ddc5328",
+      "target": "example/offsite#13"
+    }
+  },
+  "schema": "decision-board-harvest/1"
+}
