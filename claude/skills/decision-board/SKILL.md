@@ -34,6 +34,9 @@ BOARD=~/.claude/skills/decision-board/scripts/board.py
 1. **Choose the repo and the place.**
    - The board lives in the repository whose work it decides, at
      `docs/decision-boards/<YYYY-MM-DD>-<slug>/`.
+   - **Exception:** if the cards quote evidence that repository forbids (for example deployment detail
+     in a product repo), store the board in the repository that owns the evidence. Keep `repo` set to
+     the decided repository, and link to the board from its tracking issue.
    - Work on a branch or worktree, never in a checkout other sessions share.
 2. **Write the agenda** to a scratch file, following `references/schema.md`:
    - **Group** cards into sections. Ids are the section letter plus a number (`A1`, `A2`, `B1`).

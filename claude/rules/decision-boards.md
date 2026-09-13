@@ -22,6 +22,11 @@ not yet asked, and the user answers without seeing how the questions interact.
 - **A board lives in the repository it decides**, under `docs/decision-boards/`, and git versions it.
   **Never** publish a board or its answers as a claude.ai Artifact, and never keep them in an artifact
   database or any other hosted store.
+- **One exception.** When the board carries evidence the decided repository forbids, store it in the
+  repository that owns that evidence and link to it from the decided one. The usual case is a product
+  repo that keeps deployment-specific detail out, deciding things based on a survey of one
+  deployment. The agenda's `repo` still names the decided repository, which is where its cards are
+  harvested.
 - **It is a collection instrument, not the archive.** Harvested cards become issues, ADRs or comments
   there, and those are the record.
 - **"Needs discussion" is an answer.** A flagged card never becomes an issue until it has been

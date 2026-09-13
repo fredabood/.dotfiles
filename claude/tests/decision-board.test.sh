@@ -295,6 +295,11 @@ check "prepare mode prints the gh commands to run" bash -c '[ "$1" -eq 0 ] && gr
 check "prepare mode only reads from GitHub" bash -c '[ -s "$1" ] && [ "$(grep -Evc "^issue (list|view) " "$1")" = 0 ]' _ "$GH_LOG"
 check "prepare mode leaves harvest.json byte-identical" test "$(shasum "$dir/harvest.json")" = "$harvest_before"
 check "prepared bodies carry the SHA-pinned record link" grep -q "blob/[0-9a-f]\{40\}/docs/decision-boards/2026-01-15-team-offsite/BOARD.md" "$T/prepared/draft-01.md"
+check "without a GitHub remote the link falls back to the decided repo" grep -q "https://github.com/example/offsite/blob/" "$T/prepared/draft-01.md"
+git -C "$repo_root" remote add origin git@github.com:example/evidence-owner.git
+apply "$dir" --drafts "$drafts" --out "$T/prepared-remote" >/dev/null 2>&1
+git -C "$repo_root" remote remove origin
+check "the record link points at the repo that stores the board" grep -q "https://github.com/example/evidence-owner/blob/" "$T/prepared-remote/draft-01.md"
 rm -rf "$repo_root/.claude"
 
 rm -f "$GH_LOG" "$GH_COUNTER"

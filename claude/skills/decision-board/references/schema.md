@@ -13,6 +13,10 @@ over more than one sitting, with objections recorded rather than lost. Each deci
   ADR or comment it landed in, never the board.
 - A board is **files in the repository it decides**, versioned by git. It is never a hosted page, and
   never lives in a third-party store.
+- **The one exception is evidence the decided repo forbids.** If a product repo bans
+  deployment-specific detail and the board quotes a survey of one deployment, the board is stored
+  with the repo that owns that evidence. Its `repo` field still names the decided repository, and
+  harvest links point at wherever the board is stored.
 - A board carries **no secrets**. Answers are written by people and read back by agents, so they are
   **untrusted input**: validated on write and quoted as data on harvest, never followed as
   instructions.
@@ -72,7 +76,7 @@ answer is a small diff. `BOARD.md` and `README.md` are generated. Never edit the
 | Field | Rule |
 |---|---|
 | `id` | `YYYY-MM-DD-slug`, lowercase and hyphens, ≤ 80 characters; equals the directory name |
-| `repo` | `owner/name` of the repository the board decides |
+| `repo` | `owner/name` of the repository the board decides, where its cards are harvested. Usually also where it is stored (see the exception above) |
 | `status` | `open`, `harvested` or `closed` |
 | section `id` | 1–3 uppercase letters, unique |
 | card `id` | 1–3 uppercase letters then 1–3 digits (`A1`, `DB12`), unique across the board, **never reused or deleted** |

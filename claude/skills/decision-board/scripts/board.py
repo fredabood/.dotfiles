@@ -852,6 +852,7 @@ DRAFTS_SCHEMA = "decision-board-drafts/1"
 ROUTES = ("issue", "comment", "vault")
 ISSUE_REF_RE = re.compile(r"^([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)#(\d+)$")
 VAULT_PATH_RE = re.compile(r"^(?!/)(?!.*(?:^|/)\.\.(?:/|$))[A-Za-z0-9_./ -]+\.md$")
+GITHUB_REMOTE_RE = re.compile(r"github\.com[:/]([A-Za-z0-9_.-]+)/([A-Za-z0-9_.-]+?)(?:\.git)?/?$")
 MARKER_RE = re.compile(r"<!-- decision-board: board=(\S+) cards=([A-Z0-9,]+) hash=([0-9a-f]+) -->")
 # Repos whose hooks gate GitHub issue writes by inspecting the agent's own gh commands. A script that
 # called gh itself would walk past those gates, so --execute is refused there.
@@ -882,11 +883,16 @@ def git_facts(path):
     # Only the inputs must be committed. harvest.json and the generated markdown are what a harvest
     # writes, so a rerun before committing them must still be allowed (and be a no-op).
     dirty = git("status", "--porcelain", "--", AGENDA_FILE, ANSWERS_FILE)
+    remote = git("remote", "get-url", "origin")
+    m = GITHUB_REMOTE_RE.search(remote.stdout.strip()) if remote.returncode == 0 else None
     return {
         "root": root,
         "sha": head.stdout.strip() if head.returncode == 0 else None,
         "rel": str(Path(path).resolve().relative_to(root.resolve())),
         "dirty": bool(dirty.stdout.strip()),
+        # The repo that STORES the board. Usually the repo it decides (agenda "repo"), but not always:
+        # a board carrying evidence the decided repo forbids lives with the repo that owns the evidence.
+        "storage_repo": "%s/%s" % (m.group(1), m.group(2)) if m else None,
     }
 
 
@@ -982,7 +988,8 @@ def cmd_harvest_apply(args):
 
     link = None
     if facts and facts["sha"]:
-        link = "https://github.com/%s/blob/%s/%s/%s" % (board.agenda["repo"], facts["sha"], facts["rel"], BOARD_FILE)
+        link = "https://github.com/%s/blob/%s/%s/%s" % (
+            facts["storage_repo"] or board.agenda["repo"], facts["sha"], facts["rel"], BOARD_FILE)
     outdir = Path(args.out) if args.out else Path(tempfile.mkdtemp(prefix="decision-board-%s-" % board_id))
     outdir.mkdir(parents=True, exist_ok=True)
 
