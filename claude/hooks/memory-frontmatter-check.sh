@@ -34,8 +34,17 @@ fi
 # The command text is parsed with shlex, never evaluated: a path containing $, a backtick or a
 # glob is reported as unresolvable rather than expanded.
 #
-# Known limit (pre-existing, not fixed here): PreToolUse runs BEFORE the command, so in
-# `git add x && git commit` the index is read before the add. Stage in a separate call.
+# Then add-then-commit (LAB-2062, 2026-09-13): PreToolUse runs BEFORE the command, so in
+# `git add x && git commit` the index was read before the add. With nothing staged beforehand the
+# hook exited 0 silently, and `git add … && git commit` is the most common way agents commit. So
+# the file set is now computed from the command: the index, plus every earlier `git add` in the
+# same command that targets the same repo, plus `commit -a`, `commit -i <paths>` and
+# `commit <paths>` (which commits only those paths). Content is read from the working tree.
+#
+# Remaining limits, each a visible skip rather than a silent pass: interactive or file-driven
+# adds and commits (-p, -i, -e, --pathspec-from-file), and pathspecs using $, backticks or braces.
+# A partially staged file is validated from the working tree, not the staged blob. `git rm` and
+# `git mv` stage no new content and are not counted.
 #
 # If you change this file, prove it with claude/tests/memory-frontmatter-check.test.sh AND by
 # staging a frontmatter-less .md in a real vault worktree and watching the commit get BLOCKED —
@@ -45,7 +54,9 @@ skip() {
   echo "memory-frontmatter-check: skipped — $1" >&2
 }
 
-# Prints one line per `git commit` found: "DIR<TAB><abs path>" or "SKIP<TAB><reason>".
+# Prints one line per `git commit` found: "DIR<TAB><abs path><TAB><json>" or "SKIP<TAB><reason>".
+# The json says what else the commit will pick up: -a, -i, pathspecs, and every earlier `git add`
+# in the same command (LAB-2062).
 # A function rather than a heredoc inside $( ): bash 3.2 mis-parses the latter.
 resolve_targets() {
   HOOK_PAYLOAD="$INPUT" python3 - <<'PY'
@@ -55,13 +66,16 @@ class Unknown:
     def __init__(self, reason):
         self.reason = reason
 
-def emit(kind, value):
-    line = kind + "\t" + value.replace("\n", " ")
+def emit(kind, value, extra=None):
+    line = kind + "\t" + value.replace("\n", " ").replace("\t", " ")
+    if extra is not None:
+        line += "\t" + extra
     if line not in seen:
         seen.append(line)
         print(line)
 
 seen = []
+adds = []  # every `git add` seen so far in the command, in order
 try:
     payload = json.loads(os.environ.get("HOOK_PAYLOAD") or "")
 except ValueError:
@@ -135,14 +149,113 @@ def segment(words, cur):
             j += 1
         else:
             break
-    if j < len(args) and args[j] == "commit":
+    sub, rest = (args[j], args[j + 1:]) if j < len(args) else (None, [])
+    if sub in ("add", "stage"):
+        add = parse_add(rest)
+        if add is not None:
+            if git_dir_env:
+                add["skip"] = "git add with an explicit --git-dir/--work-tree/GIT_DIR"
+            elif isinstance(target, Unknown):
+                add["skip"] = "git add in an unresolvable directory (%s)" % target.reason
+            else:
+                add["dir"] = target
+            adds.append(add)
+    # `git rm` stages no content, and `git mv` moves an index entry without staging worktree
+    # edits, so neither adds a file the commit could get wrong. They are deliberately not counted.
+    elif sub == "commit":
         if git_dir_env:
             emit("SKIP", "git commit with an explicit --git-dir/--work-tree/GIT_DIR")
         elif isinstance(target, Unknown):
             emit("SKIP", target.reason)
         else:
-            emit("DIR", target)
+            spec = parse_commit(rest)
+            spec["adds"] = list(adds)
+            emit("DIR", target, json.dumps(spec))
     return cur
+
+def expands(spec):
+    return any(c in spec for c in "$`{\n")
+
+def parse_add(rest):
+    """The file set a `git add` stages, or None when it stages no content."""
+    add = {"all": False, "update": False, "force": False, "specs": []}
+    after = False
+    for a in rest:
+        if after or not a.startswith("-") or a == "-":
+            add["specs"].append(a)
+        elif a == "--":
+            after = True
+        elif a.startswith("--"):
+            name = a[2:].split("=", 1)[0]
+            if name in ("dry-run", "intent-to-add"):
+                return None
+            if name in ("all", "no-ignore-removal"):
+                add["all"] = True
+            elif name == "update":
+                add["update"] = True
+            elif name == "force":
+                add["force"] = True
+            elif name in ("patch", "interactive", "edit", "pathspec-from-file"):
+                add["skip"] = "interactive or file-driven git add (--%s)" % name
+        else:
+            for ch in a[1:]:
+                if ch in "nN":
+                    return None
+                if ch == "A":
+                    add["all"] = True
+                elif ch == "u":
+                    add["update"] = True
+                elif ch == "f":
+                    add["force"] = True
+                elif ch in "pie":
+                    add["skip"] = "interactive git add (-%s)" % ch
+    if any(expands(s) for s in add["specs"]):
+        add["skip"] = "git add pathspec uses shell expansion"
+    return add
+
+# Options whose value is the next word unless attached; the value is never a pathspec.
+COMMIT_SHORT_VALUE = set("mFCct")
+COMMIT_LONG_VALUE = {"message", "file", "reuse-message", "reedit-message", "author", "date",
+                     "template", "fixup", "squash", "cleanup", "trailer"}
+
+def parse_commit(rest):
+    spec = {"all": False, "include": False, "specs": [], "skips": []}
+    k, after = 0, False
+    while k < len(rest):
+        a = rest[k]
+        k += 1
+        if after or not a.startswith("-") or a == "-":
+            spec["specs"].append(a)
+        elif a == "--":
+            after = True
+        elif a.startswith("--"):
+            name, eq, _ = a[2:].partition("=")
+            if name == "all":
+                spec["all"] = True
+            elif name == "include":
+                spec["include"] = True
+            elif name in ("patch", "interactive", "pathspec-from-file"):
+                spec["skips"].append("interactive or file-driven git commit (--%s)" % name)
+            elif name in COMMIT_LONG_VALUE and not eq:
+                k += 1
+        else:
+            for n, ch in enumerate(a[1:]):
+                if ch == "a":
+                    spec["all"] = True
+                elif ch == "i":
+                    spec["include"] = True
+                elif ch == "p":
+                    spec["skips"].append("interactive git commit (-p)")
+                elif ch in COMMIT_SHORT_VALUE:
+                    if n + 2 == len(a):
+                        k += 1
+                    break
+                elif ch in "Su":
+                    break
+    if any(expands(s) for s in spec["specs"]):
+        spec["skips"].append("git commit pathspec uses shell expansion")
+        spec["specs"] = []
+    return spec
 
 cur, stack, words, redirect = start, [], [], False
 for tok in tokens:
@@ -189,8 +302,96 @@ common_dir() {
 MEMORY_DIR="${MEMORY_VAULT_PATH:-$HOME/Repositories/memory}"
 VAULT_COMMON=""
 
+# commit_files <top> <commit dir> <json>: the .md files the commit will contain, as
+# "FILE<TAB><top-relative path>" or "SKIP<TAB><reason>" lines. Git runs with list argv, never a
+# shell, and pathspecs go after `--`. Content is read from the working tree afterwards: for every
+# source below, that is the content git will stage.
+commit_files() {
+  CF_TOP="$1" CF_DIR="$2" CF_SPEC="$3" python3 - <<'PY'
+import json, os, subprocess
+
+top, cdir = os.environ["CF_TOP"], os.environ["CF_DIR"]
+seen = []
+
+def say(kind, value):
+    line = kind + "\t" + value
+    if line not in seen:
+        seen.append(line)
+        print(line)
+
+def git(d, *args):
+    r = subprocess.run(["git", "-c", "core.fsmonitor=false", "-C", d] + list(args),
+                       stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    if r.returncode != 0:
+        return None
+    return r.stdout.decode("utf-8", "surrogateescape")
+
+def names(d, *args):
+    out = git(d, *args)
+    return None if out is None else [p for p in out.split("\0") if p]
+
+def files(paths, reason):
+    if paths is None:
+        say("SKIP", reason)
+        return
+    for p in paths:
+        if not p.endswith(".md"):
+            continue
+        if "\n" in p or "\t" in p:
+            say("SKIP", "a staged .md name contains a newline or tab")
+        else:
+            say("FILE", p)
+
+def toplevel(d):
+    out = git(d, "rev-parse", "--show-toplevel")
+    return os.path.realpath(out.strip()) if out else None
+
+CHANGED = ("diff", "--name-only", "-z", "--no-relative", "--diff-filter=ACM")
+try:
+    spec = json.loads(os.environ["CF_SPEC"] or "{}")
+except ValueError:
+    spec = {"skips": ["could not read the parsed commit"]}
+for reason in spec.get("skips", []):
+    say("SKIP", reason)
+
+specs = spec.get("specs") or []
+index = lambda: files(names(top, "diff", "--cached", *CHANGED[1:]), "could not read the index")
+if spec.get("all"):
+    index()
+    files(names(top, *CHANGED), "could not list modified tracked files for commit -a")
+elif specs and spec.get("include"):
+    index()
+    files(names(cdir, *CHANGED + ("--",) + tuple(specs)), "could not list the commit -i paths")
+elif specs:
+    # `git commit <paths>` commits only those paths from the working tree; the rest of the index waits.
+    files(names(cdir, "diff", "HEAD", *CHANGED[1:] + ("--",) + tuple(specs)),
+          "could not diff the commit pathspec against HEAD")
+else:
+    index()
+
+real_top = os.path.realpath(top)
+for add in spec.get("adds", []):
+    if "skip" in add:
+        say("SKIP", add["skip"])
+        continue
+    if toplevel(add["dir"]) != real_top:
+        continue
+    paths = add["specs"] or ([":/"] if add["all"] or add["update"] else [])
+    if not paths:
+        continue
+    files(names(add["dir"], *CHANGED + ("--",) + tuple(paths)), "could not list the git add paths")
+    if not add["update"] or add["all"]:
+        others = ("ls-files", "-z", "--full-name", "--others")
+        if not add["force"]:
+            others += ("--exclude-standard",)
+        files(names(add["dir"], *others + ("--",) + tuple(paths)), "could not list untracked git add paths")
+PY
+}
+
 VAULT_TOPS=()
-while IFS=$'\t' read -r kind value; do
+VAULT_DIRS=()
+VAULT_SPECS=()
+while IFS=$'\t' read -r kind value spec; do
   if [[ "$kind" == SKIP ]]; then
     skip "$value"
     continue
@@ -206,6 +407,8 @@ while IFS=$'\t' read -r kind value; do
   fi
   if [[ "$(common_dir "$TOP" || true)" == "$VAULT_COMMON" ]]; then
     VAULT_TOPS+=("$TOP")
+    VAULT_DIRS+=("$value")
+    VAULT_SPECS+=("$spec")
   fi
 done <<<"$TARGETS"
 
@@ -218,10 +421,23 @@ fi
 # (LAB-1996 post-merge live control, 2026-09-12).
 ERRORS=0
 CHECKED=0
-for TOP in "${VAULT_TOPS[@]}"; do
+for i in "${!VAULT_TOPS[@]}"; do
+TOP="${VAULT_TOPS[$i]}"
 cd "$TOP"
 
-STAGED_FILES=$(git -c core.fsmonitor=false diff --cached --name-only --diff-filter=ACM -- '*.md' 2>/dev/null || true)
+if ! FILE_LINES=$(commit_files "$TOP" "${VAULT_DIRS[$i]}" "${VAULT_SPECS[$i]}"); then
+  skip "could not compute the files this commit will contain (python3 failed)"
+  continue
+fi
+STAGED_FILES=""
+while IFS=$'\t' read -r kind value; do
+  if [[ "$kind" == SKIP ]]; then
+    skip "$value"
+  elif [[ "$kind" == FILE ]]; then
+    STAGED_FILES+="$value"$'\n'
+  fi
+done <<<"$FILE_LINES"
+STAGED_FILES="${STAGED_FILES%$'\n'}"
 if [[ -z "$STAGED_FILES" ]]; then
   continue
 fi
