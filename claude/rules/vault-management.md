@@ -118,4 +118,6 @@ Use `--archive` flag to move stale files to a `stale/` subdirectory.
 
 ### Pre-commit validation
 
-The `memory-frontmatter-check.sh` hook validates frontmatter on all staged `.md` files in the memory submodule. It blocks commits missing `title`, `tags`, or `created` fields. Run `/obsidian-lint --fix` to auto-repair issues.
+The `memory-frontmatter-check.sh` hook validates frontmatter on the staged `.md` files of a `git commit` in the vault repo. That covers the primary checkout and every worktree of it, and each commit is checked against its own index. It blocks commits missing `title`, `tags`, or `created` fields. Run `/obsidian-lint --fix` to auto-repair issues.
+
+It finds the repo from the command itself: `git -C <path>`, a leading `cd <path> &&`, or else the session cwd. When it can't tell, it prints a one-line `skipped` notice to stderr rather than passing silently. Stage files in a separate call from the commit: the hook runs before the command, so `git add x && git commit` is checked against the index as it was before the add.
