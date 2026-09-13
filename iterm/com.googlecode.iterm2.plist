@@ -749,7 +749,7 @@
 			<key>Columns</key>
 			<integer>80</integer>
 			<key>Command</key>
-			<string>/bin/zsh -l -c 'cd ~/homelab'</string>
+			<string>/bin/zsh -l -c 'cd ~/Repositories/homelab'</string>
 			<key>Cursor Color</key>
 			<dict>
 				<key>Alpha Component</key>
@@ -1908,7 +1908,7 @@
 			<key>Columns</key>
 			<integer>80</integer>
 			<key>Command</key>
-			<string>/bin/zsh -l -c 'cd ~/homelab &amp;&amp; claude'</string>
+			<string>/bin/zsh -l -c 'cd ~/Repositories/homelab &amp;&amp; claude'</string>
 			<key>Cursor Color</key>
 			<dict>
 				<key>Alpha Component</key>
@@ -3085,7 +3085,7 @@
 			<key>Columns</key>
 			<integer>80</integer>
 			<key>Command</key>
-			<string>/bin/zsh -l -c 'cd ~/homelab/submodules/work &amp;&amp; claude'</string>
+			<string>/bin/zsh -l -c 'cd ~/Repositories/work &amp;&amp; claude'</string>
 			<key>Cursor Color</key>
 			<dict>
 				<key>Alpha Component</key>
