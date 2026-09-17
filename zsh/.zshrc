@@ -143,8 +143,6 @@ fi
 # - nvm loading
 # - direnv hook
 
-# RAG Knowledge Base Search
-alias rag='python3 ~/homelab/internal/scripts/goose-rag-search.py'
 export PATH="$HOME/bin:$PATH"
 
 # Atlassian MCP + Anthropic credentials live in ~/.zshrc.local (gitignored,
