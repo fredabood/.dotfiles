@@ -143,8 +143,37 @@ EOF
 
 print_header "Exporting Extensions List"
 
-# Get list of installed extensions
-code --list-extensions > "$VSCODE_DIR/extensions.txt"
+# Get list of installed extensions. This repo is public, so the list is filtered
+# through the same private denylist that claude/scripts/check-public.sh enforces —
+# otherwise a work-specific extension id lands here on every sync and the
+# pre-commit hook rejects the result.
+DENYLIST="${DOTFILES_DENYLIST:-${MEMORY_VAULT_PATH:-$HOME/Repositories/memory}/personal/claude/denylist.txt}"
+
+code --list-extensions > "$VSCODE_DIR/extensions.txt.all"
+
+if [[ -f "$DENYLIST" ]]; then
+    sed -e '/^[[:space:]]*#/d' -e '/^[[:space:]]*$/d' "$DENYLIST" > "$VSCODE_DIR/.denylist.tmp"
+    if [[ -s "$VSCODE_DIR/.denylist.tmp" ]]; then
+        grep -v -i -E -f "$VSCODE_DIR/.denylist.tmp" "$VSCODE_DIR/extensions.txt.all" \
+            > "$VSCODE_DIR/extensions.txt" || true
+    else
+        cp "$VSCODE_DIR/extensions.txt.all" "$VSCODE_DIR/extensions.txt"
+    fi
+    rm -f "$VSCODE_DIR/.denylist.tmp"
+
+    all_count=$(wc -l < "$VSCODE_DIR/extensions.txt.all" | tr -d ' ')
+    kept_count=$(wc -l < "$VSCODE_DIR/extensions.txt" | tr -d ' ')
+    filtered=$(( all_count - kept_count ))
+    if (( filtered > 0 )); then
+        print_warning "Filtered $filtered extension(s) matching the private denylist (this repo is public)"
+    fi
+else
+    cp "$VSCODE_DIR/extensions.txt.all" "$VSCODE_DIR/extensions.txt"
+    print_warning "Private denylist not found at $DENYLIST — exporting the full extension list"
+fi
+
+rm -f "$VSCODE_DIR/extensions.txt.all"
+
 extension_count=$(wc -l < "$VSCODE_DIR/extensions.txt" | tr -d ' ')
 print_success "Exported $extension_count extension(s) to extensions.txt"
 

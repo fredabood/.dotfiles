@@ -1,5 +1,9 @@
 # Brewfile - Homebrew Bundle for package management
 # Install with: brew bundle --file=brew/Brewfile
+#
+# Synced from this machine with `brew bundle dump` (2026-09-19); the curated
+# section layout is kept by hand. Re-sync by dumping to a scratch file and
+# folding new entries into the right section rather than overwriting this one.
 
 # ============================================================================
 # Taps
@@ -7,7 +11,12 @@
 
 # Note: homebrew/cask is no longer needed - casks work automatically
 # Note: homebrew/cask-fonts was deprecated - fonts are now in homebrew/cask
+# Note: a few work-specific taps and formulae installed on this machine are
+# deliberately absent — this repo is public and they match the private
+# denylist enforced by claude/scripts/check-public.sh.
 tap "hashicorp/tap"
+tap "hudochenkov/sshpass"
+tap "minio/stable"
 
 # ============================================================================
 # Core Utilities
@@ -37,6 +46,14 @@ brew "wget"
 brew "curl"
 brew "openssh"
 
+# Multi-connection downloader
+brew "aria2"
+
+# Tunnels and VPN
+brew "cloudflared"
+brew "tailscale"
+brew "wireguard-tools"
+
 # ============================================================================
 # Version Control
 # ============================================================================
@@ -44,12 +61,28 @@ brew "openssh"
 brew "git"
 brew "git-lfs"
 
+# GitHub CLI + history rewriting
+brew "gh"
+brew "git-filter-repo"
+
 # ============================================================================
 # Security & Encryption
 # ============================================================================
 
 brew "gnupg"
 brew "gitleaks"   # pre-commit credential scan — this repo is public (.githooks/pre-commit)
+
+# Secrets at rest
+brew "age"
+brew "sops"
+
+# Credential stores
+brew "bitwarden-cli"
+cask "1password-cli"
+
+# YubiKey
+brew "ykman"
+brew "yubico-piv-tool"
 
 # ============================================================================
 # Text Editors
@@ -77,11 +110,27 @@ brew "screen"
 
 brew "jq"
 
+# Geospatial toolchain
+brew "gdal"
+
+# Encrypted SQLite
+brew "sqlcipher"
+
 # ============================================================================
 # System Monitoring
 # ============================================================================
 
 brew "htop"
+
+# Host metrics agent (homelab telemetry)
+brew "telegraf"
+
+# ============================================================================
+# Backup & Sync
+# ============================================================================
+
+brew "restic"
+brew "rclone"
 
 # ============================================================================
 # Search & Navigation
@@ -99,15 +148,47 @@ brew "fzf"
 # Modern tree-like directory navigator
 brew "broot"
 
+# Fast recursive grep
+brew "ripgrep"
+
+# ============================================================================
+# Programming Languages & Runtimes
+# ============================================================================
+
+brew "node"
+brew "python@3.11"
+brew "uv"         # Python package/venv manager
+
+# Java: openjdk@17 is what is installed here; the unversioned `java` alias
+# would pull the latest JDK alongside it, so it stays out of the bundle.
+brew "openjdk@17"
+brew "maven"
+
 # ============================================================================
 # Development Tools
 # ============================================================================
 
-# Java
-brew "java"
+# Shell linting
+brew "shellcheck"
+
+# Configuration management
+brew "ansible"
 
 # Terraform
 brew "hashicorp/tap/terraform"
+
+# ============================================================================
+# Cloud & Data Platforms
+# ============================================================================
+
+brew "awscli"
+
+# ============================================================================
+# AI / LLM
+# ============================================================================
+
+brew "ollama"
+brew "block-goose-cli"
 
 # ============================================================================
 # Filesystem Tools
@@ -122,11 +203,20 @@ brew "hashicorp/tap/terraform"
 # Applications (Casks)
 # ============================================================================
 
-# Docker Desktop
-cask "docker"
+# Docker Desktop (the `docker` cask was renamed to `docker-desktop` upstream)
+cask "docker-desktop"
 
 # Visual Studio Code
 cask "visual-studio-code"
+
+# Terminal
+cask "ghostty"
+
+# Window manager (keyboard-driven window snapping)
+cask "rectangle"
+
+# Ebook library
+cask "calibre"
 
 # Fonts
 cask "font-fira-code"
@@ -138,8 +228,6 @@ cask "font-fira-code"
 # Uncomment any of these if you use them:
 
 # Programming Languages
-# brew "python"
-# brew "node"
 # brew "go"
 # brew "rust"
 
@@ -149,7 +237,6 @@ cask "font-fira-code"
 # brew "redis"
 
 # Cloud CLI Tools
-# brew "awscli"
 # brew "azure-cli"
 # brew "google-cloud-sdk"
 
@@ -164,6 +251,5 @@ cask "font-fira-code"
 # brew "httpie"
 # brew "bat"  # Better cat
 # brew "exa"  # Better ls
-# brew "ripgrep"  # Better grep
 # brew "fd"  # Better find
 # brew "diff-so-fancy"  # Better git diff
