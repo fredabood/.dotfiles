@@ -11,8 +11,16 @@ over more than one sitting, with objections recorded rather than lost. Each deci
 
 - A board is a **collection instrument**. Once a card is harvested, the durable record is the issue,
   ADR or comment it landed in, never the board.
-- A board is **files in the repository it decides**, versioned by git. It is never a hosted page, and
-  never lives in a third-party store.
+- A board has **two lives**, and which one it is in decides where the truth is. While it is **open**
+  it is hosted in the work app and the app's database is the truth; you answer it there. When it is
+  **frozen** — the same moment it is harvested — its export is committed into the repository it
+  decides, and from then on **the committed files are the record**, which is what every harvested
+  issue permalinks to. If the app moves on after a freeze the board is **drifted**, and harvesting
+  refuses until it is frozen again.
+- **The prohibition that stands is on third-party hosting.** A board is never a claude.ai Artifact
+  and never lives in an artifact database or any other store outside this estate. The work app is
+  self-hosted and tailnet-gated, and the freeze keeps "git versions it" literally true for every
+  board that reaches a decision.
 - **The one exception is evidence the decided repo forbids.** If a product repo bans
   deployment-specific detail and the board quotes a survey of one deployment, the board is stored
   with the repo that owns that evidence. Its `repo` field still names the decided repository, and
@@ -28,16 +36,21 @@ When to reach for one rather than asking in the terminal: see `claude/rules/deci
 ```text
 docs/decision-boards/
 ├── README.md                        generated index of every board in the repo (board.py index)
-└── 2026-01-15-team-offsite/         one directory per board, named after its id
-    ├── agenda.json                  the cards — written by `init` and `revise`
-    ├── answers.json                 the answers — written by `serve`, or edited by hand
-    ├── harvest.json                 where harvested cards landed — written by `mark-harvested`
-    └── BOARD.md                     generated, GitHub-readable view (board.py render)
+└── 2026-01-15-team-offsite/         one frozen export per board, named after its id
+    ├── agenda.json                  the cards
+    ├── answers.json                 the answers
+    ├── harvest.json                 where harvested cards landed
+    └── BOARD.md                     generated, GitHub-readable view
 ```
 
+**All four files are written by `board.py freeze`, from the app's canonical export.** Editing one by
+hand does not change the board — the next freeze overwrites it — and a hand-edited directory stops
+matching the frozen export, which `harvest-apply` refuses.
+
 All JSON is written with two-space indentation, sorted keys and a trailing newline, so a changed
-answer is a small diff. `BOARD.md` and `README.md` are generated. Never edit them by hand;
-`render --check` and `index --check` fail when they are out of date.
+answer is a small diff, and the app reproduces that serialization byte for byte so an export is
+diffable against the file it replaces. `BOARD.md` and `README.md` are generated. Never edit them by
+hand; `render --check` and `index --check` fail when they are out of date.
 
 ## `agenda.json` — `decision-board/1`
 
@@ -208,8 +221,21 @@ this card.
 | *(default)* prepare | reads only: looks for existing markers | repaired if a marker is found; otherwise untouched. Prints the `gh` commands and the `mark-harvested` that follows each |
 | `--execute` | looks for markers, then creates issues and comments; writes vault notes | recorded after each write. **Refused** in repos whose hooks gate issue writes, so those gates are never bypassed |
 
-Uncommitted `agenda.json` or `answers.json` are refused outside `--dry-run`: the pinned link must
-point at the answers that were harvested. Idempotency has two layers:
+Outside `--dry-run`, the board must be **frozen at exactly these answers**, and there are three
+distinct refusals because they need three different fixes:
+
+| Refusal | What it means | Fix |
+|---|---|---|
+| never frozen | there is no commit for the pinned link to point at | `board.py freeze` |
+| drifted | the app moved on after the freeze, so the committed record no longer says what the board says | `board.py freeze` again |
+| wrong files | this directory is not that export | `board.py freeze --into` here |
+
+This replaces the old "commit your answers first" check, which asked a weaker question: a clean
+worktree only says nobody edited these files, not that they still match the board people are
+answering. Since the app became the truth for an open board, the committed files can be pristine and
+months stale at the same time.
+
+Idempotency has two layers:
 
 1. **`harvest.json`.** Cards already `harvested` are skipped before anything else happens, so a rerun
    makes no GitHub calls at all.
@@ -217,40 +243,65 @@ point at the answers that were harvested. Idempotency has two layers:
    carries a marker **with the current hash** is recorded instead of written again. A marker for an
    older answer is reported, and does not count.
 
-## Answering: `board.py serve`
+## Answering: the work app
 
-`serve` opens the board as a local page and writes every pick straight into `answers.json`. The page
-works the same everywhere; the file stays hand-editable for when it is not running.
+A board is answered in the work app, on whatever device is to hand. There is
+no local server and no second rendering: the page you read is the page that writes.
 
 | Property | Behaviour |
 |---|---|
-| Reach | Binds `127.0.0.1` only. Nothing on the network can see it |
-| Port | Stable per board (derived from its id), so a restart keeps the page's origin. Falls back to a free port, with a warning, when that one is busy. `--port 0` asks for any free port |
-| Access | Each run prints a link with a fresh random token. Requests without it, with a foreign `Host`, or with a foreign `Origin` get 403 |
-| Routes | `GET /` (the page), `GET /agenda`, `GET /answers`, `PUT /answers/<card>`. Nothing else is served. There are no static files and no directory access |
-| Writes | One card per request, validated like `answers.json` itself, then merged into the file on disk. A hand edit to another card made while the page is open survives. `BOARD.md` and the index are regenerated after each write |
-| Rejections | 400 invalid answer · 409 the card was revised (reload) or the file on disk is invalid · 413 body over 16 KiB · 415 not JSON |
-| Page | Recommendations marked, never pre-selected. No external requests (strict CSP with a per-request nonce, system fonts). Every piece of answer text is inserted as text, never as markup |
-| Save state | `saved to <repo> · answers.json` — on disk. `not saved — kept in this browser` — the server is down or the link is from an earlier run; answers wait in browser storage and replay when the page reaches a server again. `replaying N unsaved answers…` while that happens |
-| Revision under an open page | An unsaved answer for a card that was revised is held as stale and never re-sent until the answerer confirms it against the new wording |
-| Git | `serve` never commits. On exit it prints `git diff --stat` for the board directory |
+| Reach | The app is tailnet-gated. There is no public route to it |
+| Access | The app's existing write posture — a tailnet login in `WRITE_ALLOWED`, or `X-Service-Token` for automation. No new mechanism and no new credential were added for boards |
+| Writes | One card per request, validated by the same rules `board.py` applies, then stored as one row. `rev` is checked for **equality**, so a page that has not seen a reworded card cannot answer it; the 409 carries the current rev so the page can reload and self-heal |
+| Empty answer | No choice, not flagged, and a blank note is not an answer — it deletes the row, so an untouched card does not look touched |
+| Rejections | 400 invalid answer · 409 the card was revised (reload) · 413 body over 16 KiB · 415 not JSON |
+| Page | Recommendations marked, never pre-selected. Answer text is inserted as text, never as markup |
+| Git | The app holds no git credential and commits nothing. `board.py freeze` is what commits, locally |
 
-**Without the server.** Edit `answers.json` in any editor, including GitHub's web editor. Then run
-`board.py validate` to catch mistakes and `board.py render` to update `BOARD.md`.
+**`board.py` is the only writer of the files.** They are an export, not an input: editing
+`answers.json` by hand no longer reaches anyone, and the next freeze overwrites it. To read a board
+without the app — during an outage, or from a phone with no tailnet — read the committed `BOARD.md`
+on GitHub.
+
+## Freezing: where the truth moves
+
+`board.py freeze <repo>/<board-id>` pulls the app's canonical export, writes the four files into the
+deciding repo, commits them, and tells the app which commit they landed in. **Freeze and harvest are
+the same moment**, which is what makes the pinned permalink work: a database has no sha, and the
+freeze commit supplies one.
+
+The app is *told* a commit happened rather than making one, and it refuses the claim if the board
+changed between the export and the commit — the one way this model could silently lie.
+
+Drift is measured over the **agenda and answers only**. `BOARD.md` is derived from them, and the
+harvest log records where cards *went* rather than what was decided, so marking a card harvested
+does not make a just-frozen board read as drifted. The cost of that deliberate blind spot is that
+`mark-harvested --into` has to refresh the export explicitly; nothing will raise a drift banner for
+it.
 
 ## Commands
 
 ```text
-board.py init <dir> --from <agenda.json>              create a board, its empty answers, BOARD.md and the index
+# the app owns an OPEN board
+board.py new --from <agenda.json>                      publish a new board; writes nothing to disk
+board.py revise <repo>/<id> --from <agenda.json> [--bump IDS] [--keep-answer IDS]
+board.py freeze <repo>/<id> [--into DIR] [--no-commit | --record SHA]
+board.py mark-harvested <repo>/<id> --cards IDS --target <owner/repo#N | vault:path.md> [--into DIR]
+
+# these read a frozen export, and need no network
 board.py validate <dir>                                check everything above; exit 1 on any error
-board.py revise <dir> --from <agenda.json> [--bump IDS] [--keep-answer IDS]
 board.py render <dir> [--check]                        regenerate BOARD.md
 board.py index <root> [--check]                        regenerate <root>/README.md
-board.py serve <dir> [--port N]                        answer in the browser; writes answers.json
 board.py harvest-plan <dir> [--format json|text]       classify every card by state
 board.py harvest-apply <dir> --drafts <file> [--dry-run | --execute] [--out DIR]
-board.py mark-harvested <dir> --cards IDS --target <owner/repo#N | vault:path.md>
 ```
 
 Exit codes: `0` ok · `1` validation or check failure · `2` usage error. Standard library only; runs
 on the system `python3` that ships with macOS.
+
+Environment: `DECISION_BOARD_API` and `JIRA_GRAPH_SERVICE_TOKEN`, the latter populated from
+`op://Homelab/Jira Graph/service token`. **Neither has a default in this repo, which is public:** the
+app's address is private infrastructure, so `DECISION_BOARD_API` falls back to the
+`- **Decision board API**:` line in `$MEMORY_VAULT_PATH/personal/profile.md` rather than to a
+hard-coded host. The token is read from the environment and never written into a board, a log or an
+error message.

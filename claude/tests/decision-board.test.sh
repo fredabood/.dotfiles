@@ -96,56 +96,6 @@ out="$(board harvest-plan "$dir" --format text)"
 check "text plan lists what to harvest" grep -q "to harvest: A1, C1" <<<"$out"
 check "text plan lists open flagged cards" grep -q "open: needs discussion: A4" <<<"$out"
 
-echo "revision"
-dir="$(fresh revise)"
-new="$T/revise-agenda.json"
-answers_before="$(shasum "$dir/answers.json")"
-
-cp "$dir/agenda.json" "$new"
-mutate "$new" 'd["sections"][2]["cards"].append({"id": "C4", "q": "Is there a budget cap?", "decides": "What gets cut first.", "options": [{"key": "yes", "title": "Yes", "detail": "A hard number."}, {"key": "no", "title": "No", "detail": "Judged case by case."}]})'
-board revise "$dir" --from "$new" >/dev/null 2>&1; rc=$?
-check "adding a card is accepted" test "$rc" -eq 0
-check "adding a card leaves answers.json untouched" test "$(shasum "$dir/answers.json")" = "$answers_before"
-check "an added card starts untouched at rev 1" test "$(state_of "$dir" C4)" = untouched
-
-cp "$dir/agenda.json" "$new"
-mutate "$new" 'd["sections"][1]["cards"][2]["q"] = "How many days should it run?"'
-board revise "$dir" --from "$new" >/dev/null 2>&1; rc=$?
-check "rewording an unanswered card needs no flag" test "$rc" -eq 0
-
-cp "$dir/agenda.json" "$new"
-mutate "$new" 'd["sections"][0]["cards"][0]["q"] = "Where should the offsite be held this year?"'
-out="$(board revise "$dir" --from "$new" 2>&1)"; rc=$?
-check "changing an answered card without a flag is refused" bash -c '[ "$1" -eq 1 ] && grep -q "pass --bump A1" <<<"$2"' _ "$rc" "$out"
-board revise "$dir" --from "$new" --keep-answer A1 >/dev/null 2>&1; rc=$?
-check "--keep-answer accepts a rewording" test "$rc" -eq 0
-check "a kept answer is still decided" test "$(state_of "$dir" A1)" = decided
-
-cp "$dir/agenda.json" "$new"
-mutate "$new" 'd["sections"][0]["cards"][0]["options"][2]["title"] = "Somewhere abroad, travel paid"'
-board revise "$dir" --from "$new" --bump A1 >/dev/null 2>&1; rc=$?
-check "--bump accepts a change of meaning" test "$rc" -eq 0
-check "--bump raises the card rev" python3 -c 'import json, sys
-a = json.load(open(sys.argv[1]))
-sys.exit(0 if a["sections"][0]["cards"][0]["rev"] == 2 else 1)' "$dir/agenda.json"
-check "a bumped card's answer goes stale" test "$(state_of "$dir" A1)" = stale
-
-cp "$dir/agenda.json" "$new"
-mutate "$new" 'd["sections"][1]["cards"].pop(2)'
-out="$(board revise "$dir" --from "$new" 2>&1)"; rc=$?
-check "deleting a card is refused" bash -c '[ "$1" -eq 1 ] && grep -q "retired\": true instead" <<<"$2"' _ "$rc" "$out"
-
-cp "$dir/agenda.json" "$new"
-mutate "$new" 'd["sections"][1]["cards"][2]["retired"] = True'
-board revise "$dir" --from "$new" >/dev/null 2>&1; rc=$?
-check "retiring a card is accepted" test "$rc" -eq 0
-check "a retired card is retired" test "$(state_of "$dir" B3)" = retired
-
-cp "$dir/agenda.json" "$new"
-mutate "$new" 'd["sections"][1]["cards"][1]["retired"] = False'
-board revise "$dir" --from "$new" >/dev/null 2>&1; rc=$?
-check "un-retiring a card is refused" test "$rc" -eq 1
-
 echo "render and index"
 dir="$(fresh render)"
 root="$(dirname "$dir")"
@@ -188,42 +138,213 @@ else
     skip "generated markdown passes markdownlint (docker or the markdownlint-cli2 image is unavailable)"
 fi
 
-echo "init"
-root="$T/init-root"; mkdir -p "$root"
-cp "$FIXTURE/agenda.json" "$T/init-agenda.json"
-mutate "$T/init-agenda.json" 'd["sections"][1]["cards"][0]["rev"] = 1; d["sections"][1]["cards"][1]["retired"] = False'
-board init "$root/2026-01-15-team-offsite" --from "$T/init-agenda.json" >/dev/null 2>&1; rc=$?
-check "init creates a board" test "$rc" -eq 0
-check "init writes empty answers and harvest" bash -c 'grep -q "\"cards\": {}" "$1/answers.json" && grep -q "\"cards\": {}" "$1/harvest.json"' _ "$root/2026-01-15-team-offsite"
-check "init writes BOARD.md and the index" test -f "$root/2026-01-15-team-offsite/BOARD.md" -a -f "$root/README.md"
-board init "$root/2026-01-15-team-offsite" --from "$T/init-agenda.json" >/dev/null 2>&1; rc=$?
-check "init refuses to overwrite a board" test "$rc" -eq 1
-board init "$root/wrong-name" --from "$T/init-agenda.json" >/dev/null 2>&1; rc=$?
-check "init refuses a directory not named after the board id" test "$rc" -eq 1
+echo "the app client"
+# A loopback stand-in for the boards API. The app's RULES live in fredabood/work
+# and are tested there against the same vendored core that board.py is the source
+# of; re-testing them here would write them twice and prove only that the two
+# copies agree. What is tested here is board.py's client half — method, path,
+# body, headers, and how a failure reads.
+STUB_STATE="$T/stub.json"
+STUB_LOG="$T/stub.log"
+REF=offsite/2026-01-15-team-offsite
 
-echo "harvest bookkeeping"
-dir="$(fresh harvest)"
-board mark-harvested "$dir" --cards A1,C1 --target example/offsite#20 >/dev/null 2>&1; rc=$?
-check "mark-harvested records decided cards" test "$rc" -eq 0
-check "a marked card is harvested" test "$(state_of "$dir" A1)" = harvested
-check "a marked resolution is harvested" test "$(state_of "$dir" C1)" = harvested
-check "nothing is left to harvest" bash -c 'python3 "$1" harvest-plan "$2" | python3 -c "import json,sys; sys.exit(0 if json.load(sys.stdin)[\"to_harvest\"] == [] else 1)"' _ "$BOARD" "$dir"
-out="$(board harvest-plan "$dir" --format text)"
-check "a second plan reports 0 to harvest" grep -q "· 0 to harvest ·" <<<"$out"
-board mark-harvested "$dir" --cards A4 --target example/offsite#21 >/dev/null 2>&1; rc=$?
-check "a flagged card cannot be marked" test "$rc" -eq 1
-board mark-harvested "$dir" --cards B1 --target example/offsite#21 >/dev/null 2>&1; rc=$?
-check "a stale card cannot be marked" test "$rc" -eq 1
-board mark-harvested "$dir" --cards A1 --target "not a target" >/dev/null 2>&1; rc=$?
-check "a malformed target is refused" test "$rc" -eq 1
-board mark-harvested "$dir" --cards B3 --target vault:homelab/decisions/offsite.md >/dev/null 2>&1; rc=$?
-check "an untouched card cannot be marked" test "$rc" -eq 1
-mutate "$dir/answers.json" 'd["cards"]["A1"]["note"] = "Second thoughts."'
-check "editing a harvested answer marks it changed-since-harvest" test "$(state_of "$dir" A1)" = changed-since-harvest
-mutate "$dir/answers.json" 'd["cards"]["A1"]["note"] = ""; d["cards"]["A1"]["at"] = "2030-01-01T00:00:00Z"'
-check "re-saving an unchanged answer keeps it harvested" test "$(state_of "$dir" A1)" = harvested
+stub_state() { printf '%s\n' "$1" > "$STUB_STATE"; }
+stub_reset() { : > "$STUB_LOG"; }
+# stub_sent <"METHOD /path">: the first matching request, as one JSON line (empty if none).
+stub_sent() {
+    python3 -c 'import json, sys
+for line in open(sys.argv[1]):
+    r = json.loads(line)
+    if r["key"] == sys.argv[2]:
+        print(json.dumps(r)); break' "$STUB_LOG" "$1"
+}
+# content_hash <dir>: as the app computes it — sha256(agenda||answers)[:16], board.py serialization.
+content_hash() {
+    python3 -c 'import hashlib, json, sys
+def d(p): return json.dumps(json.load(open(p)), indent=2, sort_keys=True, ensure_ascii=False) + "\n"
+print(hashlib.sha256((d(sys.argv[1]) + d(sys.argv[2])).encode("utf-8")).hexdigest()[:16])' \
+        "$1/agenda.json" "$1/answers.json"
+}
+# stub_board <ref> <content_hash> <frozen_sha|null> <drifted> [files_json]
+stub_board() {
+    python3 -c 'import json, sys
+files = json.loads(sys.argv[6]) if len(sys.argv) > 6 else {}
+state = {"log": sys.argv[1], "boards": {sys.argv[2]: {
+    "files": files, "content_hash": sys.argv[3],
+    "frozen_sha": None if sys.argv[4] == "null" else sys.argv[4],
+    "drifted": sys.argv[5] == "true",
+    "states": {"A1": "decided", "A2": "untouched"}}}}
+print(json.dumps(state))' "$STUB_LOG" "$@" > "$STUB_STATE"
+}
+# export_files <dir>: the four documents, as the app would return them.
+export_files() {
+    python3 -c 'import json, sys, pathlib
+d = pathlib.Path(sys.argv[1])
+print(json.dumps({n: (d / n).read_text() for n in
+                  ("agenda.json", "answers.json", "harvest.json", "BOARD.md")}))' "$1"
+}
 
-echo "harvest-apply"
+stub_state '{"boards": {}, "log": "'"$STUB_LOG"'"}'
+python3 "$SKILL/tests/stub_api.py" "$STUB_STATE" > "$T/stub.url" 2>"$T/stub.err" &
+stub_pid=$!
+# `wait` after the kill, so the shell reaps it quietly instead of printing
+# "Terminated" over the results.
+trap 'kill "$stub_pid" 2>/dev/null; wait "$stub_pid" 2>/dev/null; rm -rf "$T"' EXIT
+for _ in 1 2 3 4 5 6 7 8 9 10; do [ -s "$T/stub.url" ] && break; sleep 0.3; done
+API="$(cat "$T/stub.url" 2>/dev/null || true)"
+check "the stub API came up" bash -c 'case "$1" in http://127.0.0.1:*) exit 0;; *) exit 1;; esac' _ "$API"
+export DECISION_BOARD_API="$API"
+
+# The fixture deliberately carries a retired card and a bumped rev — it exists to
+# exercise the state machine. A NEW board may carry neither, so flatten it once here.
+# It matters that this comes FIRST: with the raw fixture the next check would exit 1
+# on local validation and never reach the URL it claims to be testing.
+NEW_AGENDA="$T/new-agenda.json"
+cp "$FIXTURE/agenda.json" "$NEW_AGENDA"
+mutate "$NEW_AGENDA" 'for sec in d["sections"]:
+    for c in sec["cards"]:
+        c["rev"] = 1
+        c.pop("retired", None)'
+board new --from "$FIXTURE/agenda.json" >/dev/null 2>&1; rc=$?
+check "the raw fixture is refused as a new board (so the next check is not vacuous)" test "$rc" -eq 1
+
+out="$(DECISION_BOARD_API=http://example.invalid/api board new --from "$NEW_AGENDA" 2>&1)"; rc=$?
+check "a non-loopback http API is refused" test "$rc" -eq 1
+check "refusing it says why" grep -q "must be https" <<<"$out"
+
+# This repo is public, so there is no default host in it. The address comes from
+# the environment or from the private vault profile, and its absence is a readable
+# refusal rather than a crash or a request to nowhere.
+mkdir -p "$T/novault"
+out="$(DECISION_BOARD_API= MEMORY_VAULT_PATH="$T/novault" board new --from "$NEW_AGENDA" 2>&1)"; rc=$?
+check "no API configured is refused" test "$rc" -eq 1
+check "the refusal names the variable" grep -q "DECISION_BOARD_API" <<<"$out"
+check "the refusal names the profile line" grep -q "Decision board API" <<<"$out"
+check "a missing vault is not a crash" bash -c '! grep -q Traceback <<<"$1"' _ "$out"
+
+mkdir -p "$T/vaultprofile/personal"
+printf '%s\n' "## Homelab" "" "- **Decision board API**: $API" > "$T/vaultprofile/personal/profile.md"
+stub_reset
+mutate "$NEW_AGENDA" 'd["id"] = "2026-03-01-profile-probe"'
+DECISION_BOARD_API= MEMORY_VAULT_PATH="$T/vaultprofile" board new --from "$NEW_AGENDA" >/dev/null 2>&1; rc=$?
+check "the vault profile supplies the API base" test "$rc" -eq 0
+check "the profile-configured call reached the stub" test -n "$(stub_sent "POST /boards")"
+mutate "$NEW_AGENDA" 'd["id"] = "2026-01-15-team-offsite"'
+
+echo "new"
+stub_reset
+out="$(board new --from "$NEW_AGENDA" 2>&1)"; rc=$?
+check "new publishes the board" test "$rc" -eq 0
+check "new reports the card count" grep -q "10 cards in 3 sections" <<<"$out"
+check "new prints a URL to answer it at" grep -q "/#/boards/$REF" <<<"$out"
+sent="$(stub_sent "POST /boards")"
+check "new POSTs the agenda to /boards" test -n "$sent"
+check "new sends application/json" grep -q '"content_type": "application/json"' <<<"$sent"
+check "new writes nothing to disk" test ! -e "docs/decision-boards/2026-01-15-team-offsite"
+out="$(board new --from "$NEW_AGENDA" 2>&1)"; rc=$?
+check "new surfaces a 409 from the app" test "$rc" -eq 1
+check "the 409 keeps the app's own message" grep -q "already exists" <<<"$out"
+
+# Local validation runs BEFORE the request, so a bad agenda fails against the file
+# you are editing with one message per problem, not as one flattened 400.
+stub_reset
+bad_agenda="$T/bad-agenda.json"
+cp "$NEW_AGENDA" "$bad_agenda"
+mutate "$bad_agenda" 'd["sections"][0]["cards"][0]["q"] = ""'
+out="$(board new --from "$bad_agenda" 2>&1)"; rc=$?
+check "an invalid agenda is refused locally" test "$rc" -eq 1
+check "the local refusal names the file" grep -q "agenda is invalid" <<<"$out"
+check "an invalid agenda is never sent" test -z "$(stub_sent "POST /boards")"
+cp "$NEW_AGENDA" "$bad_agenda"
+mutate "$bad_agenda" 'd["sections"][0]["cards"][0]["rev"] = 3'
+out="$(board new --from "$bad_agenda" 2>&1)"; rc=$?
+check "a pre-revised card is refused locally" test "$rc" -eq 1
+check "the pre-revised refusal explains rev 1" grep -q "rev 1" <<<"$out"
+
+echo "the service token"
+cp "$NEW_AGENDA" "$T/tok-agenda.json"
+mutate "$T/tok-agenda.json" 'd["id"] = "2026-02-01-token-probe"'
+stub_reset
+JIRA_GRAPH_SERVICE_TOKEN=test_only_fake_not_a_secret board new --from "$T/tok-agenda.json" >/dev/null 2>&1
+sent="$(stub_sent "POST /boards")"
+check "the token is sent as X-Service-Token" grep -q 'test_only_fake_not_a_secret' <<<"$sent"
+stub_reset
+mutate "$T/tok-agenda.json" 'd["id"] = "2026-02-02-token-probe"'
+board new --from "$T/tok-agenda.json" >/dev/null 2>&1
+sent="$(stub_sent "POST /boards")"
+check "no token set sends no header" grep -q '"token": null' <<<"$sent"
+stub_state '{"boards": {}, "log": "'"$STUB_LOG"'", "fail": {"POST /boards": [403, ""]}}'
+out="$(JIRA_GRAPH_SERVICE_TOKEN=test_only_fake_not_a_secret board new --from "$T/tok-agenda.json" 2>&1)"; rc=$?
+check "a 403 is a readable error, not a traceback" test "$rc" -eq 1
+check "a 403 names the variable to set" grep -q "JIRA_GRAPH_SERVICE_TOKEN" <<<"$out"
+check "a 403 never echoes the token" bash -c '! grep -q test_only_fake <<<"$1"' _ "$out"
+
+echo "revise"
+stub_board "$REF" 0000000000000000 null false
+new="$T/revise-agenda.json"
+cp "$FIXTURE/agenda.json" "$new"
+stub_reset
+out="$(board revise "$REF" --from "$new" --bump A1 --keep-answer A3 2>&1)"; rc=$?
+check "revise succeeds" test "$rc" -eq 0
+sent="$(stub_sent "POST /boards/$REF/revise")"
+check "revise POSTs to the board's revise path" test -n "$sent"
+check "revise sends bump" grep -q '"bump": \["A1"\]' <<<"$sent"
+check "revise sends keep" grep -q '"keep": \["A3"\]' <<<"$sent"
+check "revise reports what was bumped" grep -q "bumped (answer now stale): A1" <<<"$out"
+check "revise reports what was kept" grep -q "kept (answer still stands): A3" <<<"$out"
+check "revise says a re-freeze is needed" grep -q "does not re-freeze" <<<"$out"
+stub_reset
+mutate "$new" 'd["sections"][0]["cards"][0]["q"] = ""'
+out="$(board revise "$REF" --from "$new" 2>&1)"; rc=$?
+check "an invalid revision is refused locally" test "$rc" -eq 1
+check "the invalid revision names the file" grep -q "new agenda is invalid" <<<"$out"
+check "an invalid revision is never sent" test -z "$(stub_sent "POST /boards/$REF/revise")"
+out="$(board revise "not-a-ref" --from "$FIXTURE/agenda.json" 2>&1)"; rc=$?
+check "a malformed board ref is refused" test "$rc" -eq 1
+check "the ref refusal shows the shape" grep -q "<repo>/<board-id>" <<<"$out"
+
+echo "freeze"
+frepo="$T/frepo"
+rm -rf "$frepo"; mkdir -p "$frepo/docs/decision-boards"
+git -C "$frepo" init -q
+git -C "$frepo" -c user.name=test -c user.email=test@example.invalid commit -q --allow-empty -m init
+src="$(fresh freeze-src)"
+hash_before="$(content_hash "$src")"
+stub_board "$REF" "$hash_before" null false "$(export_files "$src")"
+stub_reset
+out="$(cd "$frepo" && DECISION_BOARD_API="$API" python3 "$BOARD" freeze "$REF" 2>&1)"; rc=$?
+fdir="$frepo/docs/decision-boards/2026-01-15-team-offsite"
+check "freeze succeeds" test "$rc" -eq 0
+check "freeze writes all four documents" test -f "$fdir/agenda.json" -a -f "$fdir/answers.json" -a -f "$fdir/harvest.json" -a -f "$fdir/BOARD.md"
+check "freeze writes the export byte for byte" cmp -s "$src/agenda.json" "$fdir/agenda.json"
+check "freeze regenerates the index" test -f "$frepo/docs/decision-boards/README.md"
+check "freeze commits what it wrote" test -z "$(git -C "$frepo" status --porcelain)"
+sent="$(stub_sent "POST /boards/$REF/freeze")"
+check "freeze tells the app which commit it landed in" grep -q '"sha"' <<<"$sent"
+check "freeze sends the content hash it exported" grep -q "\"content_hash\": \"$hash_before\"" <<<"$sent"
+head_sha="$(git -C "$frepo" rev-parse HEAD)"
+check "the recorded sha is the freeze commit" grep -q "$head_sha" <<<"$sent"
+check "freeze reports the board is now git-of-record" grep -q "git-of-record" <<<"$out"
+
+# The app moved between the export and the commit: recording the freeze would
+# mark the board frozen at content that was never committed.
+stub_board "$REF" "$hash_before" null false "$(export_files "$src")"
+python3 -c 'import json,sys
+s=json.load(open(sys.argv[1])); s["fail"]={"POST /boards/'"$REF"'/freeze": [409, "the board changed between export and commit"]}
+json.dump(s, open(sys.argv[1],"w"))' "$STUB_STATE"
+rm -rf "$frepo/docs/decision-boards/2026-01-15-team-offsite"
+out="$(cd "$frepo" && DECISION_BOARD_API="$API" python3 "$BOARD" freeze "$REF" 2>&1)"; rc=$?
+check "a 409 on freeze is surfaced" test "$rc" -eq 1
+check "the 409 says to re-export" grep -q "changed between export and commit" <<<"$out"
+
+stub_board "$REF" "$hash_before" null false "$(export_files "$src")"
+nrepo="$T/nrepo"; rm -rf "$nrepo"; mkdir -p "$nrepo"
+stub_reset
+out="$(cd "$nrepo" && DECISION_BOARD_API="$API" python3 "$BOARD" freeze "$REF" --no-commit 2>&1)"; rc=$?
+check "--no-commit writes the files" test -f "$nrepo/docs/decision-boards/2026-01-15-team-offsite/BOARD.md"
+check "--no-commit records no freeze" test -z "$(stub_sent "POST /boards/$REF/freeze")"
+check "--no-commit says how to record it" grep -q -- "--record" <<<"$out"
+echo "harvest helpers"
 # A stub gh that records every call. `issue list` returns $GH_LIST_JSON (default: no issues).
 mkdir -p "$T/bin"
 cat > "$T/bin/gh" <<'STUB'
@@ -255,6 +376,83 @@ harvest_repo() {
 apply() { PATH="$T/bin:$PATH" python3 "$BOARD" harvest-apply "$@"; }
 gh_calls() { if [ -f "$GH_LOG" ]; then grep -c "$1" "$GH_LOG" || true; else echo 0; fi; }
 
+echo "harvest bookkeeping"
+hdir="$(fresh harvest)"
+stub_board "$REF" "$(content_hash "$hdir")" null false "$(export_files "$hdir")"
+stub_reset
+out="$(board mark-harvested "$REF" --cards A1,C1 --target example/offsite#20 2>&1)"; rc=$?
+check "mark-harvested succeeds" test "$rc" -eq 0
+sent="$(stub_sent "POST /boards/$REF/harvest")"
+check "mark-harvested POSTs to the app" test -n "$sent"
+check "mark-harvested sends the cards" grep -q '"cards": \["A1", "C1"\]' <<<"$sent"
+check "mark-harvested sends the target" grep -q '"target": "example/offsite#20"' <<<"$sent"
+check "mark-harvested reports what it did" grep -q "marked A1, C1 → example/offsite#20" <<<"$out"
+
+# The refusals that are still local: they are about the ARGUMENTS, and failing on
+# them without a round trip keeps a typo from reaching the network.
+out="$(board mark-harvested "$REF" --cards A1 --target "not a target" 2>&1)"; rc=$?
+check "a malformed target is refused" test "$rc" -eq 1
+check "the target refusal shows the two shapes" grep -q "owner/repo#N or vault:path.md" <<<"$out"
+stub_reset
+board mark-harvested "$REF" --cards A1 --target "not a target" >/dev/null 2>&1
+check "a malformed target is never sent" test -z "$(stub_sent "POST /boards/$REF/harvest")"
+out="$(board mark-harvested "$REF" --cards "" --target example/offsite#20 2>&1)"; rc=$?
+check "no cards is refused" test "$rc" -eq 1
+
+# --into refreshes the frozen export. It has to be explicit here rather than
+# automatic from a drift banner: content_hash deliberately covers the agenda and
+# answers only, so marking a card harvested never makes a board read as drifted.
+marked="$(fresh harvest-into)"
+python3 -c 'import json, sys
+h = json.load(open(sys.argv[1] + "/harvest.json"))
+h.setdefault("cards", {})["A1"] = {"target": "example/offsite#20", "hash": sys.argv[2], "at": "2026-01-20T00:00:00Z"}
+open(sys.argv[1] + "/harvest.json", "w").write(json.dumps(h, indent=2, sort_keys=True, ensure_ascii=False) + "\n")' \
+    "$marked" "$(python3 -c 'import hashlib, json, sys
+a = json.load(open(sys.argv[1] + "/answers.json"))["cards"]["A1"]
+e = {"choice": a.get("choice"), "note": a.get("note") or "", "flagged": bool(a.get("flagged")), "resolution": a.get("resolution"), "rev": a.get("rev", 1)}
+print(hashlib.sha256(json.dumps(e, sort_keys=True).encode("utf-8")).hexdigest()[:16])' "$marked")"
+stub_board "$REF" "$(content_hash "$marked")" null false "$(export_files "$marked")"
+into="$(fresh harvest-target)"
+board mark-harvested "$REF" --cards A1 --target example/offsite#20 --into "$into" >/dev/null 2>&1; rc=$?
+check "--into succeeds" test "$rc" -eq 0
+check "--into rewrites harvest.json from the app" grep -q "example/offsite#20" "$into/harvest.json"
+check "--into leaves the card harvested" test "$(state_of "$into" A1)" = harvested
+
+echo "the freeze gate"
+# This replaces the old "commit your answers first" dirty-check, which asked a
+# weaker question: a clean worktree only says nobody edited these files, not that
+# they still match the board people are answering.
+gdir="$(harvest_repo gaterepo)"
+gate_drafts="$T/gate-drafts.json"
+printf '%s\n' '{"schema": "decision-board-drafts/1", "drafts": [{"route": "issue", "cards": ["A1"], "repo": "example/offsite", "title": "x", "body": "x"}]}' > "$gate_drafts"
+
+stub_board "$REF" "$(content_hash "$gdir")" null false "$(export_files "$gdir")"
+out="$(apply "$gdir" --drafts "$gate_drafts" 2>&1)"; rc=$?
+check "a never-frozen board is refused" test "$rc" -eq 1
+check "the never-frozen refusal says to freeze" grep -q "has never been frozen" <<<"$out"
+out="$(apply "$gdir" --drafts "$gate_drafts" --dry-run 2>&1)"; rc=$?
+check "--dry-run works on a never-frozen board" test "$rc" -eq 0
+
+stub_board "$REF" "$(content_hash "$gdir")" deadbeefdeadbeefdeadbeefdeadbeefdeadbeef true "$(export_files "$gdir")"
+out="$(apply "$gdir" --drafts "$gate_drafts" 2>&1)"; rc=$?
+check "a drifted board is refused" test "$rc" -eq 1
+check "the drift refusal says to freeze again" grep -q "changed in the app since it was frozen" <<<"$out"
+
+stub_board "$REF" 1111111111111111 deadbeefdeadbeefdeadbeefdeadbeefdeadbeef false "$(export_files "$gdir")"
+out="$(apply "$gdir" --drafts "$gate_drafts" 2>&1)"; rc=$?
+check "a directory that is not the frozen export is refused" test "$rc" -eq 1
+check "the mismatch refusal names the directory" grep -q "does not match the frozen export" <<<"$out"
+
+# freeze_stub <board-dir>: report that directory to the stub as FROZEN, at the sha
+# its own repo is currently on. Every non-dry-run harvest needs this: the gate now
+# asks whether these files ARE the frozen record, not merely whether git is clean.
+freeze_stub() {
+    local d="$1" root
+    root="$(git -C "$d" rev-parse --show-toplevel)"
+    stub_board "$REF" "$(content_hash "$d")" "$(git -C "$root" rev-parse HEAD)" false "$(export_files "$d")"
+}
+
+echo "harvest-apply"
 dir="$(harvest_repo hrepo)"
 drafts="$T/drafts.json"
 printf '%s\n' '{"schema": "decision-board-drafts/1", "drafts": [' \
@@ -281,11 +479,7 @@ check "dry run shows the marker" grep -q "decision-board: board=2026-01-15-team-
 check "dry run leaves harvest.json byte-identical" test "$(shasum "$dir/harvest.json")" = "$harvest_before"
 check "dry run makes no gh calls" test ! -f "$GH_LOG"
 
-mutate "$dir/answers.json" 'd["cards"]["B3"] = {"choice": "one", "note": "", "flagged": False, "rev": 1}'
-out="$(apply "$dir" --drafts "$drafts" 2>&1)"; rc=$?
-check "uncommitted answers are refused" bash -c '[ "$1" -eq 1 ] && grep -q "commit the answers first" <<<"$2"' _ "$rc" "$out"
-git -C "$(dirname "$(dirname "$(dirname "$dir")")")" checkout -q -- .
-
+freeze_stub "$dir"
 repo_root="$T/hrepo"
 mkdir -p "$repo_root/.claude/hooks"; : > "$repo_root/.claude/hooks/github-skill-gate.sh"
 out="$(apply "$dir" --drafts "$drafts" --execute 2>&1)"; rc=$?
@@ -319,6 +513,7 @@ check "a second harvest reports the cards as already harvested" grep -q "skip: A
 
 # A lost harvest.json must not produce duplicate issues: the marker on the existing issue repairs it.
 git -C "$repo_root" checkout -q -- docs/decision-boards/2026-01-15-team-offsite/harvest.json
+freeze_stub "$dir"
 marker="$(sed -n 's/.*\(<!-- decision-board: board=2026-01-15-team-offsite cards=A1,C1 hash=[0-9a-f]* -->\).*/\1/p' "$T/prepared/draft-01.md")"
 comment_marker="$(sed -n 's/.*\(<!-- decision-board: board=2026-01-15-team-offsite cards=A3 hash=[0-9a-f]* -->\).*/\1/p' "$T/prepared/draft-02.md")"
 export GH_LIST_JSON="$(python3 -c 'import json, sys; print(json.dumps([{"number": 41, "body": "earlier issue\n" + sys.argv[1]}]))' "$marker")"
@@ -334,8 +529,10 @@ sys.exit(0 if json.load(open(sys.argv[1]))["cards"]["A1"]["target"] == "example/
 
 # A marker for an older answer is not this decision.
 git -C "$repo_root" checkout -q -- docs/decision-boards/2026-01-15-team-offsite/harvest.json
+freeze_stub "$dir"
 mutate "$dir/answers.json" 'd["cards"]["A1"]["note"] = "Retreat, but only if it has step-free access."'
 git -C "$repo_root" -c user.name=test -c user.email=test@example.invalid commit -q -am "revised answer"
+freeze_stub "$dir"
 rm -f "$GH_LOG" "$GH_COUNTER"
 out="$(apply "$dir" --drafts "$drafts" --execute 2>&1)"; rc=$?
 unset GH_LIST_JSON GH_VIEW_JSON
@@ -343,107 +540,34 @@ check "a marker for an older answer is not treated as harvested" bash -c '[ "$1"
 check "the revised decision gets its own issue" test "$(gh_calls '^issue create')" = 1
 
 dir="$(harvest_repo vrepo)"
+freeze_stub "$dir"
 printf '%s\n' '{"schema": "decision-board-drafts/1", "drafts": [{"route": "vault", "cards": ["C1"], "path": "homelab/decisions/offsite-facilitation.md", "body": "---\ntitle: Offsite facilitation\n---\n\nSplit facilitation."}]}' > "$T/vault-drafts.json"
 MEMORY_VAULT_PATH="$T/vault" apply "$dir" --drafts "$T/vault-drafts.json" --execute >/dev/null 2>&1; rc=$?
 check "a vault draft is written into the vault" bash -c '[ "$1" -eq 0 ] && grep -q "decision-board: board=2026-01-15-team-offsite cards=C1" "$2"' _ "$rc" "$T/vault/homelab/decisions/offsite-facilitation.md"
 check "a vault draft records its target" python3 -c 'import json, sys
 sys.exit(0 if json.load(open(sys.argv[1]))["cards"]["C1"]["target"] == "vault:homelab/decisions/offsite-facilitation.md" else 1)' "$dir/harvest.json"
 
-echo "serve"
-dir="$(fresh serve)"
-log="$T/serve.log"
-# wait_url <log>: print the URL a serve run announced, waiting up to 5s.
-wait_url() {
-    local u=""
-    for _ in $(seq 1 50); do
-        u="$(sed -n 's/^open *//p' "$1")"
-        [ -n "$u" ] && break
-        sleep 0.1
-    done
-    printf '%s' "$u"
-}
-python3 "$BOARD" serve "$dir" >"$T/default-1.log" 2>&1 &
-first_pid=$!
-first_url="$(wait_url "$T/default-1.log")"
-python3 "$BOARD" serve "$dir" >"$T/default-2.log" 2>&1 &
-second_pid=$!
-second_url="$(wait_url "$T/default-2.log")"
-kill -TERM "$second_pid" "$first_pid" 2>/dev/null; wait "$second_pid" "$first_pid" 2>/dev/null
-expected_port="$(python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); import board; print(board.default_port("2026-01-15-team-offsite"))' "$SKILL/scripts")"
-check "by default a board is served on its stable port" bash -c '[[ "$1" == "http://127.0.0.1:$2/?t="* ]]' _ "$first_url" "$expected_port"
-check "a busy stable port falls back to a free one, with a warning" bash -c '[ -n "$1" ] && [[ "$1" != "http://127.0.0.1:$2/"* ]] && grep -q "port $2 is busy" "$3"' _ "$second_url" "$expected_port" "$T/default-2.log"
-
-python3 "$BOARD" serve "$dir" --port 0 >"$log" 2>&1 &
-server_pid=$!
-url="$(wait_url "$log")"
-check "serve prints a loopback URL with a token" bash -c '[[ "$1" =~ ^http://127\.0\.0\.1:[0-9]+/\?t=[A-Za-z0-9_-]{20,}$ ]]' _ "$url"
-base="${url%%/?t=*}"; token="${url##*t=}"; hostport="${base#http://}"; port="${hostport##*:}"
-
-code() { curl -s -o "$T/body" -w '%{http_code}' "$@"; }
-put() { # put <card> <json> [extra curl args...]
-    local card="$1" json="$2"; shift 2
-    code -X PUT -H "X-Board-Token: $token" -H "Content-Type: application/json" --data "$json" "$@" "$base/answers/$card"
-}
-
-check "the page without a token is 403" test "$(code "$base/")" = 403
-check "the page with the token is 200" test "$(code "$base/?t=$token")" = 200
-check "the page makes no external requests" bash -c '! grep -Eq "(src|href)=\"(https?:)?//" "$1" && ! grep -q "fonts.googleapis" "$1"' _ "$T/body"
-check "the page carries a nonce CSP" bash -c 'curl -s -D - -o /dev/null "$1" | grep -qi "content-security-policy: default-src '"'"'none'"'"'.*script-src '"'"'nonce-"' _ "$base/?t=$token"
-check "a foreign Host header is 403" test "$(code -H "Host: evil.example:$port" "$base/?t=$token")" = 403
-check "the API without the token header is 403" test "$(code "$base/answers")" = 403
-check "the API with the token header is 200" test "$(code -H "X-Board-Token: $token" "$base/answers")" = 200
-check "the API reports computed states" grep -q '"A3": "changed-since-harvest"' "$T/body"
-check "a wrong token is 403" test "$(code -H "X-Board-Token: nope" "$base/agenda")" = 403
-check "a PUT from a foreign Origin is 403" test "$(put B3 '{"choice":"two","note":"","flagged":false,"rev":1}' -H "Origin: https://evil.example")" = 403
-check "a PUT from the page's own Origin is accepted" test "$(put B3 '{"choice":"two","note":"","flagged":false,"rev":1}' -H "Origin: http://127.0.0.1:$port")" = 200
-check "the answer lands in answers.json" python3 -c 'import json, sys
-a = json.load(open(sys.argv[1]))["cards"]
-sys.exit(0 if a["B3"]["choice"] == "two" and a["B3"]["rev"] == 1 else 1)' "$dir/answers.json"
-check "other answers are preserved" python3 -c 'import json, sys
-a = json.load(open(sys.argv[1]))["cards"]
-sys.exit(0 if a["A1"]["choice"] == "retreat" and a["A4"]["flagged"] else 1)' "$dir/answers.json"
-board render "$dir" --check >/dev/null 2>&1; rc=$?
-check "serve keeps BOARD.md in sync" test "$rc" -eq 0
-check "an unknown card is 400" test "$(put Z9 '{"choice":null,"note":"","flagged":true,"rev":1}')" = 400
-check "an option the card does not have is 400" test "$(put B3 '{"choice":"seven","note":"","flagged":false,"rev":1}')" = 400
-check "a retired card is 400" test "$(put B2 '{"choice":"late","note":"","flagged":false,"rev":1}')" = 400
-check "flagged with a choice is 400" test "$(put B3 '{"choice":"two","note":"","flagged":true,"rev":1}')" = 400
-check "an unknown field is 400" test "$(put B3 '{"choice":"two","note":"","flagged":false,"rev":1,"admin":true}')" = 400
-check "an answer against an old card rev is 409" test "$(put B1 '{"choice":"spring","note":"","flagged":false,"rev":1}')" = 409
-# Bodies are built in variables: bash 3.2 keeps the backslashes of \" inside "$( )", which corrupts inline JSON.
-confirm_body='{"choice":"spring","note":"","flagged":false,"rev":2}'
-check "confirming against the current rev clears stale" test "$(put B1 "$confirm_body")" = 200
-check "the confirmed card is decided" test "$(state_of "$dir" B1)" = decided
-big_body="$(python3 -c 'import json; print(json.dumps({"choice": "two", "note": "x" * 20000, "flagged": False, "rev": 1}))')"
-check "an oversized body is 413" test "$(put B3 "$big_body")" = 413
-check "a non-JSON content type is 415" test "$(code -X PUT -H "X-Board-Token: $token" -H "Content-Type: text/plain" --data 'x' "$base/answers/B3")" = 415
-cred_body="$(python3 -c 'import json; print(json.dumps({"choice": "two", "note": "pass" + "word=hunter2hunter2hunter2", "flagged": False, "rev": 1}))')"
-check "a credential in a note is 400" test "$(put B3 "$cred_body")" = 400
-check "an unknown path is 404" test "$(code -H "X-Board-Token: $token" "$base/etc/passwd")" = 404
-check "a traversal path is 404" test "$(code --path-as-is -H "X-Board-Token: $token" "$base/../agenda.json")" = 404
-check "POST is not allowed" test "$(code -X POST -H "X-Board-Token: $token" "$base/answers/B3")" = 405
-mutate "$dir/answers.json" 'd["cards"]["C3"]["note"] = "Edited by hand while the page was open."'
-check "a PUT after a hand edit succeeds" test "$(put A4 '{"choice":"no","note":"Talked it through.","flagged":false,"rev":1}')" = 200
-check "the concurrent hand edit to another card survives" grep -q "Edited by hand while the page was open." "$dir/answers.json"
-clear_body='{"choice":null,"note":"","flagged":false,"rev":1}'
-check "clearing an answer is accepted" test "$(put B3 "$clear_body")" = 200
-check "clearing an answer with no note removes it" bash -c '! grep -q "\"B3\"" "$1"' _ "$dir/answers.json"
-mutate "$dir/answers.json" 'd["cards"]["C2"] = "broken"'
-c3_body='{"choice":"advance","note":"","flagged":false,"rev":1}'
-check "an invalid answers.json on disk is 409" test "$(put C3 "$c3_body")" = 409
-check "an invalid answers.json on disk is not overwritten" grep -q '"broken"' "$dir/answers.json"
-kill -TERM "$server_pid" 2>/dev/null; wait "$server_pid" 2>/dev/null
-check "serve stops cleanly on SIGTERM" grep -q "^stopped" "$log"
-check "the server is gone" bash -c '! curl -s -o /dev/null --max-time 2 "$1/"' _ "$base"
-
-echo "no server"
+echo "an export read on its own"
+# NOT "you can still answer by hand": an edit here reaches nobody, and the next
+# freeze overwrites it. What these pin is that the local readers stay honest about
+# whatever bytes they are handed, and need no network — which is what makes them a
+# fallback when the app is unreachable, and a parity oracle for its card states.
+OFFLINE=http://127.0.0.1:1
 dir="$(fresh by-hand)"
 mutate "$dir/answers.json" 'd["cards"]["B3"] = {"choice": "one", "note": "Answered on my phone, in the GitHub editor.", "flagged": False, "rev": 1}'
 board validate "$dir" >/dev/null 2>&1; rc=$?
-check "a hand-edited answers.json validates" test "$rc" -eq 0
+check "an edited answers.json still validates" test "$rc" -eq 0
+DECISION_BOARD_API="$OFFLINE" board validate "$dir" >/dev/null 2>&1; rc=$?
+check "validate needs no network" test "$rc" -eq 0
 board render "$dir" >/dev/null
-check "a hand-edited answer renders" grep -q "Answered on my phone" "$dir/BOARD.md"
-check "a hand-edited answer counts as decided" test "$(state_of "$dir" B3)" = decided
+check "the edit renders into BOARD.md" grep -q "Answered on my phone" "$dir/BOARD.md"
+check "the edit counts as decided" test "$(state_of "$dir" B3)" = decided
+DECISION_BOARD_API="$OFFLINE" board harvest-plan "$dir" >/dev/null 2>&1; rc=$?
+check "harvest-plan needs no network" test "$rc" -eq 0
+DECISION_BOARD_API="$OFFLINE" board render "$dir" --check >/dev/null 2>&1; rc=$?
+check "render --check needs no network" test "$rc" -eq 0
 
 printf '\n%d passed, %d failed, %d skipped\n' "$pass" "$failed" "$skipped"
-[ "$failed" -eq 0 ]
+# A suite that asserted nothing did not pass: the stub API failing to start would
+# otherwise skip every check below it and still exit 0.
+[ "$failed" -eq 0 ] && [ "$pass" -gt 0 ]
