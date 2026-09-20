@@ -46,7 +46,7 @@ Environment (this repo is public, so neither has a default here):
     DECISION_BOARD_API          the app's /api base; falls back to the
                                 `- **Decision board API**:` line in
                                 $MEMORY_VAULT_PATH/personal/profile.md
-    JIRA_GRAPH_SERVICE_TOKEN    op://Homelab/Jira Graph/service token
+    JIRA_GRAPH_SERVICE_TOKEN    op://Homelab/Jira Graph Service Token/credential
 
 Exit codes: 0 ok, 1 validation or check failure, 2 usage error.
 Standard library only; runs on the macOS system python3 (3.9).
@@ -1289,7 +1289,7 @@ def api(method, path, body=None):
     The token is read from the environment and never logged — not in an error
     message, not in a URL. Populate it with:
 
-        export JIRA_GRAPH_SERVICE_TOKEN="$(op read 'op://Homelab/Jira Graph/service token')"
+        export JIRA_GRAPH_SERVICE_TOKEN="$(op read 'op://Homelab/Jira Graph Service Token/credential')"
     """
     import urllib.error
     import urllib.request
