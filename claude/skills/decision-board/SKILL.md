@@ -29,7 +29,7 @@ All commands below use:
 
 ```bash
 BOARD=~/.claude/skills/decision-board/scripts/board.py
-export JIRA_GRAPH_SERVICE_TOKEN="$(op read 'op://Homelab/Jira Graph/service token')"
+export JIRA_GRAPH_SERVICE_TOKEN="$(op read 'op://Homelab/Jira Graph Service Token/credential')"
 ```
 
 The token is only needed for the commands that talk to the app. **This repo is public, so the app's

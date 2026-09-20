@@ -300,7 +300,7 @@ Exit codes: `0` ok · `1` validation or check failure · `2` usage error. Standa
 on the system `python3` that ships with macOS.
 
 Environment: `DECISION_BOARD_API` and `JIRA_GRAPH_SERVICE_TOKEN`, the latter populated from
-`op://Homelab/Jira Graph/service token`. **Neither has a default in this repo, which is public:** the
+`op://Homelab/Jira Graph Service Token/credential`. **Neither has a default in this repo, which is public:** the
 app's address is private infrastructure, so `DECISION_BOARD_API` falls back to the
 `- **Decision board API**:` line in `$MEMORY_VAULT_PATH/personal/profile.md` rather than to a
 hard-coded host. The token is read from the environment and never written into a board, a log or an
