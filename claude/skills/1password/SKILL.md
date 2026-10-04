@@ -6,7 +6,19 @@ description: Secure secret access via 1Password CLI — lookup, inject, and run 
 
 # /1password
 
-Access secrets from the user's 1Password vault. All commands use `OP_BIOMETRIC_UNLOCK_ENABLED=true` for desktop app authentication.
+Access secrets from the user's 1Password vault.
+
+## How `op` authenticates
+
+- **Reads use plain `op`.** Do not prefix them with `OP_BIOMETRIC_UNLOCK_ENABLED=true`. A host may
+  route an agent's reads through a 1Password service account (for example an `op` shim earlier on
+  `PATH`), which needs no approval prompt. Forcing the desktop app instead raises a prompt that only
+  someone at that machine can answer, and the call ends in `authorization timeout` when nobody is
+  there.
+- **Writes use the desktop app** (`OP_BIOMETRIC_UNLOCK_ENABLED=true op item create …`). Service
+  accounts are often read-only, and a write needs a human's approval anyway.
+- **`authorization timeout`** means the desktop app was asked and nobody approved it. Do not retry in
+  a loop. Tell the user, and check the project's docs for an unattended route.
 
 ## Which vault
 
@@ -31,7 +43,7 @@ Examples below write the vault as `"$OP_VAULT"`; substitute the resolved name.
 ### Lookup a secret
 
 ```bash
-OP_BIOMETRIC_UNLOCK_ENABLED=true op item get "<Item Name>" --vault "$OP_VAULT" --fields password
+op item get "<Item Name>" --vault "$OP_VAULT" --fields password
 ```
 
 Use when: you need a specific secret value for a one-time operation (e.g., manual database connection).
@@ -39,7 +51,7 @@ Use when: you need a specific secret value for a one-time operation (e.g., manua
 ### List vault contents
 
 ```bash
-OP_BIOMETRIC_UNLOCK_ENABLED=true op item list --vault "$OP_VAULT"
+op item list --vault "$OP_VAULT"
 ```
 
 Use when: browsing available secrets or verifying an item exists.
@@ -47,7 +59,7 @@ Use when: browsing available secrets or verifying an item exists.
 ### Filter by tag
 
 ```bash
-OP_BIOMETRIC_UNLOCK_ENABLED=true op item list --vault "$OP_VAULT" --tags database
+op item list --vault "$OP_VAULT" --tags database
 ```
 
 Common tags: `database`, `api-key`, `cloud-service`, `vpn` (the profile lists the vault's actual tag set, if recorded).
@@ -55,7 +67,7 @@ Common tags: `database`, `api-key`, `cloud-service`, `vpn` (the profile lists th
 ### Inject secrets into .env
 
 ```bash
-OP_BIOMETRIC_UNLOCK_ENABLED=true op inject -i .env.tpl -o .env --force
+op inject -i .env.tpl -o .env --force
 ```
 
 If the current project ships its own injection wrapper script, prefer it — check the project's docs.
@@ -65,7 +77,7 @@ Use when: populating `.env` from the template after a fresh clone, secret rotati
 ### Run a command with secrets
 
 ```bash
-OP_BIOMETRIC_UNLOCK_ENABLED=true op run --env-file .env.tpl -- <command>
+op run --env-file .env.tpl -- <command>
 ```
 
 Use when: running a command that needs secrets without writing them to disk. Secrets are injected as environment variables for the subprocess only.
