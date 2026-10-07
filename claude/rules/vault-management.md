@@ -1,83 +1,88 @@
 ---
-description: Vault management policy — defines boundary between auto-memory and Obsidian vault, persistence triggers, quality bar, and structural conventions
+description: Knowledge persistence — where decisions, docs, memories and vault notes go, when to write them, and the vault's structural conventions
 ---
 
-# Vault Management Policy
+# Knowledge Persistence — Memory, Docs and Vault
 
-Two memory systems exist. Each has a clear purpose — do not cross the boundary.
+The single home for **where knowledge goes, and when**. It merges the former `memory-management.md`
+and `documentation.md` (LAB-2796). When `/workflow` is active, persistence is its Phase 8 gate.
+A repo's own `CLAUDE.md` wins where it says more.
 
-## Two-System Boundary
+## Two systems: don't cross the boundary
 
-**Auto-memory** (`~/.claude/projects/.../memory/`) — Claude-only behavioral context:
-- `user` type: role, preferences, knowledge level
-- `feedback` type: corrections to Claude's approach
-- `reference` type: pointers to external resources
-- `project` type: lightweight ongoing-work context
+- **Auto-memory** (`~/.claude/projects/.../memory/`) answers *"how should Claude behave?"* Types:
+  `user` (role, preferences), `feedback` (corrections, plus confirmed approaches), `reference`
+  (external resources), `project` (lightweight ongoing-work context).
+- **Vault** (`$MEMORY_VAULT_PATH`) answers *"what does the project know?"* It is exported from
+  `~/Repositories/dotfiles/zsh/.zshenv` and resolves to `~/Repositories/memory`, the standalone
+  `fredabood/memory.md` repo. It is **one central repo** for every project, kept that way for
+  cross-project links and a single embedding index.
+- **Personal information goes only in vault `personal/`**: identity, employers and clients, email
+  domains, addresses, label taxonomies, vault names, private infra, private settings overlays. It
+  never goes in this config, which is published from a public repo. A shared prompt or skill that
+  needs a personal fact reads `$MEMORY_VAULT_PATH/personal/profile.md` at runtime.
 
-**Vault** (`$MEMORY_VAULT_PATH/`) — durable project knowledge:
+## Routing — where each kind of knowledge goes
 
-| Content type | Vault directory |
+| Knowledge | Destination |
 |---|---|
-| Operational knowledge (how-tos, runbooks, config) | `homelab/knowledge/<category>/` |
-| Architectural decisions (chose X over Y) | `homelab/decisions/` |
-| Research findings (evaluations, comparisons) | `homelab/research/` |
-| Session handoffs (continuity context) | `homelab/sessions/` |
-| Sprint plans, roadmaps | `homelab/planning/` |
-| Project milestones | `homelab/milestones/` |
-| Project context, specs | `homelab/context/` |
-| **Personal information** (identity, employers/clients, email domains, addresses, label taxonomies, vault names, private infra descriptions, private settings overlays) | `personal/` |
+| Ticket-specific approach or trade-off; plans, milestones, post-mortems, verification | Issue comment |
+| Claude behaviour: user preferences, feedback, corrections | Auto-memory |
+| Architectural decision ("chose X over Y because Z") | Vault `homelab/decisions/` |
+| Operational knowledge (how to run, deploy, configure) | Vault `homelab/knowledge/<category>/`, or the repo's `docs/` |
+| Research (evaluation, comparison, analysis) | Vault `homelab/research/` |
+| Session continuity | Vault `homelab/sessions/` (via `/handoff`) |
+| Sprint plans and roadmaps / milestones / project context and specs | Vault `homelab/planning/` / `milestones/` / `context/` |
+| Personal information | Vault `personal/` |
+| Workflow conventions | `CLAUDE.md` (rarely) |
 
-**Rule of thumb:** Auto-memory answers "how should Claude behave?" Vault answers "what does the project know?"
+## When to persist
 
-**Personal information lives only in the vault's `personal/`** — never in this shared config, which is
-published from a public dotfiles repo. When a shared prompt, skill or command needs a personal fact,
-make it read `$MEMORY_VAULT_PATH/personal/profile.md` at runtime instead of embedding the fact.
+**Immediately**, not deferred to the end of the session:
 
-## Persistence Routing
+- the user corrects your approach → `feedback`
+- the user shares a role, preference or context → `user`
+- a new external resource → `reference`
+- an architectural decision → `decisions/`
+- new operational knowledge → `knowledge/`
+- significant research → `research/`
+- a parent issue completed → `milestones/`
 
-| Decision scope | Where |
-|---|---|
-| Ticket-specific (approach, trade-off) | Jira comment |
-| Claude behavioral (user prefs, feedback, corrections) | Auto-memory |
-| Architectural decision (chose X over Y because Z) | Vault → `decisions/` |
-| Operational knowledge (how to run, deploy, configure) | Vault → `knowledge/` |
-| Research findings (evaluation, comparison, analysis) | Vault → `research/` |
-| Session continuity (handoff context) | Vault → `sessions/` |
-| Workflow conventions (Jira config, commit format) | CLAUDE.md (rarely) |
+**If it is substantial:** a session handoff (`sessions/`); a change to an operational doc (update
+the existing note); a sprint plan not already in the tracker (`planning/`).
 
-## Proactive Persistence Triggers
+**On any code change:** if it affects behaviour described in `docs/`, update those docs **in the same
+commit**. Never leave docs out of sync with code.
 
-### Hard triggers (always persist)
+**At session end or handoff:** decisions and learnings are persisted, not just stated in the
+conversation (`/handoff`).
 
-1. **Architectural decision made** → `decisions/` — any non-trivial "we chose X over Y because Z"
-2. **Research conducted** → `research/` — any analysis, evaluation, or comparison that took significant effort
-3. **New operational knowledge created** → `knowledge/` — how-tos, runbooks, config docs that don't exist yet
-4. **Parent issue completed** → `milestones/` — summary of what was achieved and lessons learned
+## What not to save
 
-### Soft triggers (persist if substantial)
+- Code patterns, architecture, or anything else derivable from the code or git history
+- Transient debugging state, test or CI output
+- Anything already in the tracker. Don't duplicate it.
+- Ephemeral details that only matter to the current conversation
+- Comments on self-explanatory code, or docs for one-off scripts
 
-5. **Session handoff** → `sessions/` — only if the session has meaningful context for continuity
-6. **Operational doc changed** → update existing file in `knowledge/` — keep docs in sync
-7. **Sprint planned** → `planning/` — only if not already tracked in Jira
+## Quality bar and hygiene
 
-### Never persist to vault
+- **Durability:** will it matter in 30 days? If not, a ticket comment at most.
+- **Uniqueness:** search first. For the vault, use the obsidian MCP by title and aliases. For memory,
+  check `MEMORY.md`.
+- **Actionability:** can a future session act on it?
+- **Update rather than create** when it is the same decision, technology or entity, or when it
+  corrects or supersedes earlier content. Create when it is a distinct decision (a different
+  trade-off or date), an independent finding, or a new handoff. When in doubt, update:
+  fragmentation hurts retrieval.
+- When observation proves a memory wrong, update or delete it.
+- Keep `MEMORY.md` under 200 lines, and consolidate as it approaches that.
+- At session start, scan `MEMORY.md` for relevant entries. When resuming a topic, read its
+  `sessions/` handoff.
 
-- Test results, CI output, or transient state
-- Information already in Jira (don't duplicate)
-- Information derivable from code or git history
-- User preferences or behavioral corrections (those go to auto-memory)
+## Vault structural conventions
 
-## Quality Bar
-
-Before writing to the vault, evaluate:
-
-- **Durability**: Will this be relevant in 30 days? If not, it's ephemeral → Jira comment at most.
-- **Uniqueness**: Does this already exist in the vault? Search titles/aliases first.
-- **Actionability**: Can a future session or human act on this? If it's just an observation with no practical use, skip it.
-
-## Structural Conventions
-
-### Frontmatter (required on every vault .md file)
+**Frontmatter is required on every vault `.md`:**
 
 ```yaml
 ---
@@ -88,34 +93,21 @@ created: YYYY-MM-DD
 ---
 ```
 
-Optional fields: `type`, `aliases`, `entities`, `importance`, `source`, `_migrated`, `last_accessed`, `access_count`
+Optional fields: `type`, `aliases`, `entities`, `importance`, `source`, `_migrated`,
+`last_accessed`, `access_count`.
 
-### Staleness Tracking (auto-memory only)
-
-Auto-memory files include staleness metadata maintained by `memory-access-tracker.sh`:
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `last_accessed` | date | ISO date when file was last loaded into context |
-| `access_count` | integer | Cumulative access count across sessions |
-
-Files not accessed in 90+ days are candidates for archival or consolidation.
-Run `python3 ~/Repositories/dotfiles/claude/scripts/memory-cleanup.py` to generate a staleness report (every
-`~/.claude/projects/*/memory` by default; `--dir` to pick one).
-Use `--archive` flag to move stale files to a `stale/` subdirectory.
-
-### Filenames
-
-- Use kebab-case for technical/operational directories
-- Title Case acceptable in `reference/` and vault root
-
-### Wikilinks
-
-- Use `[[note-name]]` for internal links, not markdown-style `[text](path.md)`
-- Link to related notes when creating new content
-
-### Pre-commit validation
-
-The `memory-frontmatter-check.sh` hook validates frontmatter on the `.md` files a `git commit` in the vault repo will contain. That covers the primary checkout and every worktree of it, and each commit is checked against its own index. It blocks commits missing `title`, `tags`, or `created` fields. Run `/obsidian-lint --fix` to auto-repair issues.
-
-It finds the repo from the command itself: `git -C <path>`, a leading `cd <path> &&`, or else the session cwd. The file set comes from the command too: the index, plus any earlier `git add` in the same command (`git add x && git commit`, `git add -A && …`), `git commit -a`, and `git commit <paths>`. When it can't tell the repo or the files (`git add -p`, `git add $(…)`), it prints a one-line `skipped` notice to stderr rather than passing silently.
+- **Filenames:** kebab-case in technical and operational directories. Title Case is acceptable in
+  `reference/` and at the vault root.
+- **Links:** `[[note-name]]` wikilinks, not markdown links. Link related notes.
+- **Staleness (auto-memory):** `memory-access-tracker.sh` maintains `last_accessed` and
+  `access_count`. Files unused for 90+ days are candidates for archiving. Report with
+  `python3 ~/Repositories/dotfiles/claude/scripts/memory-cleanup.py` (`--dir` for one directory,
+  `--archive` to move stale files to `stale/`).
+- **Pre-commit:** `memory-frontmatter-check.sh` blocks a vault commit (in the primary checkout or any
+  worktree) whose `.md` files are missing `title`, `tags` or `created`.
+  - It resolves the repo from `git -C`, a leading `cd … &&`, or the session cwd.
+  - It reads the file set from the index, an earlier `git add` in the same command, `commit -a` or
+    `commit <paths>`.
+  - When it cannot tell, for example with `git add -p` or `git add $(…)`, it prints a one-line
+    `skipped` notice.
+  - `/obsidian-lint --fix` repairs findings.
