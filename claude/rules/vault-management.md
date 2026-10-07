@@ -1,7 +1,5 @@
 ---
 description: Vault management policy — defines boundary between auto-memory and Obsidian vault, persistence triggers, quality bar, and structural conventions
-globs:
-  - "**/*"
 ---
 
 # Vault Management Policy
