@@ -1359,9 +1359,14 @@ def cmd_new(args):
 
 
 def board_url(repo, board_id):
+    # The app's hash route for one board is `#/board/<repo>/<id>` (singular; see
+    # hashFor in fredabood/work frontend/src/router.ts), each segment URI-encoded.
+    # `/boards/...` is the API's path, not a page.
+    from urllib.parse import quote
     base = api_base()
-    return "%s/#/boards/%s/%s" % (base[:-len("/api")] if base.endswith("/api") else base,
-                                  repo, board_id)
+    seg = lambda s: quote(str(s), safe="")
+    return "%s/#/board/%s/%s" % (base[:-len("/api")] if base.endswith("/api") else base,
+                                 seg(repo), seg(board_id))
 
 
 def cmd_freeze(args):
