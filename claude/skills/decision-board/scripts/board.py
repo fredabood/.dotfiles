@@ -912,13 +912,35 @@ def require_frozen(board, path):
             "%s/%s has changed in the app since it was frozen. Re-run "
             "`board.py freeze %s/%s --into %s` so the harvest quotes what the board actually says "
             "(or use --dry-run)." % (repo, board_id, repo, board_id, path))
-    local = dump_json(board.agenda) + dump_json(board.answers)
-    if hashlib.sha256(local.encode("utf-8")).hexdigest()[:16] != export["content_hash"]:
+    if export.get("decision_hash"):
+        # The app measures drift on what the board DECIDES (fredabood/work#529), so a card re-picked
+        # with the same choice after a freeze is not drift, and these files may differ from the app
+        # by that `at`. Compare what they decide, too, or that re-save would be refused as wrong files.
+        matches = decision_hash(board) == export["decision_hash"]
+    else:
+        # An app from before work#529 sends only the bytes hash.
+        local = dump_json(board.agenda) + dump_json(board.answers)
+        matches = hashlib.sha256(local.encode("utf-8")).hexdigest()[:16] == export["content_hash"]
+    if not matches:
         raise BoardError(
             "%s does not match the frozen export of %s/%s. Run "
             "`board.py freeze %s/%s --into %s` to refresh it (or use --dry-run)."
             % (path, repo, board_id, repo, board_id, path))
     return export["frozen_sha"]
+
+
+def decision_hash(board):
+    """Identity of what a board decides: the agenda plus each answer's `answer_hash`, so `at` is out.
+
+    The app computes the same thing (jira-graph `boards_repo.decision_hash`) and measures drift on
+    it. A re-pick of an unchanged answer is not a new decision, which is what `answer_hash` already
+    says, and drift agrees with it. Change both sides together, or every harvest refuses as wrong files.
+    """
+    answers = board.answers or {}
+    decided = {"schema": answers.get("schema"),
+               "cards": {cid: answer_hash(entry) for cid, entry in (answers.get("cards") or {}).items()}}
+    blob = dump_json(board.agenda) + dump_json(decided)
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()[:16]
 
 
 def repo_slug(value):

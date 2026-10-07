@@ -279,6 +279,12 @@ does not make a just-frozen board read as drifted. The cost of that deliberate b
 `mark-harvested --into` has to refresh the export explicitly; nothing will raise a drift banner for
 it.
 
+For the same reason drift ignores each answer's `at` (`fredabood/work#529`): the app hashes the
+agenda plus each answer's `answer_hash` and sends it as `decision_hash`. A card re-picked with the
+same choice after a freeze is not drift, so the committed files can trail the app by a timestamp.
+The wrong-files check therefore compares what the local files *decide* with `decision_hash`. When
+the app sends no `decision_hash`, it falls back to comparing bytes against `content_hash`.
+
 ## Commands
 
 ```text
