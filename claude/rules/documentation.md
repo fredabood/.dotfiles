@@ -1,7 +1,5 @@
 ---
 description: Documentation as a first-class concern — automatically update docs, persist decisions, and maintain knowledge across sessions
-globs:
-  - "**/*"
 ---
 
 # Documentation — First-Class Concern

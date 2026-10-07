@@ -1,6 +1,6 @@
 ---
 description: Security standards for authentication, credential, and token-related code
-globs:
+paths:
   - "**/auth/**"
   - "**/*password*"
   - "**/*token*"
