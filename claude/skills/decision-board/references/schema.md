@@ -254,7 +254,9 @@ no local server and no second rendering: the page you read is the page that writ
 | Access | The app's existing write posture — a tailnet login in `WRITE_ALLOWED`, or `X-Service-Token` for automation. No new mechanism and no new credential were added for boards |
 | Writes | One card per request, validated by the same rules `board.py` applies, then stored as one row. `rev` is checked for **equality**, so a page that has not seen a reworded card cannot answer it; the 409 carries the current rev so the page can reload and self-heal |
 | Empty answer | No choice, not flagged, and a blank note is not an answer — it deletes the row, so an untouched card does not look touched |
-| Rejections | 400 invalid answer · 409 the card was revised (reload) · 413 body over 16 KiB · 415 not JSON |
+| Rejections | 400 invalid answer · 409 the card was revised (reload) · 413 body too large · 415 not JSON |
+| Body limits | `new` and `revise` carry the whole agenda: **1 MiB**, enough for the largest real board (224 cards, ~415 KiB as `board.py` sends it; `fredabood/work#545`, `#605`). Answer, freeze and harvest carry a few fields: **16 KiB**. A board no longer needs splitting into parts to fit |
+| Status | `status` changes only through `revise`: `open` → `harvested` or `closed`, `harvested` → `open` or `closed`, and `closed` is final. `harvested` is accepted only while every live card is harvested or retired, and a new board must start `open` |
 | Page | Recommendations marked, never pre-selected. Answer text is inserted as text, never as markup |
 | Git | The app holds no git credential and commits nothing. `board.py freeze` is what commits, locally |
 
