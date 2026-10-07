@@ -236,7 +236,7 @@ stub_reset
 out="$(board new --from "$NEW_AGENDA" 2>&1)"; rc=$?
 check "new publishes the board" test "$rc" -eq 0
 check "new reports the card count" grep -q "10 cards in 3 sections" <<<"$out"
-check "new prints a URL to answer it at" grep -q "/#/boards/$REF" <<<"$out"
+check "new prints the app's single-board route (#/board/, singular)" grep -q "/#/board/$REF" <<<"$out"
 sent="$(stub_sent "POST /boards")"
 check "new POSTs the agenda to /boards" test -n "$sent"
 check "new sends application/json" grep -q '"content_type": "application/json"' <<<"$sent"
