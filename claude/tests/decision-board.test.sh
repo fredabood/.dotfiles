@@ -165,11 +165,26 @@ def d(p): return json.dumps(json.load(open(p)), indent=2, sort_keys=True, ensure
 print(hashlib.sha256((d(sys.argv[1]) + d(sys.argv[2])).encode("utf-8")).hexdigest()[:16])' \
         "$1/agenda.json" "$1/answers.json"
 }
-# stub_board <ref> <content_hash> <frozen_sha|null> <drifted> [files_json]
+# decision_hash <dir>: as the app computes it since fredabood/work#529 — the agenda plus each
+# answer's answer_hash, so `at` is left out. Spelled out here, independently of board.py.
+decision_hash() {
+    python3 -c 'import hashlib, json, sys
+def d(o): return json.dumps(o, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
+def ah(e):
+    p = {k: e.get(k) for k in ("choice", "note", "flagged", "resolution", "rev")}
+    p["note"] = p["note"] or ""
+    return hashlib.sha256(json.dumps(p, sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()[:16]
+agenda = json.load(open(sys.argv[1])); answers = json.load(open(sys.argv[2]))
+decided = {"schema": answers.get("schema"), "cards": {c: ah(e) for c, e in answers.get("cards", {}).items()}}
+print(hashlib.sha256((d(agenda) + d(decided)).encode("utf-8")).hexdigest()[:16])' \
+        "$1/agenda.json" "$1/answers.json"
+}
+# stub_board <ref> <content_hash> <frozen_sha|null> <drifted> [files_json] [decision_hash]
 stub_board() {
     python3 -c 'import json, sys
 files = json.loads(sys.argv[6]) if len(sys.argv) > 6 else {}
 state = {"log": sys.argv[1], "boards": {sys.argv[2]: {
+    "decision_hash": sys.argv[7] if len(sys.argv) > 7 else None,
     "files": files, "content_hash": sys.argv[3],
     "frozen_sha": None if sys.argv[4] == "null" else sys.argv[4],
     "drifted": sys.argv[5] == "true",
@@ -442,6 +457,38 @@ stub_board "$REF" 1111111111111111 deadbeefdeadbeefdeadbeefdeadbeefdeadbeef fals
 out="$(apply "$gdir" --drafts "$gate_drafts" 2>&1)"; rc=$?
 check "a directory that is not the frozen export is refused" test "$rc" -eq 1
 check "the mismatch refusal names the directory" grep -q "does not match the frozen export" <<<"$out"
+
+# fredabood/work#529: the app measures drift on what the board DECIDES and sends that as
+# `decision_hash`. A card re-picked with the same choice after the freeze leaves the app one `at`
+# ahead of the committed files: not drifted, and not the wrong files either.
+gate_sha="$(git -C "$gdir" rev-parse HEAD)"
+app="$(fresh gate-app)"
+mutate "$app/answers.json" 'd["cards"]["A1"]["at"] = "2026-10-07T12:00:00Z"'
+check "the app copy really differs from the committed files by bytes" \
+    test "$(content_hash "$app")" != "$(content_hash "$gdir")"
+stub_board "$REF" "$(content_hash "$app")" "$gate_sha" false "$(export_files "$app")" "$(decision_hash "$app")"
+out="$(apply "$gdir" --drafts "$gate_drafts" 2>&1)"; rc=$?
+check "an at-only difference passes the gate when decision_hash matches" test "$rc" -eq 0
+check "an at-only difference is not reported as the wrong files" \
+    bash -c '! grep -q "does not match the frozen export" <<<"$1"' _ "$out"
+
+mutate "$app/answers.json" 'd["cards"]["A1"]["note"] = "a different reason entirely"'
+stub_board "$REF" "$(content_hash "$app")" "$gate_sha" false "$(export_files "$app")" "$(decision_hash "$app")"
+out="$(apply "$gdir" --drafts "$gate_drafts" 2>&1)"; rc=$?
+check "a real decision difference is refused" test "$rc" -eq 1
+check "a real decision difference is refused as the wrong files" \
+    grep -q "does not match the frozen export" <<<"$out"
+
+# An app from before work#529 sends no decision_hash: the gate falls back to the bytes.
+stub_board "$REF" "$(content_hash "$gdir")" "$gate_sha" false "$(export_files "$gdir")"
+out="$(apply "$gdir" --drafts "$gate_drafts" 2>&1)"; rc=$?
+check "without decision_hash, identical bytes pass the gate" test "$rc" -eq 0
+app="$(fresh gate-app-old)"
+mutate "$app/answers.json" 'd["cards"]["A1"]["at"] = "2026-10-07T12:00:00Z"'
+stub_board "$REF" "$(content_hash "$app")" "$gate_sha" false "$(export_files "$app")"
+out="$(apply "$gdir" --drafts "$gate_drafts" 2>&1)"; rc=$?
+check "without decision_hash, an at-only difference is still the wrong files" \
+    bash -c '[ "$1" -eq 1 ] && grep -q "does not match the frozen export" <<<"$2"' _ "$rc" "$out"
 
 # freeze_stub <board-dir>: report that directory to the stub as FROZEN, at the sha
 # its own repo is currently on. Every non-dry-run harvest needs this: the gate now

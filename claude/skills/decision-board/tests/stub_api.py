@@ -110,12 +110,16 @@ class Handler(BaseHTTPRequestHandler):
                 return self.reply(404, {"error": "no such decision board"})
             tail = parts[3] if len(parts) > 3 else ""
             if method == "GET" and tail == "export":
-                return self.reply(200, {
+                payload = {
                     "repo": parts[1], "board_id": parts[2],
                     "files": board["files"], "content_hash": board["content_hash"],
                     "frozen_sha": board.get("frozen_sha"),
                     "drifted": bool(board.get("drifted")),
-                })
+                }
+                # Only an app from fredabood/work#529 on sends it; its absence is the fallback path.
+                if board.get("decision_hash"):
+                    payload["decision_hash"] = board["decision_hash"]
+                return self.reply(200, payload)
             if method == "POST" and tail == "freeze":
                 if (body or {}).get("content_hash") not in (None, board["content_hash"]):
                     return self.reply(409, {"error": "the board changed between export and commit",
