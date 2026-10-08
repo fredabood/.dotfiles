@@ -39,7 +39,8 @@ claude/
     ├── memory-cleanup.test.sh        # the staleness report scans every project memory dir
     ├── memory-frontmatter-check.test.sh # the vault frontmatter gate judges the repo being committed
     ├── memory-gitleaks-check.test.sh # the vault secret-scan gate blocks a planted token
-    └── memory-gitleaks-git-hook.test.sh # real git commits/pushes are refused by the vault's own hooks
+    ├── memory-gitleaks-git-hook.test.sh # real git commits/pushes are refused by the vault's own hooks
+    └── vault-hook-resolver.test.sh   # the resolver lib both vault gates source, on its own
 ```
 
 ## How it installs
@@ -145,6 +146,7 @@ bash claude/tests/memory-access-tracker.test.sh
 bash claude/tests/memory-frontmatter-check.test.sh
 bash claude/tests/memory-gitleaks-check.test.sh    # needs gitleaks; ends with SUITE_RESULT
 bash claude/tests/memory-gitleaks-git-hook.test.sh # needs gitleaks; ends with SUITE_RESULT
+bash claude/tests/vault-hook-resolver.test.sh      # the shared resolver lib; ends with SUITE_RESULT
 bash claude/tests/decision-board.test.sh   # starts local servers on 127.0.0.1; uses docker for markdownlint if present
 ```
 
