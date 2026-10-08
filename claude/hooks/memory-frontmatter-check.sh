@@ -51,7 +51,9 @@ fi
 # before, `git mv a.md b.md` plus an edit dropping `title:` passed unchecked. A pure `git mv` of a
 # note without frontmatter is therefore blocked until the note gets frontmatter. `git rm` stages no
 # new content and is not counted. When the file list cannot be computed for a vault commit, the
-# commit is blocked rather than passed unchecked (LAB-2858, owner decision OD1).
+# commit is blocked rather than passed unchecked (LAB-2858, owner decision OD1): commit_files exits
+# non-zero on a python3 failure, invalid parameters (3) or any git listing call that fails (4, e.g.
+# a corrupt index). A pathspec commit on an unborn HEAD is diffed against the empty tree instead.
 #
 # Remaining limits, each a visible skip rather than a silent pass: interactive or file-driven
 # adds and commits (-p, -i, -e, --pathspec-from-file), and pathspecs using $, backticks or braces.
@@ -135,7 +137,7 @@ cd "$TOP"
 if ! FILE_LINES=$(commit_files "$TOP" "${VAULT_DIRS[$i]}" "${VAULT_SPECS[$i]}" 1 no ACMT ".md"); then
   # A vault commit whose file list is unknown is blocked, not passed unchecked (LAB-2858, OD1). This
   # gate has no backstop: the vault's own git hooks run only the secret scan.
-  echo "ERROR: $TOP — could not compute the files this commit will contain (python3 failed); blocking rather than passing unchecked" >&2
+  echo "ERROR: $TOP — could not compute the files this commit will contain (the resolver's commit_files failed; its reason, if any, is above); blocking rather than passing unchecked" >&2
   ERRORS=$((ERRORS + 1))
   CHECKED=1
   continue

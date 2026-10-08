@@ -177,7 +177,9 @@ standard module.
   "git" and "commit", in every repo, until the lib is restored (from a terminal:
   `git -C ~/Repositories/dotfiles restore claude/hooks/lib`, or revert the change that broke it).
 - **An unknown file list blocks.** When a vault commit's file list cannot be computed, both gates
-  block rather than pass it unchecked.
+  block rather than pass it unchecked. That covers a `commit_files` crash, invalid parameters (exit 3)
+  and any git call that lists part of the commit failing (exit 4, for example on a corrupt index). A
+  pathspec commit on an unborn HEAD is not a failure: it is diffed against the empty tree.
 
 Commits and pushes made **outside** Claude Code are scanned by the vault's own git hooks (LAB-2857).
 `install.sh` runs `scripts/install-vault-hooks.sh`. It copies `git-hooks/vault/{pre-commit,pre-push}`

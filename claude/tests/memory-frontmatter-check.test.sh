@@ -288,6 +288,25 @@ t_f_l2() {
     [ "$RC" -eq 2 ] && grep -q 'is incomplete' <<<"$ERR"
 }
 check "F-L2 a lib without the sentinel -> rc 2, 'incomplete'" t_f_l2
+# F-L2b/F-L2c: the sentinel is set but a function is missing; only the declare -F half catches it.
+# lib_without <fn>: the real lib with one function renamed away.
+lib_without() { sed "s/^$1() {/$1_gone() {/" "$REAL_LIB"; }
+t_f_l2b() {
+    setup; local L="$T/layout$n" HOOK="$T/layout$n/hooks/$FM_HOOK"; mklayout "$L" "$FM_HOOK" none
+    lib_without resolve_targets > "$L/hooks/lib/vault-hook-resolver.sh"
+    grep -q '^resolve_targets_gone() {' "$L/hooks/lib/vault-hook-resolver.sh" || return 1
+    stage "$WT" bad.md "$BAD"; run_hook "$WT" "git commit -m x"
+    [ "$RC" -eq 2 ] && grep -q 'is incomplete' <<<"$ERR"
+}
+check "F-L2b sentinel set, resolve_targets missing, bad .md staged -> rc 2, 'incomplete'" t_f_l2b
+t_f_l2c() {
+    setup; local L="$T/layout$n" HOOK="$T/layout$n/hooks/$FM_HOOK"; mklayout "$L" "$FM_HOOK" none
+    lib_without commit_files > "$L/hooks/lib/vault-hook-resolver.sh"
+    grep -q '^commit_files_gone() {' "$L/hooks/lib/vault-hook-resolver.sh" || return 1
+    stage "$WT" bad.md "$BAD"; run_hook "$WT" "git commit -m x"
+    [ "$RC" -eq 2 ] && grep -q 'is incomplete' <<<"$ERR"
+}
+check "F-L2c sentinel set, commit_files missing, bad .md staged -> rc 2, 'incomplete'" t_f_l2c
 t_f_l3() {
     setup; local L="$T/layout$n" HOOK="$T/layout$n/hooks/$FM_HOOK"; mklayout "$L" "$FM_HOOK"
     # A failing top-level line mid-file, before the sentinel: set -e exits 1 (allow) on bash 3.2
@@ -305,6 +324,22 @@ t_f_h() {
     [ "$RC" -eq 2 ] && grep -q 'could not compute the files this commit will contain' <<<"$ERR"
 }
 check "F-H the vault commit's file list cannot be computed -> rc 2, blocked (OD1)" t_f_h
+# F-GF: a git listing call fails inside commit_files (a corrupt index). Before the review fix this was
+# a skip notice and rc 0, with the real lib, not a stub.
+t_f_gf() {
+    setup; stage "$WT" good.md "$GOOD"
+    printf 'garbage' > "$(git -C "$WT" rev-parse --path-format=absolute --git-path index)"
+    run_hook "$WT" "git commit -m x"
+    [ "$RC" -eq 2 ] && grep -q 'could not compute the files this commit will contain' <<<"$ERR" \
+        && grep -q 'commit_files: could not read the index' <<<"$ERR"
+}
+check "F-GF a corrupt index in a vault worktree -> rc 2, blocked, the git reason shown (OD1)" t_f_gf
+# F-UNB: `git commit -m x bad.md` on an unborn HEAD is validated (diffed against the empty tree).
+t_f_unb() {
+    setup; git -C "$WT" checkout -q --orphan fresh; stage "$WT" bad.md "$BAD"
+    run_hook "$WT" "git commit -m x bad.md"; blocked bad.md
+}
+check "F-UNB commit <bad.md> on an unborn HEAD (orphan branch) -> blocked" t_f_unb
 
 printf '\n%d passed, %d failed\n' "$pass" "$failed"
 printf 'SUITE_RESULT pass=%d fail=%d skip=0\n' "$pass" "$failed"

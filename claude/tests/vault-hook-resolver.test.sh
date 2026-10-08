@@ -155,14 +155,41 @@ t_cf5() {
 check "CF5 a subprocess.py at <top>, cwd <top>, is not imported -> FILE lines still printed" t_cf5
 t_cf6() {
     setup; stage "$WT" a.md "$GOOD"
-    cf6_refused() { lib_run "$WT" commit_files "$WT" "$WT" '{}' "$@" 2>/dev/null; [ "$RC" -ne 0 ] && [ -z "$OUT" ] || { echo "    accepted: [$*]"; return 1; }; }
-    cf6_refused 2 no ACMT ".md" && cf6_refused 1 maybe ACMT ".md" && cf6_refused 1 no "A;x" ".md" \
-        && cf6_refused 1 no ACMT "" && cf6_refused 1 no "" ".md" || return 1
+    # cf6_refused <top> <dir> <md_only> <renames> <filter> <label>: exit 3 exactly, the documented
+    # stderr line, nothing on stdout.
+    cf6_refused() {
+        lib_run "$WT" commit_files "$1" "$2" '{}' "$3" "$4" "$5" "$6" 2>"$T/cf6.err"
+        [ "$RC" -eq 3 ] && [ -z "$OUT" ] && grep -q 'commit_files: invalid parameters' "$T/cf6.err" \
+            || { echo "    accepted (rc $RC): [$*]"; return 1; }
+    }
+    cf6_refused "$WT" "$WT" 2 no ACMT ".md" && cf6_refused "$WT" "$WT" 1 maybe ACMT ".md" \
+        && cf6_refused "$WT" "$WT" 1 no "A;x" ".md" && cf6_refused "$WT" "$WT" 1 no ACMT "" \
+        && cf6_refused "$WT" "$WT" 1 no "" ".md" && cf6_refused "" "$WT" 1 no ACMT ".md" \
+        && cf6_refused "$WT" "" 1 no ACMT ".md" || return 1
     # Control: the same call with valid parameters lists the file.
     lib_run "$WT" commit_files "$WT" "$WT" '{}' 1 no ACMT ".md"
     [ "$RC" -eq 0 ] && [ "$OUT" = "FILE${TAB}a.md" ]
 }
-check "CF6 invalid md_only / renames / filter / empty label -> rc != 0, nothing on stdout" t_cf6
+check "CF6 invalid md_only / renames / filter / empty label, top or dir -> rc 3, 'invalid parameters', nothing on stdout" t_cf6
+# CF7: `git commit <paths>` on an unborn HEAD (a first commit, an orphan branch) has no HEAD to diff
+# against. Before the review fix that was a SKIP and the commit passed unchecked.
+t_cf7() {
+    setup; git -C "$WT" checkout -q --orphan fresh; stage "$WT" a.md "$GOOD"
+    lib_run "$WT" commit_files "$WT" "$WT" '{"specs": ["a.md"]}' 1 no ACMT ".md" 2>"$T/cf7.err"
+    [ "$RC" -eq 0 ] && [ "$OUT" = "FILE${TAB}a.md" ] && [ ! -s "$T/cf7.err" ]
+}
+check "CF7 commit <path> on an unborn HEAD -> diffed against the empty tree, FILE a.md, rc 0" t_cf7
+# CF8: a git listing call that fails (here a corrupt index) makes the list incomplete: exit 4 with the
+# reason on stderr, never a SKIP line the hooks would read as a visible pass.
+t_cf8() {
+    setup; stage "$WT" a.md "$GOOD"
+    printf 'garbage' > "$(git -C "$WT" rev-parse --path-format=absolute --git-path index)"
+    lib_run "$WT" commit_files "$WT" "$WT" '{}' 1 no ACMT ".md" 2>"$T/cf8.err"
+    [ "$RC" -eq 4 ] && grep -q 'commit_files: could not read the index' "$T/cf8.err" || return 1
+    lib_run "$WT" commit_files "$WT" "$WT" '{"specs": ["a.md"]}' 1 no ACMT ".md" 2>"$T/cf8.err"
+    [ "$RC" -eq 4 ] && grep -q 'commit_files: could not diff the commit pathspec' "$T/cf8.err"
+}
+check "CF8 a corrupt index -> rc 4 and the reason on stderr (index and pathspec paths)" t_cf8
 
 echo "the lib's own red test"
 # ST1: the same cases against a stub that defines the three functions as no-ops and sets the

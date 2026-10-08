@@ -292,6 +292,24 @@ t_g_l2() {
     [ "$RC" -eq 2 ] && grep -q 'is incomplete' <<<"$ERR"
 }
 check "G-L2 a lib without the sentinel -> rc 2, 'incomplete'" t_g_l2
+# G-L2b/G-L2c: the sentinel is set but a function is missing; only the declare -F half catches it.
+lib_without() { sed "s/^$1() {/$1_gone() {/" "$REAL_LIB"; }
+t_g_l2b() {
+    setup; local L="$T/layout$n" HOOK="$T/layout$n/hooks/$GL_HOOK"; mklayout "$L" "$GL_HOOK" none
+    lib_without resolve_targets > "$L/hooks/lib/vault-hook-resolver.sh"
+    grep -q '^resolve_targets_gone() {' "$L/hooks/lib/vault-hook-resolver.sh" || return 1
+    stage "$WT" leak.md "$LEAK"; run_hook "$WT" "git commit -m x"
+    [ "$RC" -eq 2 ] && grep -q 'is incomplete' <<<"$ERR"
+}
+check "G-L2b sentinel set, resolve_targets missing, token staged -> rc 2, 'incomplete'" t_g_l2b
+t_g_l2c() {
+    setup; local L="$T/layout$n" HOOK="$T/layout$n/hooks/$GL_HOOK"; mklayout "$L" "$GL_HOOK" none
+    lib_without commit_files > "$L/hooks/lib/vault-hook-resolver.sh"
+    grep -q '^commit_files_gone() {' "$L/hooks/lib/vault-hook-resolver.sh" || return 1
+    stage "$WT" leak.md "$LEAK"; run_hook "$WT" "git commit -m x"
+    [ "$RC" -eq 2 ] && grep -q 'is incomplete' <<<"$ERR"
+}
+check "G-L2c sentinel set, commit_files missing, token staged -> rc 2, 'incomplete'" t_g_l2c
 t_g_l3() {
     setup; local L="$T/layout$n" HOOK="$T/layout$n/hooks/$GL_HOOK"; mklayout "$L" "$GL_HOOK"
     awk '/^VAULT_HOOK_RESOLVER_API=1$/ { print "false" } { print }' "$REAL_LIB" > "$L/hooks/lib/vault-hook-resolver.sh"
@@ -308,6 +326,16 @@ t_g_h() {
         && grep -q 'Vault secret scan blocked this commit' <<<"$ERR"
 }
 check "G-H the vault commit's file list cannot be computed -> rc 2, blocked with the trailer (OD1)" t_g_h
+# G-GF: a git listing call fails inside commit_files (a corrupt index), with the real lib. Before the
+# review fix this was a skip notice and rc 0: nothing was scanned.
+t_g_gf() {
+    setup; stage "$WT" leak.md "$LEAK"
+    printf 'garbage' > "$(git -C "$WT" rev-parse --path-format=absolute --git-path index)"
+    run_hook "$WT" "git commit -m x"
+    [ "$RC" -eq 2 ] && grep -q 'could not compute the files this commit will contain .* blocking' <<<"$ERR" \
+        && grep -q 'commit_files: could not read the index' <<<"$ERR"
+}
+check "G-GF a corrupt index in a vault worktree -> rc 2, blocked, the git reason shown (OD1)" t_g_gf
 
 printf '\nSUITE_RESULT pass=%d fail=%d skip=%d\n' "$pass" "$failed" "$skipped"
 [ "$failed" -eq 0 ] && [ "$pass" -gt 0 ] && [ "$glpass" -gt 0 ]

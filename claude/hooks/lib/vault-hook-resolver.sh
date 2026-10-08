@@ -32,8 +32,12 @@
 #       lines. md_only=1 keeps only .md files; renames=no lists a rename as an addition
 #       (--no-renames); the diff filter is git's --diff-filter; the label names a file in the skip
 #       text (".md" or "file"). Git runs with list argv, never a shell, and pathspecs go after `--`.
-#       Invalid parameters (a caller bug) exit 3 before printing anything; both hooks block on a
-#       non-zero exit here ("could not compute the files this commit will contain").
+#       Exit codes: 0 = the list is complete (SKIP lines name what it could not include); 3 = invalid
+#       parameters (a caller bug), before anything is printed; 4 = a git call that lists part of the
+#       commit failed (a corrupt index, an unreadable object), each reason on stderr, and stdout
+#       must then be discarded. Both hooks block on any non-zero exit ("could not compute the files
+#       this commit will contain"; LAB-2858, OD1). An unborn HEAD is not a failure: a pathspec
+#       commit there is diffed against the empty tree.
 #
 # Tests: claude/tests/vault-hook-resolver.test.sh (the lib alone), plus both hook suites.
 
@@ -283,6 +287,7 @@ if (os.environ.get("CF_MD_ONLY") not in ("0", "1")
 
 top, cdir = os.environ["CF_TOP"], os.environ["CF_DIR"]
 seen = []
+failures = []  # a git listing that failed: the list is incomplete, so the caller must block (exit 4)
 
 def say(kind, value):
     line = kind + "\t" + value
@@ -303,7 +308,8 @@ def names(d, *args):
 
 def files(paths, reason):
     if paths is None:
-        say("SKIP", reason)
+        if reason not in failures:
+            failures.append(reason)
         return
     for p in paths:
         if os.environ["CF_MD_ONLY"] == "1" and not p.endswith(".md"):
@@ -337,7 +343,10 @@ elif specs and spec.get("include"):
     files(names(cdir, *CHANGED + ("--",) + tuple(specs)), "could not list the commit -i paths")
 elif specs:
     # `git commit <paths>` commits only those paths from the working tree; the rest of the index waits.
-    files(names(cdir, "diff", "HEAD", *CHANGED[1:] + ("--",) + tuple(specs)),
+    # On an unborn HEAD (a vault's first commit, an orphan branch) the base is the empty tree.
+    base = "HEAD" if git(cdir, "rev-parse", "--verify", "-q", "HEAD^{commit}") is not None else (
+        (git(cdir, "hash-object", "-t", "tree", "/dev/null") or "").strip() or None)
+    files(None if base is None else names(cdir, "diff", base, *CHANGED[1:] + ("--",) + tuple(specs)),
           "could not diff the commit pathspec against HEAD")
 else:
     index()
@@ -358,6 +367,11 @@ for add in spec.get("adds", []):
         if not add["force"]:
             others += ("--exclude-standard",)
         files(names(add["dir"], *others + ("--",) + tuple(paths)), "could not list untracked git add paths")
+
+if failures:
+    for reason in failures:
+        sys.stderr.write("vault-hook-resolver: commit_files: " + reason + "\n")
+    sys.exit(4)
 PY
 }
 

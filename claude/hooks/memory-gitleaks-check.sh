@@ -24,8 +24,11 @@
 # EXIT CODES: 0 = allow (not a commit, not the vault, clean, a zero-content commit, or a visible
 # skip); 2 = block (a finding, gitleaks or the committed config missing, gitleaks failed, the
 # resolver lib missing, incomplete or failing to load, or — for a vault commit — the list of files
-# the commit will contain could not be computed; LAB-2858). The lib refusals come before the vault
-# is identified, so they block any Bash call whose payload mentions both git and commit.
+# the commit will contain could not be computed: commit_files failed in python3, got invalid
+# parameters, or a git listing call failed, such as on a corrupt index; LAB-2858). A pathspec
+# commit on an unborn HEAD is diffed against the empty tree, not blocked. The lib refusals come
+# before the vault is identified, so they block any Bash call whose payload mentions both git and
+# commit.
 #
 # KILL SWITCH (human only): MEMORY_GITLEAKS_CHECK=off disables the gate and prints a DISABLED line
 # on stderr for every commit it waves through.
@@ -128,7 +131,7 @@ for i in "${!VAULT_TOPS[@]}"; do
 
   if ! FILE_LINES=$(commit_files "$TOP" "${VAULT_DIRS[$i]}" "${VAULT_SPECS[$i]}" 0 no ACMT "file"); then
     # A vault commit whose file list is unknown is blocked, not passed unchecked (LAB-2858, OD1).
-    echo "$TAG: $TOP: could not compute the files this commit will contain (python3 failed) — blocking rather than passing unchecked" >&2
+    echo "$TAG: $TOP: could not compute the files this commit will contain (the resolver's commit_files failed; its reason, if any, is above) — blocking rather than passing unchecked" >&2
     BLOCK=1
     continue
   fi
