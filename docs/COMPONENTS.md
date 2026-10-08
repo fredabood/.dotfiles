@@ -681,6 +681,8 @@ vault (`$MEMORY_VAULT_PATH/personal/`), never here.
 | `claude/install.sh` | — | `--status`, `--dry-run`, `--materialize` |
 | `claude/scripts/claude-settings` | — | `status`, `diff`, `apply`, `absorb`, `sync` |
 | `claude/scripts/check-public.sh` | — | gitleaks + vault denylist; the repo pre-commit hook |
+| `claude/git-hooks/vault/pre-commit`, `pre-push` | copied into the vault's `.git/hooks` by `install-vault-hooks.sh` (wrapper path baked in) | secret scan for vault commits/pushes made outside Claude Code (LAB-2857) |
+| `claude/scripts/install-vault-hooks.sh` | — | run by `claude/install.sh`; `--check` used by `--status` and the SessionStart hook |
 | `claude/tests/install.test.sh` | — | fake-HOME test suite |
 
 ### Usage

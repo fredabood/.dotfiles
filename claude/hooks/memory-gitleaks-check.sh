@@ -30,8 +30,10 @@
 # LIMITS:
 #   - gitleaks is a keyword-and-entropy check, not a proof. Its default stopword allowlist can
 #     suppress a real credential; every run says so.
-#   - Only commits made through Claude Code's Bash tool are seen. vault-sync's auto-commit
-#     (fredabood/homelab#2548), Obsidian git and a terminal are not gated (owner ruling D5).
+#   - Only commits made through Claude Code's Bash tool are seen here (owner ruling D5). Commits
+#     and pushes made elsewhere (a terminal, Obsidian, claude-settings-sync.sh) are gated by the
+#     vault's own git hooks, claude/scripts/memory-gitleaks-commit-check.sh (LAB-2857); vault-sync's
+#     planned auto-commit is to call that script explicitly (fredabood/homelab#2548).
 #   - Interactive or file-driven adds and commits, and pathspecs using $, backticks or braces, are
 #     a visible "skipped" line, as in the frontmatter hook.
 #
