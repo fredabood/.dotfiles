@@ -16,6 +16,7 @@
 !/skills/
 !/hooks/
 !/scripts/
+!/git-hooks/
 !/tests/
 
 # settings.json is never stored here. It is GENERATED from settings.base.json plus a private

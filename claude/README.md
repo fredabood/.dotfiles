@@ -19,7 +19,8 @@ claude/
 ├── skills/                 # skills (one dir each)  ← ~/.claude/skills   (folder link)
 ├── statusline-command.sh   #                        → ~/.claude/statusline-command.sh
 ├── settings.base.json      # public half of settings.json (generated, never linked)
-├── install.sh              # linker + settings generation
+├── install.sh              # linker + settings generation + vault git hooks
+├── git-hooks/vault/        # pre-commit, pre-push shim templates (copied, path baked in, by install-vault-hooks.sh)
 ├── scripts/
 │   ├── claude-settings     # generate / diff / absorb settings.json
 │   ├── merge.jq            # base ⊕ overlay (deep merge, arrays union)
@@ -27,6 +28,8 @@ claude/
 │   ├── check-public.sh     # gitleaks + private denylist (the repo pre-commit hook)
 │   ├── memory-cleanup.py   # auto-memory staleness report (reads memory-access-tracker frontmatter)
 │   ├── memory-gitleaks-scan.sh  # gitleaks over a file set, 0/1/2 (the vault secret-scan gate's check)
+│   ├── memory-gitleaks-commit-check.sh  # the vault's git pre-commit/pre-push scan (outside Claude Code)
+│   ├── install-vault-hooks.sh  # copy git-hooks/vault/* into the vault's .git/hooks; --check
 │   └── omnigent-worktree-patch  # keep Omnigent's worktrees in <repo>/.claude/worktrees
 └── tests/
     ├── decision-board.test.sh        # board.py: schema, states, revision, serve, harvest
@@ -34,7 +37,8 @@ claude/
     ├── memory-access-tracker.test.sh # the hook finds Claude Code's real project dir
     ├── memory-cleanup.test.sh        # the staleness report scans every project memory dir
     ├── memory-frontmatter-check.test.sh # the vault frontmatter gate judges the repo being committed
-    └── memory-gitleaks-check.test.sh # the vault secret-scan gate blocks a planted token
+    ├── memory-gitleaks-check.test.sh # the vault secret-scan gate blocks a planted token
+    └── memory-gitleaks-git-hook.test.sh # real git commits/pushes are refused by the vault's own hooks
 ```
 
 ## How it installs
@@ -139,6 +143,7 @@ bash claude/tests/install.test.sh
 bash claude/tests/memory-access-tracker.test.sh
 bash claude/tests/memory-frontmatter-check.test.sh
 bash claude/tests/memory-gitleaks-check.test.sh    # needs gitleaks; ends with SUITE_RESULT
+bash claude/tests/memory-gitleaks-git-hook.test.sh # needs gitleaks; ends with SUITE_RESULT
 bash claude/tests/decision-board.test.sh   # starts local servers on 127.0.0.1; uses docker for markdownlint if present
 ```
 
@@ -156,6 +161,24 @@ checkout or any worktree), resolving the repo from `git -C`, a leading `cd`, or 
   finding, a missing gitleaks, a missing config or a gitleaks failure. It is a keyword-and-entropy
   check, not a proof, and it never sees commits made outside Claude Code. Human kill switch:
   `MEMORY_GITLEAKS_CHECK=off` (prints a DISABLED line for each commit it lets through).
+
+Commits and pushes made **outside** Claude Code are scanned by the vault's own git hooks (LAB-2857).
+`install.sh` runs `scripts/install-vault-hooks.sh`. It copies `git-hooks/vault/{pre-commit,pre-push}`
+into the vault's common `.git/hooks`, writing in the absolute path of
+`scripts/memory-gitleaks-commit-check.sh`.
+
+- **Why a copy:** a copy whose target is missing refuses the commit. A symlink or `core.hooksPath`
+  would let it through silently.
+- **Pre-commit** scans the index git gives the hook.
+- **Pre-push** scans every object the push sends that the remote lacks (new blobs, commit and tag
+  messages; the remote's refs come from `git ls-remote`). It uses the `.gitleaks.toml` at the remote's
+  HEAD.
+- **Drift:** `install.sh --status` and the SessionStart hook both run `install-vault-hooks.sh --check`.
+  The SessionStart hook warns, every session, while the hooks are missing or outdated, or gitleaks is
+  absent.
+- **Refused overlay commit:** if the hooks refuse `claude-settings-sync.sh`'s overlay commit, the
+  overlay is unstaged and the warning names the file and rule only.
+- **Coverage:** `rules/vault-management.md` lists which commit paths are covered and which are not.
 
 ## Worktrees and Omnigent
 

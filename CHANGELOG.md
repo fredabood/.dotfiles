@@ -8,6 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- LAB-2857: the staged-blob read in `memory-gitleaks-scan.sh` now uses `:0:<path>`. A file named
+  like `0:x.md` was being read as a different path.
+- LAB-2857: the memory vault's own git `pre-commit` and `pre-push` hooks scan for secrets in
+  commits made outside Claude Code: terminal, Obsidian desktop, `claude-settings-sync.sh` and every
+  worktree.
+  - They run `claude/scripts/memory-gitleaks-commit-check.sh`.
+  - Pre-push scans every object the push sends: new file versions, commit messages and tag
+    messages. It catches `commit --no-verify`, rebase, cherry-pick, merges, binary-looking files
+    and tags.
+  - `claude/scripts/install-vault-hooks.sh [--check]` installs and checks the hooks, and
+    `claude/install.sh` runs it.
+  - The SessionStart sync hook warns while the hooks are missing or outdated. When the scan refuses
+    an overlay commit, the hook unstages it.
 - **Claude Code configuration** (`claude/`), moved here from the standalone `fredabood/.claude` repo
   (copied without its history). `claude/install.sh` links the five content folders (agents, commands,
   rules, hooks, skills) and the status line into `~/.claude` — never the whole runtime directory.

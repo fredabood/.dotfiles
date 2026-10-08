@@ -1,0 +1,10 @@
+#!/bin/sh
+# memory vault pre-commit — installed by claude/scripts/install-vault-hooks.sh (LAB-2857). Do not edit
+# the installed copy: re-run the installer, whose --check flags any drift from this template.
+# A COPY, not a link or core.hooksPath, so a missing target refuses instead of passing silently.
+CHECK="${MEMORY_GITLEAKS_COMMIT_CHECK_UNDER_TEST:-@CHECK@}"
+if [ ! -f "$CHECK" ]; then
+    echo "memory-gitleaks-check: vault git hook: $CHECK missing — nothing was scanned. Re-run claude/scripts/install-vault-hooks.sh, or MEMORY_GITLEAKS_CHECK=off for one commit." >&2
+    exit 1
+fi
+/bin/bash "$CHECK" --pre-commit "$(git rev-parse --show-toplevel)" || exit 1

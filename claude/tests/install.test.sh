@@ -250,7 +250,27 @@ SYNC_LOCK="$XDG_STATE_HOME/dotfiles/claude-settings-sync.lock"
 SYNC_STAMP="$XDG_STATE_HOME/dotfiles/claude-settings-sync.stamp"
 V="$MEMORY_VAULT_PATH"
 git -C "$V" init -q && git -C "$V" config user.email test@example.com && git -C "$V" config user.name test
+printf '[extend]\n  useDefault = true\n' > "$V/.gitleaks.toml"
 git -C "$V" add -A && git -C "$V" commit -q -m "fixture"
+
+# The vault's secret-scan git hooks (LAB-2857). Every case needs gitleaks on the host: without it the
+# installer's --check is unhealthy by design, and the vault refuses every commit.
+HAVE_GITLEAKS=0; command -v gitleaks >/dev/null 2>&1 && HAVE_GITLEAKS=1
+if [ "$HAVE_GITLEAKS" -eq 1 ]; then
+    check "--status flags a vault git repo without its secret-scan hooks" bash -c '! "$1" --status >/dev/null 2>&1' _ "$INSTALL"
+    out="$("$INSTALL" 2>&1)"; rc=$?
+    check "install installs the vault's pre-commit and pre-push hooks" \
+        bash -c '[ "$1" -eq 0 ] && [ -x "$2/.git/hooks/pre-commit" ] && [ -x "$2/.git/hooks/pre-push" ]' _ "$rc" "$V"
+    check "the installed hook names this package's check script, the template does not" \
+        bash -c 'grep -q "$1/scripts/memory-gitleaks-commit-check.sh" "$2/.git/hooks/pre-commit" && grep -q "@CHECK@" "$1/git-hooks/vault/pre-commit"' _ "$(cd "$PKG" && pwd -P)" "$V"
+    check "--status healthy with the vault hooks installed" quiet "$INSTALL" --status
+    out="$("$INSTALL" 2>/dev/null)"
+    check "re-install leaves the vault hooks alone" grep -q '^changed: 0$' <<<"$out"
+else
+    # Not a skip: without gitleaks the vault hooks' --check is unhealthy by design, so the SessionStart
+    # hook warns and the later "silent" cases would fail for an unrelated reason. Say so plainly.
+    bad "gitleaks is required by this suite (brew install gitleaks): the vault secret-scan hooks refuse every commit without it"
+fi
 log_lines() { if [ -f "$SYNC_LOG" ]; then wc -l < "$SYNC_LOG" | tr -d ' '; else echo 0; fi; }
 vault_commits() { git -C "$V" rev-list --count HEAD; }
 check "hook reached through the hooks folder link" bash -c '[ -f "$1" ] && [ ! -L "$1" ] && [ -L "$(dirname "$1")" ]' _ "$HOOK"
@@ -312,6 +332,52 @@ commits="$(vault_commits)"
 CLAUDE_SETTINGS_AUTOCOMMIT=0 "$HOOK" >/dev/null
 check "CLAUDE_SETTINGS_AUTOCOMMIT=0 still absorbs" [ "$(jq -r .theme "$OVL")" = "sync-disabled" ]
 check "CLAUDE_SETTINGS_AUTOCOMMIT=0 does not commit" [ "$(vault_commits)" -eq "$commits" ]
+git -C "$V" add -- personal/claude/settings.overlay.json && git -C "$V" commit -q -m "LAB-2857: settle the overlay" -- personal/claude/settings.overlay.json
+
+section "a vault commit refused by the secret scan is unstaged and reported (LAB-2857)"
+if [ "$HAVE_GITLEAKS" -eq 1 ]; then
+    # Generated at runtime: this public repo's own pre-commit runs gitleaks.
+    PLANTED="ghp_$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 36)"
+    commits="$(vault_commits)"
+    set_json "$S" --arg t "$PLANTED" '.env.LAB2857_PROBE = $t'
+    out="$("$HOOK")"; rc=$?
+    check "refused: exit 0 (never blocks a session)" [ "$rc" -eq 0 ]
+    check "refused: absorbed into the overlay" grep -q LAB2857_PROBE "$OVL"
+    check "refused: nothing committed" [ "$(vault_commits)" -eq "$commits" ]
+    check "refused: one warning naming the file and the gitleaks rule" \
+        quiet jq -e '.systemMessage | test("refused to commit personal/claude/settings.overlay.json") and test("github-pat")' <<<"$out"
+    check "refused: the value is not in the warning" bash -c '! grep -qF "$1" <<<"$2"' _ "$PLANTED" "$out"
+    check "refused: the value is not in the sync log" bash -c '! grep -qF "$1" "$2"' _ "$PLANTED" "$SYNC_LOG"
+    check "refused: the overlay is unstaged, not left in the index" quiet git -C "$V" diff --cached --quiet
+    printf 'unrelated\n' > "$V/unrelated.md"
+    git -C "$V" add unrelated.md
+    check "refused: an unrelated clean commit still passes afterwards" \
+        quiet git -C "$V" commit -q -m "LAB-2857: unrelated"
+    out="$("$HOOK")"
+    check "refused: the next session warns again (fast path included) until it is resolved" \
+        quiet jq -e '.systemMessage | test("still holds a change its secret scan refused")' <<<"$out"
+    set_json "$S" 'del(.env.LAB2857_PROBE)'
+    "$SETTINGS" sync >/dev/null 2>&1
+    git -C "$V" checkout -q -- personal/claude/settings.overlay.json 2>/dev/null
+    out="$("$HOOK")"
+    check "refused then reverted: the warning clears" bash -c '! jq -e ".systemMessage | test(\"refused\")" <<<"$1" >/dev/null 2>&1' _ "$out"
+
+    section "SessionStart warns while the vault hooks are missing or outdated (LAB-2857)"
+    rm -f "$SYNC_STAMP"; "$HOOK" >/dev/null
+    out="$("$HOOK")"
+    check "hooks current: fast path stays silent" [ -z "$out" ]
+    mv "$V/.git/hooks/pre-push" "$T/pre-push.saved"
+    out="$("$HOOK")"; rc=$?
+    check "hook missing: exit 0 and warns, naming it" \
+        bash -c '[ "$1" -eq 0 ] && jq -e ".systemMessage | test(\"git hooks need attention\") and test(\"pre-push is missing\")" <<<"$2" >/dev/null' _ "$rc" "$out"
+    out="$("$HOOK")"
+    check "hook missing: keeps warning on the fast path" quiet jq -e '.systemMessage' <<<"$out"
+    mv "$T/pre-push.saved" "$V/.git/hooks/pre-push"
+    out="$("$HOOK")"
+    check "hook restored: silent again" [ -z "$out" ]
+else
+    printf '  skip vault secret-scan cases (gitleaks not installed)\n'
+fi
 
 printf '\n%d passed, %d failed\n' "$pass" "$failed"
 [ "$failed" -eq 0 ]

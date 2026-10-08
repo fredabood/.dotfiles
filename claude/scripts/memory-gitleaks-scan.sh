@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # memory-gitleaks-scan.sh — run gitleaks, with an explicit config, over a given set of files in a
 # git work tree (LAB-2457). The PreToolUse hook claude/hooks/memory-gitleaks-check.sh calls it for
-# every memory-vault commit; a git hook or vault-sync can call it the same way.
+# every memory-vault commit; the vault's git pre-commit hook calls it through
+# memory-gitleaks-commit-check.sh (LAB-2857), and vault-sync can call it the same way.
 #
 #   memory-gitleaks-scan.sh <toplevel> <config> <listfile>
 #
@@ -13,7 +14,7 @@
 #   <listfile>  NUL-separated, toplevel-relative paths
 #
 # Content scanned per path: the working-tree file (a regular file only, never through a symlink)
-# and, when it differs or the working-tree file is absent, the staged blob (`git show :<path>`).
+# and, when it differs or the working-tree file is absent, the staged blob (`git show :0:<path>`).
 # Scanning both is the strict reading: whichever of the two the commit takes, it was scanned.
 #
 # Exit codes (testing.md → Vacuous checks):
@@ -84,7 +85,8 @@ for rel in dict.fromkeys(paths):
     if os.path.isfile(full) and not os.path.islink(full):
         with open(full, "rb") as f:
             wt = f.read()
-    r = subprocess.run(["git", "-c", "core.fsmonitor=false", "-C", top, "show", ":" + rel],
+    # ":0:<path>", never ":<path>": git reads ":0:x.md" (a file NAMED "0:x.md") as stage 0 of x.md.
+    r = subprocess.run(["git", "-c", "core.fsmonitor=false", "-C", top, "show", ":0:" + rel],
                        stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
     staged = r.stdout if r.returncode == 0 else None
     if wt is None and staged is None:

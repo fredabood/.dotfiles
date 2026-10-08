@@ -116,3 +116,29 @@ Optional fields: `type`, `aliases`, `entities`, `importance`, `source`, `_migrat
   commit will contain, and blocks a finding. It is a keyword-and-entropy check, not a proof: gitleaks'
   default stopwords can suppress a real credential. A missing gitleaks or config blocks too. Human
   kill switch: `MEMORY_GITLEAKS_CHECK=off`.
+- **Secret scan outside Claude Code (LAB-2857):** the vault's own git hooks, installed into its
+  common `.git/hooks` by `claude/install.sh` (`claude/scripts/install-vault-hooks.sh`), run the same
+  scan through `claude/scripts/memory-gitleaks-commit-check.sh`.
+  - **Covered:**
+    - `pre-commit`: terminal, Obsidian desktop, `claude-settings-sync.sh` and every worktree.
+    - `pre-push`: every object the push sends that the remote lacks, which means each new file
+      version, commit message and tag message. That covers `commit --no-verify`, rebase, cherry-pick,
+      am, revert, merges, binary-looking files and tags.
+  - **Not covered:**
+    - `git push --no-verify`
+    - a machine where the hooks were never installed (SessionStart warns)
+    - GitHub web edits and Obsidian mobile
+
+    fredabood/homelab#2889 is the backstop for all three.
+  - **Not covered: text that is never committed.** vault-sync embeds the working tree
+    (fredabood/homelab#2888).
+  - **Not covered yet: vault-sync's planned auto-commit.** It is to call the wrapper explicitly
+    (fredabood/homelab#2548).
+  - **Pre-push config:** pre-push reads the `.gitleaks.toml` at the remote's HEAD, per
+    `git ls-remote`, so a pushed commit cannot allowlist itself. Push an allowlist change on its own
+    first.
+  - **Pre-push needs the remote's HEAD locally.** If it is missing, the push is refused with "fetch
+    first".
+  - **Kill switch:** `MEMORY_GITLEAKS_CHECK=off` in the environment of the `git` command. The Claude
+    Code hook reads its own environment instead. Use it only for the one commit that repairs a broken
+    `.gitleaks.toml`.
