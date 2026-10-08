@@ -89,6 +89,14 @@ t_rt3() { setup; resolve "$OTHER" "$OTHER" "bash -c \"cd '$WT' && git commit\"";
 check "RT3 a commit inside bash -c \"...\" -> one SKIP line" t_rt3
 t_rt4() { setup; lib_run "$OTHER" resolve_targets '[1, 2]'; [ "$RC" -eq 0 ] && [ -z "$OUT" ]; }
 check "RT4 a payload that is not a JSON object -> rc 0, nothing printed" t_rt4
+# A module planted in the process cwd that exits 0 silently must not replace the standard one.
+PLANT='import sys; sys.exit(0)'
+t_rt5() {
+    setup; mkdir -p "$T/plant$n"; printf '%s\n' "$PLANT" > "$T/plant$n/shlex.py"
+    resolve "$T/plant$n" "$OTHER" "git -C '$WT' commit -m x"
+    [ "$RC" -eq 0 ] && [ "$(line_count)" -eq 1 ] && [[ "$OUT" == "DIR${TAB}${WT}${TAB}{"* ]]
+}
+check "RT5 a shlex.py in the process cwd is not imported (python3 -I) -> still the RT1 line" t_rt5
 t_rt6() { setup; resolve "$OTHER" "$OTHER" "git -C \"\$(touch '$T/pwn')\" commit -m x"; [ ! -e "$T/pwn" ] && [[ "$OUT" == "SKIP${TAB}"* ]]; }
 check "RT6 \$(touch ...) in a -C argument is never run" t_rt6
 
@@ -139,6 +147,22 @@ t_cf4() {
     [ "$OUT" = "SKIP${TAB}a staged file name contains a newline or tab" ]
 }
 check "CF4 a staged name with a tab -> SKIP text names the label (.md / file)" t_cf4
+t_cf5() {
+    setup; stage "$WT" a.md "$GOOD"; printf '%s\n' "$PLANT" > "$WT/subprocess.py"
+    lib_run "$WT" commit_files "$WT" "$WT" '{}' 1 no ACMT ".md"
+    [ "$RC" -eq 0 ] && [ "$OUT" = "FILE${TAB}a.md" ]
+}
+check "CF5 a subprocess.py at <top>, cwd <top>, is not imported -> FILE lines still printed" t_cf5
+t_cf6() {
+    setup; stage "$WT" a.md "$GOOD"
+    cf6_refused() { lib_run "$WT" commit_files "$WT" "$WT" '{}' "$@" 2>/dev/null; [ "$RC" -ne 0 ] && [ -z "$OUT" ] || { echo "    accepted: [$*]"; return 1; }; }
+    cf6_refused 2 no ACMT ".md" && cf6_refused 1 maybe ACMT ".md" && cf6_refused 1 no "A;x" ".md" \
+        && cf6_refused 1 no ACMT "" && cf6_refused 1 no "" ".md" || return 1
+    # Control: the same call with valid parameters lists the file.
+    lib_run "$WT" commit_files "$WT" "$WT" '{}' 1 no ACMT ".md"
+    [ "$RC" -eq 0 ] && [ "$OUT" = "FILE${TAB}a.md" ]
+}
+check "CF6 invalid md_only / renames / filter / empty label -> rc != 0, nothing on stdout" t_cf6
 
 echo "the lib's own red test"
 # ST1: the same cases against a stub that defines the three functions as no-ops and sets the
@@ -168,9 +192,14 @@ t_nx1() {
 check "NX1 the lib never exits, sets, cds or shopts; sourcing prints nothing and keeps \$- and cwd; /bin/bash -n" t_nx1
 t_s1() {
     local f; for f in "$LIB" $HOOKS; do [ -r "$f" ] || return 1; done
-    ! grep -nE '^[[:space:]]*(source|\.)[[:space:]].*\|\|' "$LIB" $HOOKS
+    grep -nE '^[[:space:]]*(source|\.)[[:space:]].*\|\|' "$LIB" $HOOKS && return 1
+    # Every python3 invocation in the lib runs isolated; fewer than the two known ones is a FAIL.
+    local calls isolated
+    calls=$(grep -vE '^[[:space:]]*#' "$LIB" | grep -cE '(^|[[:space:]])python3([[:space:]]|$)')
+    isolated=$(grep -vE '^[[:space:]]*#' "$LIB" | grep -cE '(^|[[:space:]])python3[[:space:]]+-I[[:space:]]')
+    [ "$calls" -ge 2 ] && [ "$calls" -eq "$isolated" ] || { echo "    python3 calls: $calls, with -I: $isolated"; return 1; }
 }
-check "S1 no '. lib || guard' / 'source lib || guard' line (that guard never runs on bash 3.2)" t_s1
+check "S1 no '. lib || guard' line (never runs on bash 3.2); every lib python3 call (>= 2) has -I" t_s1
 # S2: outside function bodies the lib holds only comments, blank lines and the sentinel, as its last
 # line. Heredoc bodies (between <<'PY' and PY) are skipped. 0 lines scanned is a FAIL.
 t_s2() {

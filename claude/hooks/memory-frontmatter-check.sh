@@ -41,10 +41,21 @@ fi
 # same command that targets the same repo, plus `commit -a`, `commit -i <paths>` and
 # `commit <paths>` (which commits only those paths). Content is read from the working tree.
 #
+# The resolver (resolve_targets, common_dir, commit_files) lives in hooks/lib/vault-hook-resolver.sh,
+# shared with memory-gitleaks-check.sh and tested by claude/tests/vault-hook-resolver.test.sh
+# (LAB-2858). A missing, incomplete or failing lib blocks (exit 2): this gate cannot judge without it.
+# Python runs with -I, so a shlex.py or subprocess.py planted in the cwd or the repo root is never
+# imported in place of the standard module.
+#
+# Renamed-and-edited and typechanged notes are validated as additions (--no-renames, ACMT; LAB-2858):
+# before, `git mv a.md b.md` plus an edit dropping `title:` passed unchecked. A pure `git mv` of a
+# note without frontmatter is therefore blocked until the note gets frontmatter. `git rm` stages no
+# new content and is not counted. When the file list cannot be computed for a vault commit, the
+# commit is blocked rather than passed unchecked (LAB-2858, owner decision OD1).
+#
 # Remaining limits, each a visible skip rather than a silent pass: interactive or file-driven
 # adds and commits (-p, -i, -e, --pathspec-from-file), and pathspecs using $, backticks or braces.
-# A partially staged file is validated from the working tree, not the staged blob. `git rm` and
-# `git mv` stage no new content and are not counted.
+# A partially staged file is validated from the working tree, not the staged blob.
 #
 # If you change this file, prove it with claude/tests/memory-frontmatter-check.test.sh AND by
 # staging a frontmatter-less .md in a real vault worktree and watching the commit get BLOCKED —
@@ -120,8 +131,13 @@ for i in "${!VAULT_TOPS[@]}"; do
 TOP="${VAULT_TOPS[$i]}"
 cd "$TOP"
 
-if ! FILE_LINES=$(commit_files "$TOP" "${VAULT_DIRS[$i]}" "${VAULT_SPECS[$i]}" 1 yes ACM ".md"); then
-  skip "could not compute the files this commit will contain (python3 failed)"
+# --no-renames + ACMT: a renamed-and-edited or typechanged note is validated as an addition (LAB-2858).
+if ! FILE_LINES=$(commit_files "$TOP" "${VAULT_DIRS[$i]}" "${VAULT_SPECS[$i]}" 1 no ACMT ".md"); then
+  # A vault commit whose file list is unknown is blocked, not passed unchecked (LAB-2858, OD1). This
+  # gate has no backstop: the vault's own git hooks run only the secret scan.
+  echo "ERROR: $TOP — could not compute the files this commit will contain (python3 failed); blocking rather than passing unchecked" >&2
+  ERRORS=$((ERRORS + 1))
+  CHECKED=1
   continue
 fi
 STAGED_FILES=""

@@ -220,5 +220,92 @@ check "a quoted ';' in a -C path is a path, not a command" t_no_exec_semicolon
 t_no_exec_add_pathspec() { setup; run_hook "$WT" "git add \"\$(touch '$T/pwned4')\" && git commit -m x"; [ ! -e "$T/pwned4" ] && one_skip_notice; }
 check "\$(...) in a git add pathspec is not run -> one-line skip notice" t_no_exec_add_pathspec
 
+echo "renames and typechanges are validated (LAB-2858)"
+# Both passed silently (exit 0) before LAB-2858: the file list used rename detection and ACM.
+t_f_ren() {
+    setup; stage "$WT" a.md "$GOOD"; git -C "$WT" commit -qm a
+    git -C "$WT" mv a.md b.md; grep -v '^title:' "$WT/b.md" > "$T/b.$n" && cp "$T/b.$n" "$WT/b.md"; git -C "$WT" add b.md
+    run_hook "$WT" "git commit -m x"; blocked "b.md — missing required field: title"
+}
+check "F-REN git mv a.md b.md + an edit dropping title: -> blocked, naming b.md" t_f_ren
+t_f_tc() {
+    setup; stage "$WT" target.txt "$BAD"; stage "$WT" link.md "$GOOD"; git -C "$WT" commit -qm two
+    rm "$WT/link.md"; ln -s target.txt "$WT/link.md"; git -C "$WT" add link.md
+    run_hook "$WT" "git commit -m x"; blocked link.md
+}
+check "F-TC .md typechanged to a symlink to a frontmatter-less file -> blocked" t_f_tc
+t_f_nonmd() { setup; stage "$WT" notes.txt "$BAD"; run_hook "$WT" "git commit -m x"; [ "$RC" -eq 0 ] && ! grep -q 'ERROR' <<<"$ERR"; }
+check "F-NONMD a frontmatter-less notes.txt staged -> not validated (md_only), rc 0" t_f_nonmd
+
+echo "planted python modules are never imported (python3 -I, LAB-2858)"
+PLANT='import sys; sys.exit(0)'
+# run_hook_from <process cwd> <payload cwd> <command>: run_hook with the hook's own cwd set.
+run_hook_from() {
+    local payload
+    payload=$(python3 -c '
+import json, sys
+print(json.dumps({"hook_event_name": "PreToolUse", "tool_name": "Bash",
+                  "tool_input": {"command": sys.argv[2]}, "cwd": sys.argv[1]}))' "$2" "$3")
+    OUT=$(cd "$1" && bash "$HOOK" <<<"$payload" 2>"$T/stderr"); RC=$?
+    ERR=$(cat "$T/stderr")
+}
+t_f_plant1() { setup; printf '%s\n' "$PLANT" > "$WT/subprocess.py"; stage "$WT" bad.md "$BAD"; run_hook "$WT" "git commit -m x"; blocked bad.md; }
+check "F-PLANT1 subprocess.py at the worktree root, bad .md staged -> blocked" t_f_plant1
+t_f_plant2() {
+    setup; mkdir -p "$T/plant$n"; printf '%s\n' "$PLANT" > "$T/plant$n/shlex.py"; stage "$WT" bad.md "$BAD"
+    run_hook_from "$T/plant$n" "$WT" "git commit -m x"; blocked bad.md
+}
+check "F-PLANT2 shlex.py in the hook's process cwd, bad .md staged -> blocked" t_f_plant2
+
+echo "the resolver lib fails closed (LAB-2858)"
+# mklayout <dir> <hook-name> [lib-source|none]: a copy of the hook layout (hooks/, hooks/lib/, scripts/).
+mklayout() {
+    mkdir -p "$1/hooks/lib" "$1/scripts"
+    cp "$PKG/hooks/$2" "$1/hooks/"
+    cp "$PKG/scripts/memory-gitleaks-scan.sh" "$1/scripts/"
+    [ "${3:-}" = none ] || cp "${3:-$PKG/hooks/lib/vault-hook-resolver.sh}" "$1/hooks/lib/"
+}
+FM_HOOK="memory-frontmatter-check.sh"
+REAL_LIB="$PKG/hooks/lib/vault-hook-resolver.sh"
+t_f_l0() {
+    setup; local L="$T/layout$n" HOOK="$T/layout$n/hooks/$FM_HOOK"; mklayout "$L" "$FM_HOOK"
+    stage "$WT" bad.md "$BAD"; run_hook "$WT" "git commit -m x"; blocked bad.md || return 1
+    git -C "$WT" rm -q --cached bad.md; stage "$WT" good.md "$GOOD"; run_hook "$WT" "git commit -m x"
+    [ "$RC" -eq 0 ] && grep -q 'all checks passed' <<<"$OUT"
+}
+check "F-L0 control: a layout copy with the real lib blocks bad and passes good" t_f_l0
+t_f_l1() {
+    setup; local L="$T/layout$n" HOOK="$T/layout$n/hooks/$FM_HOOK"; mklayout "$L" "$FM_HOOK" none
+    stage "$WT" good.md "$GOOD"; run_hook "$WT" "git commit -m x"
+    [ "$RC" -eq 2 ] && grep -q 'resolver lib missing' <<<"$ERR"
+}
+check "F-L1 no lib, clean commit -> rc 2, 'resolver lib missing'" t_f_l1
+t_f_l2() {
+    setup; local L="$T/layout$n" HOOK="$T/layout$n/hooks/$FM_HOOK"
+    printf 'resolve_targets() { :; }\ncommon_dir() { :; }\ncommit_files() { :; }\n' > "$T/nosentinel$n.sh"
+    mklayout "$L" "$FM_HOOK" none; cp "$T/nosentinel$n.sh" "$L/hooks/lib/vault-hook-resolver.sh"
+    stage "$WT" good.md "$GOOD"; run_hook "$WT" "git commit -m x"
+    [ "$RC" -eq 2 ] && grep -q 'is incomplete' <<<"$ERR"
+}
+check "F-L2 a lib without the sentinel -> rc 2, 'incomplete'" t_f_l2
+t_f_l3() {
+    setup; local L="$T/layout$n" HOOK="$T/layout$n/hooks/$FM_HOOK"; mklayout "$L" "$FM_HOOK"
+    # A failing top-level line mid-file, before the sentinel: set -e exits 1 (allow) on bash 3.2
+    # unless the load is trapped.
+    awk '/^VAULT_HOOK_RESOLVER_API=1$/ { print "false" } { print }' "$REAL_LIB" > "$L/hooks/lib/vault-hook-resolver.sh"
+    grep -qx false "$L/hooks/lib/vault-hook-resolver.sh" || return 1
+    stage "$WT" good.md "$GOOD"; run_hook "$WT" "git commit -m x"
+    [ "$RC" -eq 2 ] && grep -q 'failed to load' <<<"$ERR"
+}
+check "F-L3 a lib with a failing top-level line -> rc 2, 'failed to load'" t_f_l3
+t_f_h() {
+    setup; local L="$T/layout$n" HOOK="$T/layout$n/hooks/$FM_HOOK"; mklayout "$L" "$FM_HOOK"
+    printf 'commit_files() { return 1; }\n' >> "$L/hooks/lib/vault-hook-resolver.sh"
+    stage "$WT" good.md "$GOOD"; run_hook "$WT" "git commit -m x"
+    [ "$RC" -eq 2 ] && grep -q 'could not compute the files this commit will contain' <<<"$ERR"
+}
+check "F-H the vault commit's file list cannot be computed -> rc 2, blocked (OD1)" t_f_h
+
 printf '\n%d passed, %d failed\n' "$pass" "$failed"
-[ "$failed" -eq 0 ]
+printf 'SUITE_RESULT pass=%d fail=%d skip=0\n' "$pass" "$failed"
+[ "$failed" -eq 0 ] && [ "$pass" -gt 0 ]

@@ -13,6 +13,10 @@
 #   - Command text is parsed with shlex, never evaluated: a path containing $, a backtick or a glob
 #     is reported as unresolvable rather than expanded.
 #   - Heredocs stay inside function bodies: bash 3.2 mis-parses a heredoc inside $( ).
+#   - Python runs isolated (`python3 -I`): no script directory or cwd on sys.path, no user site, no
+#     PYTHON* variables. Without it, a shlex.py in the hook's process cwd or a subprocess.py at the
+#     repo root was imported in place of the standard module and could exit 0 with no output, which
+#     both gates read as "nothing to check" (LAB-2858).
 #
 # FUNCTIONS
 #   resolve_targets <hook payload json>
@@ -28,11 +32,13 @@
 #       lines. md_only=1 keeps only .md files; renames=no lists a rename as an addition
 #       (--no-renames); the diff filter is git's --diff-filter; the label names a file in the skip
 #       text (".md" or "file"). Git runs with list argv, never a shell, and pathspecs go after `--`.
+#       Invalid parameters (a caller bug) exit 3 before printing anything; both hooks block on a
+#       non-zero exit here ("could not compute the files this commit will contain").
 #
 # Tests: claude/tests/vault-hook-resolver.test.sh (the lib alone), plus both hook suites.
 
 resolve_targets() {
-  HOOK_PAYLOAD="$1" python3 - <<'PY'
+  HOOK_PAYLOAD="$1" python3 -I - <<'PY'
 import json, os, re, shlex, sys
 
 class Unknown:
@@ -263,8 +269,17 @@ common_dir() {
 }
 
 commit_files() {
-  CF_TOP="$1" CF_DIR="$2" CF_SPEC="$3" CF_MD_ONLY="$4" CF_RENAMES="$5" CF_FILTER="$6" CF_LABEL="$7" python3 - <<'PY'
-import json, os, subprocess
+  CF_TOP="$1" CF_DIR="$2" CF_SPEC="$3" CF_MD_ONLY="$4" CF_RENAMES="$5" CF_FILTER="$6" CF_LABEL="$7" python3 -I - <<'PY'
+import json, os, re, subprocess, sys
+
+# A caller bug must not turn into a quiet "nothing to check": exit 3 before printing anything.
+if (os.environ.get("CF_MD_ONLY") not in ("0", "1")
+        or os.environ.get("CF_RENAMES") not in ("yes", "no")
+        or not re.fullmatch(r"[ACDMRTUXB]+", os.environ.get("CF_FILTER") or "")
+        or not os.environ.get("CF_LABEL")
+        or not os.environ.get("CF_TOP") or not os.environ.get("CF_DIR")):
+    sys.stderr.write("vault-hook-resolver: commit_files: invalid parameters\n")
+    sys.exit(3)
 
 top, cdir = os.environ["CF_TOP"], os.environ["CF_DIR"]
 seen = []

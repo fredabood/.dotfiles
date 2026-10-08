@@ -8,13 +8,13 @@
 # is readable by every agent that queries memory within a quarter of an hour. The periodic history
 # scan finds these after the fact; this gate stops the next one at commit time.
 #
-# HOW: the repo and the file set are resolved exactly as memory-frontmatter-check.sh resolves them
-# (the resolver below is a COPY of that hook's, per the LAB-2457 owner ruling; extracting a shared
-# lib is a follow-up). The repo comes from the command (git -C, a leading cd, else the payload cwd);
-# vault identity is the git common dir, equal for the primary checkout and every worktree; the file
-# set is the index plus every earlier `git add` in the same command, `commit -a`, `-i` and
-# pathspecs. Two deliberate differences from the copy: every file counts, not only .md, and renames
-# are listed as additions (--no-renames), so a renamed-and-edited file is not dropped.
+# HOW: the repo and the file set are resolved by the resolver shared with memory-frontmatter-check.sh,
+# hooks/lib/vault-hook-resolver.sh (LAB-2858; tested by claude/tests/vault-hook-resolver.test.sh).
+# The repo comes from the command (git -C, a leading cd, else the payload cwd); vault identity is
+# the git common dir, equal for the primary checkout and every worktree; the file set is the index
+# plus every earlier `git add` in the same command, `commit -a`, `-i` and pathspecs. Renamed and
+# typechanged files are listed as additions (--no-renames, ACMT) in both gates. The one difference
+# left between them is the file set: every file counts here, only .md files in the frontmatter gate.
 # The scan itself is claude/scripts/memory-gitleaks-scan.sh (0 = clean, 1 = finding, 2 = invalid
 # run). Claude Code blocks a PreToolUse call only on exit 2, so this hook maps 1 AND 2 to 2.
 #
@@ -22,7 +22,10 @@
 # therefore cannot allowlist itself: an allowlist entry has to land in an earlier commit.
 #
 # EXIT CODES: 0 = allow (not a commit, not the vault, clean, a zero-content commit, or a visible
-# skip); 2 = block (a finding, gitleaks or the committed config missing, or gitleaks failed).
+# skip); 2 = block (a finding, gitleaks or the committed config missing, gitleaks failed, the
+# resolver lib missing, incomplete or failing to load, or — for a vault commit — the list of files
+# the commit will contain could not be computed; LAB-2858). The lib refusals come before the vault
+# is identified, so they block any Bash call whose payload mentions both git and commit.
 #
 # KILL SWITCH (human only): MEMORY_GITLEAKS_CHECK=off disables the gate and prints a DISABLED line
 # on stderr for every commit it waves through.
@@ -124,7 +127,9 @@ for i in "${!VAULT_TOPS[@]}"; do
   TOP="${VAULT_TOPS[$i]}"
 
   if ! FILE_LINES=$(commit_files "$TOP" "${VAULT_DIRS[$i]}" "${VAULT_SPECS[$i]}" 0 no ACMT "file"); then
-    skip "could not compute the files this commit will contain (python3 failed)"
+    # A vault commit whose file list is unknown is blocked, not passed unchecked (LAB-2858, OD1).
+    echo "$TAG: $TOP: could not compute the files this commit will contain (python3 failed) — blocking rather than passing unchecked" >&2
+    BLOCK=1
     continue
   fi
   LIST="$WORK/list.$i"

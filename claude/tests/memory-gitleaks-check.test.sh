@@ -222,5 +222,92 @@ check "X1 \$(...) in a -C argument is not run" t_x1
 t_not_commit() { setup; stage "$WT" leak.md "$LEAK"; run_hook "$WT" "git status"; silent_pass; }
 check "git status -> silent" t_not_commit
 
+echo "renames and typechanges are scanned (LAB-2858)"
+CLEAN=$'line one\nline two\nline three\nline four\nline five\n'
+t_g_ren() {
+    setup; stage "$WT" a.md "$CLEAN"; git -C "$WT" commit -qm a
+    git -C "$WT" mv a.md b.md; printf '%s' "$LEAK" >> "$WT/b.md"; git -C "$WT" add b.md
+    run_hook "$WT" "git commit -m x"; blocked b.md
+}
+gl_check "G-REN a renamed-and-edited file carrying a token -> blocked" t_g_ren
+t_g_tc() {
+    # A symlink's staged blob is its target text, so a token as the target is content git commits.
+    setup; stage "$WT" leak.md "$CLEAN"; git -C "$WT" commit -qm a
+    rm "$WT/leak.md"; ln -s "$PLANTED" "$WT/leak.md"; git -C "$WT" add leak.md
+    run_hook "$WT" "git commit -m x"; blocked "leak.md (staged blob)"
+}
+gl_check "G-TC a file typechanged to a symlink whose target is a token -> blocked" t_g_tc
+
+echo "planted python modules are never imported (python3 -I, LAB-2858)"
+PLANT='import sys; sys.exit(0)'
+# run_hook_from <process cwd> <payload cwd> <command>: run_hook with the hook's own cwd set.
+run_hook_from() {
+    local payload
+    payload=$(python3 -c '
+import json, sys
+print(json.dumps({"hook_event_name": "PreToolUse", "tool_name": "Bash",
+                  "tool_input": {"command": sys.argv[2]}, "cwd": sys.argv[1]}))' "$2" "$3")
+    OUT=$(cd "$1" && bash "$HOOK" <<<"$payload" 2>"$T/stderr"); RC=$?
+    ERR=$(cat "$T/stderr")
+}
+t_g_plant1() {
+    setup; mkdir -p "$T/plant$n"; printf '%s\n' "$PLANT" > "$T/plant$n/shlex.py"; stage "$WT" leak.md "$LEAK"
+    run_hook_from "$T/plant$n" "$WT" "git commit -m x"; blocked leak.md
+}
+gl_check "G-PLANT1 shlex.py in the hook's process cwd, token staged -> blocked" t_g_plant1
+t_g_plant2() {
+    setup; printf '%s\n' "$PLANT" > "$VAULT/subprocess.py"; stage "$VAULT" leak.md "$LEAK"
+    run_hook_from "$VAULT" "$VAULT" "git commit -m x"; blocked leak.md
+}
+gl_check "G-PLANT2 subprocess.py at the vault root, process cwd = vault root, token staged -> blocked" t_g_plant2
+
+echo "the resolver lib fails closed (LAB-2858)"
+# mklayout <dir> <hook-name> [lib-source|none]: a copy of the hook layout (hooks/, hooks/lib/, scripts/).
+# The scan script is copied too, else the layout would exit 2 for the wrong reason.
+mklayout() {
+    mkdir -p "$1/hooks/lib" "$1/scripts"
+    cp "$PKG/hooks/$2" "$1/hooks/"
+    cp "$PKG/scripts/memory-gitleaks-scan.sh" "$1/scripts/"
+    [ "${3:-}" = none ] || cp "${3:-$PKG/hooks/lib/vault-hook-resolver.sh}" "$1/hooks/lib/"
+}
+GL_HOOK="memory-gitleaks-check.sh"
+REAL_LIB="$PKG/hooks/lib/vault-hook-resolver.sh"
+t_g_l0() {
+    setup; local L="$T/layout$n" HOOK="$T/layout$n/hooks/$GL_HOOK"; mklayout "$L" "$GL_HOOK"
+    stage "$WT" leak.md "$LEAK"; run_hook "$WT" "git commit -m x"; blocked leak.md || return 1
+    git -C "$WT" rm -q --cached leak.md; stage "$WT" ok.md "$PLACEHOLDERS"; run_hook "$WT" "git commit -m x"
+    [ "$RC" -eq 0 ] && grep -q "memory-gitleaks-check: $WT: 1 staged path(s) examined" <<<"$ERR"
+}
+gl_check "G-L0 control: a layout copy with the real lib blocks a token and passes the placeholders" t_g_l0
+t_g_l1() {
+    setup; local L="$T/layout$n" HOOK="$T/layout$n/hooks/$GL_HOOK"; mklayout "$L" "$GL_HOOK" none
+    stage "$WT" ok.md "$PLACEHOLDERS"; run_hook "$WT" "git commit -m x"
+    [ "$RC" -eq 2 ] && grep -q 'resolver lib missing' <<<"$ERR"
+}
+check "G-L1 no lib, clean commit -> rc 2, 'resolver lib missing'" t_g_l1
+t_g_l2() {
+    setup; local L="$T/layout$n" HOOK="$T/layout$n/hooks/$GL_HOOK"; mklayout "$L" "$GL_HOOK" none
+    printf 'resolve_targets() { :; }\ncommon_dir() { :; }\ncommit_files() { :; }\n' > "$L/hooks/lib/vault-hook-resolver.sh"
+    stage "$WT" ok.md "$PLACEHOLDERS"; run_hook "$WT" "git commit -m x"
+    [ "$RC" -eq 2 ] && grep -q 'is incomplete' <<<"$ERR"
+}
+check "G-L2 a lib without the sentinel -> rc 2, 'incomplete'" t_g_l2
+t_g_l3() {
+    setup; local L="$T/layout$n" HOOK="$T/layout$n/hooks/$GL_HOOK"; mklayout "$L" "$GL_HOOK"
+    awk '/^VAULT_HOOK_RESOLVER_API=1$/ { print "false" } { print }' "$REAL_LIB" > "$L/hooks/lib/vault-hook-resolver.sh"
+    grep -qx false "$L/hooks/lib/vault-hook-resolver.sh" || return 1
+    stage "$WT" ok.md "$PLACEHOLDERS"; run_hook "$WT" "git commit -m x"
+    [ "$RC" -eq 2 ] && grep -q 'failed to load' <<<"$ERR"
+}
+check "G-L3 a lib with a failing top-level line -> rc 2, 'failed to load'" t_g_l3
+t_g_h() {
+    setup; local L="$T/layout$n" HOOK="$T/layout$n/hooks/$GL_HOOK"; mklayout "$L" "$GL_HOOK"
+    printf 'commit_files() { return 1; }\n' >> "$L/hooks/lib/vault-hook-resolver.sh"
+    stage "$WT" ok.md "$PLACEHOLDERS"; run_hook "$WT" "git commit -m x"
+    [ "$RC" -eq 2 ] && grep -q 'could not compute the files this commit will contain .* blocking' <<<"$ERR" \
+        && grep -q 'Vault secret scan blocked this commit' <<<"$ERR"
+}
+check "G-H the vault commit's file list cannot be computed -> rc 2, blocked with the trailer (OD1)" t_g_h
+
 printf '\nSUITE_RESULT pass=%d fail=%d skip=%d\n' "$pass" "$failed" "$skipped"
 [ "$failed" -eq 0 ] && [ "$pass" -gt 0 ] && [ "$glpass" -gt 0 ]
