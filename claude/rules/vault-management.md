@@ -110,6 +110,11 @@ Optional fields: `type`, `aliases`, `entities`, `importance`, `source`, `_migrat
     `commit <paths>`.
   - When it cannot tell, for example with `git add -p` or `git add $(…)`, it prints a one-line
     `skipped` notice.
+  - When the file list itself cannot be computed (the resolver failed, or a git call listing the
+    commit failed, e.g. on a corrupt index), it blocks rather than passing unchecked; so does the
+    secret scan below (LAB-2858).
+  - It validates renamed-and-edited and typechanged notes as additions, so a pure `git mv` of a note
+    without frontmatter is blocked until the note gets frontmatter.
   - `/obsidian-lint --fix` repairs findings.
 - **Pre-commit secret scan:** `memory-gitleaks-check.sh` runs gitleaks with the vault's
   `.gitleaks.toml` (HEAD's committed copy, so a commit cannot allowlist itself) over the files the

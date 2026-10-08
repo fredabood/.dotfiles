@@ -16,6 +16,7 @@ claude/
 ├── commands/               # slash commands         ← ~/.claude/commands (folder link)
 ├── rules/                  # global rules           ← ~/.claude/rules    (folder link)
 ├── hooks/                  # hook scripts           ← ~/.claude/hooks    (folder link)
+│   └── lib/vault-hook-resolver.sh  # commit resolver sourced by both vault gates (never run)
 ├── skills/                 # skills (one dir each)  ← ~/.claude/skills   (folder link)
 ├── statusline-command.sh   #                        → ~/.claude/statusline-command.sh
 ├── settings.base.json      # public half of settings.json (generated, never linked)
@@ -38,7 +39,8 @@ claude/
     ├── memory-cleanup.test.sh        # the staleness report scans every project memory dir
     ├── memory-frontmatter-check.test.sh # the vault frontmatter gate judges the repo being committed
     ├── memory-gitleaks-check.test.sh # the vault secret-scan gate blocks a planted token
-    └── memory-gitleaks-git-hook.test.sh # real git commits/pushes are refused by the vault's own hooks
+    ├── memory-gitleaks-git-hook.test.sh # real git commits/pushes are refused by the vault's own hooks
+    └── vault-hook-resolver.test.sh   # the resolver lib both vault gates source, on its own
 ```
 
 ## How it installs
@@ -141,9 +143,10 @@ with `git config core.hooksPath .githooks`.
 ```bash
 bash claude/tests/install.test.sh
 bash claude/tests/memory-access-tracker.test.sh
-bash claude/tests/memory-frontmatter-check.test.sh
+bash claude/tests/memory-frontmatter-check.test.sh # ends with SUITE_RESULT
 bash claude/tests/memory-gitleaks-check.test.sh    # needs gitleaks; ends with SUITE_RESULT
 bash claude/tests/memory-gitleaks-git-hook.test.sh # needs gitleaks; ends with SUITE_RESULT
+bash claude/tests/vault-hook-resolver.test.sh      # the shared resolver lib; ends with SUITE_RESULT
 bash claude/tests/decision-board.test.sh   # starts local servers on 127.0.0.1; uses docker for markdownlint if present
 ```
 
@@ -156,11 +159,27 @@ Two `PreToolUse` hooks judge every `git commit` Claude makes in the memory vault
 checkout or any worktree), resolving the repo from `git -C`, a leading `cd`, or the session cwd:
 
 - `hooks/memory-frontmatter-check.sh` blocks `.md` files missing `title`, `tags` or `created`.
+  Renamed-and-edited and typechanged notes are validated as additions.
 - `hooks/memory-gitleaks-check.sh` runs `scripts/memory-gitleaks-scan.sh` (gitleaks with HEAD's
   committed `.gitleaks.toml`, passed with `-c`) over the files the commit will contain, and blocks a
   finding, a missing gitleaks, a missing config or a gitleaks failure. It is a keyword-and-entropy
   check, not a proof, and it never sees commits made outside Claude Code. Human kill switch:
   `MEMORY_GITLEAKS_CHECK=off` (prints a DISABLED line for each commit it lets through).
+
+Both gates find the commit and its files through one shared resolver,
+`hooks/lib/vault-hook-resolver.sh` (`resolve_targets`, `common_dir`, `commit_files`), which they
+source; it is never run on its own. Its Python runs with `python3 -I`, so a `shlex.py` or
+`subprocess.py` planted in the working directory or the repo root is never imported in place of the
+standard module.
+
+- **The lib fails closed.** If it is missing, incomplete or fails to load, both hooks exit 2. That
+  happens before the vault is identified, so it refuses **any** Bash call whose payload mentions both
+  "git" and "commit", in every repo, until the lib is restored (from a terminal:
+  `git -C ~/Repositories/dotfiles restore claude/hooks/lib`, or revert the change that broke it).
+- **An unknown file list blocks.** When a vault commit's file list cannot be computed, both gates
+  block rather than pass it unchecked. That covers a `commit_files` crash, invalid parameters (exit 3)
+  and any git call that lists part of the commit failing (exit 4, for example on a corrupt index). A
+  pathspec commit on an unborn HEAD is not a failure: it is diffed against the empty tree.
 
 Commits and pushes made **outside** Claude Code are scanned by the vault's own git hooks (LAB-2857).
 `install.sh` runs `scripts/install-vault-hooks.sh`. It copies `git-hooks/vault/{pre-commit,pre-push}`
