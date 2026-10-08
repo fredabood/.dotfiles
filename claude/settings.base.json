@@ -57,6 +57,11 @@
           {
             "type": "command",
             "command": "$HOME/.claude/hooks/memory-frontmatter-check.sh"
+          },
+          {
+            "type": "command",
+            "command": "$HOME/.claude/hooks/memory-gitleaks-check.sh",
+            "timeout": 60
           }
         ]
       }

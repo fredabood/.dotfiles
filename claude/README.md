@@ -26,12 +26,15 @@ claude/
 │   ├── subtract.jq         # live ⊖ base (what the overlay must hold)
 │   ├── check-public.sh     # gitleaks + private denylist (the repo pre-commit hook)
 │   ├── memory-cleanup.py   # auto-memory staleness report (reads memory-access-tracker frontmatter)
+│   ├── memory-gitleaks-scan.sh  # gitleaks over a file set, 0/1/2 (the vault secret-scan gate's check)
 │   └── omnigent-worktree-patch  # keep Omnigent's worktrees in <repo>/.claude/worktrees
 └── tests/
     ├── decision-board.test.sh        # board.py: schema, states, revision, serve, harvest
     ├── install.test.sh               # fake-HOME tests for install + settings
     ├── memory-access-tracker.test.sh # the hook finds Claude Code's real project dir
-    └── memory-cleanup.test.sh        # the staleness report scans every project memory dir
+    ├── memory-cleanup.test.sh        # the staleness report scans every project memory dir
+    ├── memory-frontmatter-check.test.sh # the vault frontmatter gate judges the repo being committed
+    └── memory-gitleaks-check.test.sh # the vault secret-scan gate blocks a planted token
 ```
 
 ## How it installs
@@ -134,11 +137,25 @@ with `git config core.hooksPath .githooks`.
 ```bash
 bash claude/tests/install.test.sh
 bash claude/tests/memory-access-tracker.test.sh
+bash claude/tests/memory-frontmatter-check.test.sh
+bash claude/tests/memory-gitleaks-check.test.sh    # needs gitleaks; ends with SUITE_RESULT
 bash claude/tests/decision-board.test.sh   # starts local servers on 127.0.0.1; uses docker for markdownlint if present
 ```
 
 Runs against a throwaway `HOME`; never touches the real `~/.claude`, vault or state. Keep the
 scripts compatible with macOS `/bin/bash` 3.2.
+
+## Vault commit gates
+
+Two `PreToolUse` hooks judge every `git commit` Claude makes in the memory vault (its primary
+checkout or any worktree), resolving the repo from `git -C`, a leading `cd`, or the session cwd:
+
+- `hooks/memory-frontmatter-check.sh` blocks `.md` files missing `title`, `tags` or `created`.
+- `hooks/memory-gitleaks-check.sh` runs `scripts/memory-gitleaks-scan.sh` (gitleaks with HEAD's
+  committed `.gitleaks.toml`, passed with `-c`) over the files the commit will contain, and blocks a
+  finding, a missing gitleaks, a missing config or a gitleaks failure. It is a keyword-and-entropy
+  check, not a proof, and it never sees commits made outside Claude Code. Human kill switch:
+  `MEMORY_GITLEAKS_CHECK=off` (prints a DISABLED line for each commit it lets through).
 
 ## Worktrees and Omnigent
 

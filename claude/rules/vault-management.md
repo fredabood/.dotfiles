@@ -111,3 +111,8 @@ Optional fields: `type`, `aliases`, `entities`, `importance`, `source`, `_migrat
   - When it cannot tell, for example with `git add -p` or `git add $(…)`, it prints a one-line
     `skipped` notice.
   - `/obsidian-lint --fix` repairs findings.
+- **Pre-commit secret scan:** `memory-gitleaks-check.sh` runs gitleaks with the vault's
+  `.gitleaks.toml` (HEAD's committed copy, so a commit cannot allowlist itself) over the files the
+  commit will contain, and blocks a finding. It is a keyword-and-entropy check, not a proof: gitleaks'
+  default stopwords can suppress a real credential. A missing gitleaks or config blocks too. Human
+  kill switch: `MEMORY_GITLEAKS_CHECK=off`.
