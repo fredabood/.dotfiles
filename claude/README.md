@@ -16,6 +16,7 @@ claude/
 ├── commands/               # slash commands         ← ~/.claude/commands (folder link)
 ├── rules/                  # global rules           ← ~/.claude/rules    (folder link)
 ├── hooks/                  # hook scripts           ← ~/.claude/hooks    (folder link)
+│   └── lib/vault-hook-resolver.sh  # commit resolver sourced by both vault gates (never run)
 ├── skills/                 # skills (one dir each)  ← ~/.claude/skills   (folder link)
 ├── statusline-command.sh   #                        → ~/.claude/statusline-command.sh
 ├── settings.base.json      # public half of settings.json (generated, never linked)
