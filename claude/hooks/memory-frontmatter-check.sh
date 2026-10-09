@@ -125,6 +125,52 @@ fi
 # From here on this is a vault commit: an abort (set -e, a failed cd or mktemp) blocks, never exits 1 (LAB-2948).
 WORK=""
 trap 'rc=$?; [ -z "$WORK" ] || rm -rf "$WORK"; if [ "$rc" -ne 0 ] && [ "$rc" -ne 2 ]; then echo "$TAG: BLOCKED — the gate aborted (exit $rc) while judging a vault commit; blocking rather than passing unchecked" >&2; exit 2; fi' EXIT
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/memory-frontmatter-check.XXXXXX")"
+
+# validate_note <name> <content path>: the frontmatter checks on one version of a note. Every error
+# names <name>, the top-relative path, whichever version was read (LAB-2948).
+validate_note() {
+  local name="$1" path="$2" FM CREATED field
+
+  # Check frontmatter exists
+  if [[ "$(head -1 "$path")" != "---" ]]; then
+    echo "ERROR: $name — missing frontmatter (no opening ---)" >&2
+    ERRORS=$((ERRORS + 1))
+    return 0
+  fi
+
+  # Extract frontmatter block (lines between first and second ---)
+  FM=$(awk '/^---$/{n++; if(n==2) exit} n==1{print}' "$path")
+
+  if [[ -z "$FM" ]]; then
+    echo "ERROR: $name — unclosed frontmatter block (missing closing ---)" >&2
+    ERRORS=$((ERRORS + 1))
+    return 0
+  fi
+
+  # Check required fields.
+  # Herestrings throughout, NOT `echo "$FM" | grep -q` (LAB-1603): under the `pipefail`
+  # at the top of this file, `grep -q` exits at its first match and closes the pipe, the
+  # producer takes SIGPIPE, and `pipefail` promotes that to the pipeline's status — so
+  # the test reports FAILURE precisely when the field IS present. Here that inverts a
+  # `!`, meaning a valid file would be reported as missing a required field.
+  for field in title tags created; do
+    if ! grep -q "^${field}:" <<<"$FM"; then
+      echo "ERROR: $name — missing required field: $field" >&2
+      ERRORS=$((ERRORS + 1))
+    fi
+  done
+
+  # Validate created date format
+  # `grep` without -q here, so it reads to EOF and cannot SIGPIPE its producer; the
+  # -q test below is the herestring form for the same reason as the loop above.
+  CREATED=$(grep "^created:" <<<"$FM" | sed 's/created: *//' | sed 's/^["'"'"']//;s/["'"'"']$//')
+  if [[ -n "$CREATED" ]] && ! grep -qE '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' <<<"$CREATED"; then
+    echo "ERROR: $name — created date not in YYYY-MM-DD format: $CREATED" >&2
+    ERRORS=$((ERRORS + 1))
+  fi
+  return 0
+}
 
 # Every line of a BLOCK goes to stderr. On exit 2 Claude Code hands the model stderr only; when
 # this report went to stdout the agent saw "No stderr output" and could not tell what to fix
@@ -169,43 +215,25 @@ if [[ $N -eq 0 ]]; then
 fi
 
 while IFS= read -r file; do
-  [[ -f "$file" ]] || continue
-
-  # Check frontmatter exists
-  if [[ "$(head -1 "$file")" != "---" ]]; then
-    echo "ERROR: $file — missing frontmatter (no opening ---)" >&2
-    ERRORS=$((ERRORS + 1))
-    continue
+  # Both versions are validated (LAB-2948, owner decision OD-F): the working-tree file when it is a
+  # regular file, and the staged blob (`:0:`) whenever it differs or the working tree has none. A
+  # staged-then-deleted note, or a bad blob under a fixed but unstaged file, no longer passes.
+  WT=0
+  READ=0
+  if [[ -f "$file" && ! -L "$file" ]]; then
+    validate_note "$file" "$file"
+    WT=1
+    READ=1
   fi
-
-  # Extract frontmatter block (lines between first and second ---)
-  FM=$(awk '/^---$/{n++; if(n==2) exit} n==1{print}' "$file")
-
-  if [[ -z "$FM" ]]; then
-    echo "ERROR: $file — unclosed frontmatter block (missing closing ---)" >&2
-    ERRORS=$((ERRORS + 1))
-    continue
-  fi
-
-  # Check required fields.
-  # Herestrings throughout, NOT `echo "$FM" | grep -q` (LAB-1603): under the `pipefail`
-  # at the top of this file, `grep -q` exits at its first match and closes the pipe, the
-  # producer takes SIGPIPE, and `pipefail` promotes that to the pipeline's status — so
-  # the test reports FAILURE precisely when the field IS present. Here that inverts a
-  # `!`, meaning a valid file would be reported as missing a required field.
-  for field in title tags created; do
-    if ! grep -q "^${field}:" <<<"$FM"; then
-      echo "ERROR: $file — missing required field: $field" >&2
-      ERRORS=$((ERRORS + 1))
+  if git -C "$TOP" cat-file -e ":0:$file" 2>/dev/null; then
+    git -C "$TOP" show ":0:$file" >"$WORK/blob"
+    READ=1
+    if [[ $WT -eq 0 ]] || ! cmp -s "$WORK/blob" "$file"; then
+      validate_note "$file" "$WORK/blob"
     fi
-  done
-
-  # Validate created date format
-  # `grep` without -q here, so it reads to EOF and cannot SIGPIPE its producer; the
-  # -q test below is the herestring form for the same reason as the loop above.
-  CREATED=$(grep "^created:" <<<"$FM" | sed 's/created: *//' | sed 's/^["'"'"']//;s/["'"'"']$//')
-  if [[ -n "$CREATED" ]] && ! grep -qE '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' <<<"$CREATED"; then
-    echo "ERROR: $file — created date not in YYYY-MM-DD format: $CREATED" >&2
+  fi
+  if [[ $READ -eq 0 ]]; then
+    echo "ERROR: $file — listed for this commit but readable neither in the working tree nor the index" >&2
     ERRORS=$((ERRORS + 1))
   fi
 done <<< "$STAGED_FILES"

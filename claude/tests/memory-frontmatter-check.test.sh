@@ -390,6 +390,12 @@ t_f_z1() {
 check "F-Z1 --allow-empty in the vault -> rc 0, one ZERO-INPUT-OK line whose reason is the one in the source (item 6)" t_f_z1
 t_f_cnt() { setup; stage "$WT" good.md "$GOOD"; run_hook "$WT" "git commit -m x"; [ "$RC" -eq 0 ] && grep -q ': 1 .md file(s) examined' <<<"$ERR"; }
 check "F-CNT one valid .md staged -> rc 0 and '1 .md file(s) examined' (item 6)" t_f_cnt
+t_f_wtdel() { setup; stage "$WT" bad.md "$BAD"; rm "$WT/bad.md"; run_hook "$WT" "git commit -m x"; blocked bad.md; }
+check "F-WTDEL bad .md staged, then deleted from the working tree -> blocked naming bad.md (item 7)" t_f_wtdel
+t_f_blob() { setup; stage "$WT" bad.md "$BAD"; put "$WT" bad.md "$GOOD"; run_hook "$WT" "git commit -m x"; blocked bad.md; }
+check "F-BLOB bad .md staged, working tree fixed but not re-added -> blocked (item 7)" t_f_blob
+t_f_wtonly() { setup; put "$WT" good.md "$GOOD"; run_hook "$WT" "git add good.md && git commit -m x"; [ "$RC" -eq 0 ]; }
+check "F-WTONLY control: git add good.md && git commit, good.md untracked -> rc 0 (item 7)" t_f_wtonly
 
 printf '\n%d passed, %d failed\n' "$pass" "$failed"
 printf 'SUITE_RESULT pass=%d fail=%d skip=0\n' "$pass" "$failed"
