@@ -65,6 +65,13 @@ print(json.dumps(d))' "$1" "$2")
 blocked() { [ "$RC" -eq 2 ] && grep -q "ERROR: $1" <<<"$ERR" && grep -q 'obsidian-lint' <<<"$ERR"; }
 silent_pass() { [ "$RC" -eq 0 ] && [ -z "$OUT" ] && [ -z "$ERR" ]; }
 one_skip_notice() { [ "$RC" -eq 0 ] && [ "$(printf '%s\n' "$ERR" | wc -l | tr -d ' ')" -eq 1 ] && grep -q 'skipped' <<<"$ERR"; }
+# A vault commit with no .md content prints its count and reason (LAB-2948, item 6; owner decision OD-E).
+zero_input_ok() { [ "$RC" -eq 0 ] && [ -z "$OUT" ] && [ "$(printf '%s\n' "$ERR" | wc -l | tr -d ' ')" -eq 1 ] && grep -q 'ZERO-INPUT-OK' <<<"$ERR"; }
+skip_then_zero() {
+    [ "$RC" -eq 0 ] && [ "$(printf '%s\n' "$ERR" | wc -l | tr -d ' ')" -eq 2 ] \
+        && sed -n 1p <<<"$ERR" | grep -q 'skipped' \
+        && sed -n 2p <<<"$ERR" | grep -q 'the skipped part above was not validated'
+}
 
 echo "which index is read"
 t_worktree_blocked() { setup; stage "$WT" bad.md "$BAD"; run_hook "$WT" "git commit -m x"; blocked bad.md; }
@@ -168,19 +175,19 @@ t_commit_path_excludes_index() {
     [ "$RC" -eq 0 ] && ! grep -q bad.md <<<"$OUT$ERR"
 }
 check "git commit <good path> is not blocked by a bad .md staged outside the pathspec" t_commit_path_excludes_index
-t_commit_msg_file() { setup; put "$WT" msg.md "$BAD"; run_hook "$WT" "git commit -F msg.md"; silent_pass; }
+t_commit_msg_file() { setup; put "$WT" msg.md "$BAD"; run_hook "$WT" "git commit -F msg.md"; zero_input_ok; }
 check "git commit -F msg.md: an option value is not a pathspec -> silent" t_commit_msg_file
-t_add_after_commit() { setup; put "$WT" bad.md "$BAD"; run_hook "$WT" "git commit -m x; git add bad.md"; silent_pass; }
+t_add_after_commit() { setup; put "$WT" bad.md "$BAD"; run_hook "$WT" "git commit -m x; git add bad.md"; zero_input_ok; }
 check "git add after the commit is not counted -> silent" t_add_after_commit
-t_add_other_repo() { setup; put "$OTHER" x.md "$BAD"; run_hook "$OTHER" "git -C '$OTHER' add x.md && git -C '$WT' commit -m x"; silent_pass; }
+t_add_other_repo() { setup; put "$OTHER" x.md "$BAD"; run_hook "$OTHER" "git -C '$OTHER' add x.md && git -C '$WT' commit -m x"; zero_input_ok; }
 check "git add in another repo does not count toward a vault commit -> silent" t_add_other_repo
-t_add_dry_run() { setup; put "$WT" bad.md "$BAD"; run_hook "$WT" "git add -n bad.md && git commit -m x"; silent_pass; }
+t_add_dry_run() { setup; put "$WT" bad.md "$BAD"; run_hook "$WT" "git add -n bad.md && git commit -m x"; zero_input_ok; }
 check "git add -n (dry run) stages nothing -> silent" t_add_dry_run
-t_add_rm() { setup; commit_tracked "$WT" bad.md; run_hook "$WT" "git rm -q --cached bad.md && git commit -m x"; silent_pass; }
+t_add_rm() { setup; commit_tracked "$WT" bad.md; run_hook "$WT" "git rm -q --cached bad.md && git commit -m x"; zero_input_ok; }
 check "git rm stages no content -> silent" t_add_rm
-t_add_patch_skip() { setup; put "$WT" bad.md "$BAD"; run_hook "$WT" "git add -p && git commit -m x"; one_skip_notice; }
+t_add_patch_skip() { setup; put "$WT" bad.md "$BAD"; run_hook "$WT" "git add -p && git commit -m x"; skip_then_zero; }
 check "git add -p && git commit -> one-line skip notice" t_add_patch_skip
-t_add_subst_skip() { setup; put "$WT" bad.md "$BAD"; run_hook "$WT" "git add \$(ls) && git commit -m x"; one_skip_notice; }
+t_add_subst_skip() { setup; put "$WT" bad.md "$BAD"; run_hook "$WT" "git add \$(ls) && git commit -m x"; skip_then_zero; }
 check "git add \$(ls) && git commit -> one-line skip notice" t_add_subst_skip
 t_add_skip_still_validates() { setup; stage "$WT" staged-bad.md "$BAD"; run_hook "$WT" "git add -p && git commit -m x"; blocked staged-bad.md && grep -q skipped <<<"$ERR"; }
 check "a skipped git add does not cancel validation of the index -> blocked" t_add_skip_still_validates
@@ -220,7 +227,7 @@ t_no_exec_backtick() { setup; run_hook "$OTHER" "cd \`touch '$T/pwned2'\` && git
 check "backticks in a cd argument are not run" t_no_exec_backtick
 t_no_exec_semicolon() { setup; run_hook "$OTHER" "git -C '$WT; touch $T/pwned3' commit -m x"; [ ! -e "$T/pwned3" ] && [ "$RC" -eq 0 ]; }
 check "a quoted ';' in a -C path is a path, not a command" t_no_exec_semicolon
-t_no_exec_add_pathspec() { setup; run_hook "$WT" "git add \"\$(touch '$T/pwned4')\" && git commit -m x"; [ ! -e "$T/pwned4" ] && one_skip_notice; }
+t_no_exec_add_pathspec() { setup; run_hook "$WT" "git add \"\$(touch '$T/pwned4')\" && git commit -m x"; [ ! -e "$T/pwned4" ] && skip_then_zero; }
 check "\$(...) in a git add pathspec is not run -> one-line skip notice" t_no_exec_add_pathspec
 
 echo "renames and typechanges are validated (LAB-2858)"
@@ -375,6 +382,14 @@ t_f_abort() {
     [ "$RC" -eq 2 ] && grep -q 'aborted (exit 1)' <<<"$ERR"
 }
 check "F-ABORT an abort after vault identity -> rc 2, 'aborted (exit 1)' (item 5)" t_f_abort
+t_f_z1() {
+    setup; run_hook "$WT" "git commit --allow-empty -m x"; zero_input_ok || return 1
+    local reason; reason=$(sed -n 's/^ *# ZERO-INPUT-OK: //p' "$HOOK")
+    [ -n "$reason" ] && grep -qF "0 .md file(s) examined — ZERO-INPUT-OK: $reason" <<<"$ERR"
+}
+check "F-Z1 --allow-empty in the vault -> rc 0, one ZERO-INPUT-OK line whose reason is the one in the source (item 6)" t_f_z1
+t_f_cnt() { setup; stage "$WT" good.md "$GOOD"; run_hook "$WT" "git commit -m x"; [ "$RC" -eq 0 ] && grep -q ': 1 .md file(s) examined' <<<"$ERR"; }
+check "F-CNT one valid .md staged -> rc 0 and '1 .md file(s) examined' (item 6)" t_f_cnt
 
 printf '\n%d passed, %d failed\n' "$pass" "$failed"
 printf 'SUITE_RESULT pass=%d fail=%d skip=0\n' "$pass" "$failed"

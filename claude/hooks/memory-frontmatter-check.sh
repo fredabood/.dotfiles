@@ -130,7 +130,9 @@ trap 'rc=$?; [ -z "$WORK" ] || rm -rf "$WORK"; if [ "$rc" -ne 0 ] && [ "$rc" -ne
 # this report went to stdout the agent saw "No stderr output" and could not tell what to fix
 # (LAB-1996 post-merge live control, 2026-09-12).
 ERRORS=0
-CHECKED=0
+# Every vault target prints how many .md files it examined, or a ZERO-INPUT-OK reason; a silent
+# "nothing checked" exit is gone (testing.md rule 1; LAB-2948).
+TOTAL=0
 for i in "${!VAULT_TOPS[@]}"; do
 TOP="${VAULT_TOPS[$i]}"
 cd "$TOP"
@@ -141,22 +143,30 @@ if ! FILE_LINES=$(commit_files "$TOP" "${VAULT_DIRS[$i]}" "${VAULT_SPECS[$i]}" 1
   # gate has no backstop: the vault's own git hooks run only the secret scan.
   echo "ERROR: $TOP — could not compute the files this commit will contain (the resolver's commit_files failed; its reason, if any, is above); blocking rather than passing unchecked" >&2
   ERRORS=$((ERRORS + 1))
-  CHECKED=1
   continue
 fi
 STAGED_FILES=""
+N=0
+SKIPPED=0
 while IFS=$'\t' read -r kind value; do
   if [[ "$kind" == SKIP ]]; then
     skip "$value"
+    SKIPPED=1
   elif [[ "$kind" == FILE ]]; then
     STAGED_FILES+="$value"$'\n'
+    N=$((N + 1))
   fi
 done <<<"$FILE_LINES"
 STAGED_FILES="${STAGED_FILES%$'\n'}"
-if [[ -z "$STAGED_FILES" ]]; then
+if [[ $N -eq 0 ]]; then
+  if [[ $SKIPPED -eq 1 ]]; then
+    echo "$TAG: $TOP: 0 .md file(s) examined — the skipped part above was not validated" >&2
+    continue
+  fi
+  # ZERO-INPUT-OK: this commit adds or changes no .md file (message-only amend, --allow-empty, deletion-only, or non-.md content only)
+  echo "$TAG: $TOP: 0 .md file(s) examined — ZERO-INPUT-OK: this commit adds or changes no .md file (message-only amend, --allow-empty, deletion-only, or non-.md content only)" >&2
   continue
 fi
-CHECKED=1
 
 while IFS= read -r file; do
   [[ -f "$file" ]] || continue
@@ -199,11 +209,9 @@ while IFS= read -r file; do
     ERRORS=$((ERRORS + 1))
   fi
 done <<< "$STAGED_FILES"
+echo "$TAG: $TOP: $N .md file(s) examined" >&2
+TOTAL=$((TOTAL + N))
 done
-
-if [[ $CHECKED -eq 0 ]]; then
-  exit 0
-fi
 
 if [[ $ERRORS -gt 0 ]]; then
   {
@@ -214,5 +222,7 @@ if [[ $ERRORS -gt 0 ]]; then
   exit 2
 fi
 
-echo "Vault frontmatter: all checks passed."
+if [[ $TOTAL -gt 0 ]]; then
+  echo "Vault frontmatter: all checks passed."
+fi
 exit 0
