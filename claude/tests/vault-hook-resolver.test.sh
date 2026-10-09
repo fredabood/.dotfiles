@@ -112,6 +112,19 @@ print(json.dumps({"hook_event_name": "PreToolUse", "tool_name": "Bash",
     [ "$RC" -eq 0 ] && [ "$(line_count)" -eq 1 ] && [[ "$OUT" == "DIR${TAB}${WT}${TAB}{"* ]]
 }
 check "RT7 a 2 MiB payload -> exactly RT1's DIR line, rc 0 (payload on fd 3, not the environment)" t_rt7
+# RT8: the parsed commit records --no-verify (LAB-2948, item 1).
+t_rt8() {
+    setup
+    # rt8 <command> <expected no_verify>
+    rt8() {
+        resolve "$OTHER" "$WT" "$1"
+        [ "$RC" -eq 0 ] && [ "$(json_field 'd.get("no_verify")')" = "$2" ] || { echo "    [$1] -> $(json_field 'd.get("no_verify")')"; return 1; }
+    }
+    rt8 "git commit --no-verify -m x" True && rt8 "git commit -n -m x" True && rt8 "git commit -anm x" True \
+        && rt8 "git commit -m -n" False && rt8 "git commit --no-verify --verify -m x" False \
+        && rt8 "git -c core.hooksPath=/dev/null commit -m x" True && rt8 "git commit -m x" False
+}
+check "RT8 no_verify: --no-verify, -n, -anm, -c core.hooksPath= -> true; -m -n, --no-verify --verify, plain -> false" t_rt8
 
 echo "common_dir"
 t_cd1() {
@@ -203,6 +216,15 @@ t_cf8() {
     [ "$RC" -eq 4 ] && grep -q 'commit_files: could not diff the commit pathspec' "$T/cf8.err"
 }
 check "CF8 a corrupt index -> rc 4 and the reason on stderr (index and pathspec paths)" t_cf8
+# CF9: on a --no-verify commit every skip is a BLOCK line; without it, a SKIP line (LAB-2948, item 1).
+t_cf9() {
+    setup
+    lib_run "$WT" commit_files "$WT" "$WT" '{"skips": ["r1"], "no_verify": true}' 1 no ACMT ".md"
+    [ "$RC" -eq 0 ] && [[ "$OUT" == "BLOCK${TAB}r1 (--no-verify: "* ]] || return 1
+    lib_run "$WT" commit_files "$WT" "$WT" '{"skips": ["r1"]}' 1 no ACMT ".md"
+    [ "$RC" -eq 0 ] && [ "$OUT" = "SKIP${TAB}r1" ]
+}
+check "CF9 a no_verify spec with skips -> BLOCK lines, rc 0; the same spec without no_verify -> SKIP lines" t_cf9
 
 echo "the lib's own red test"
 # ST1: the same cases against a stub that defines the three functions as no-ops and sets the

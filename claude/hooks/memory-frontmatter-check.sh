@@ -198,6 +198,10 @@ while IFS=$'\t' read -r kind value; do
   if [[ "$kind" == SKIP ]]; then
     skip "$value"
     SKIPPED=1
+  elif [[ "$kind" == BLOCK ]]; then
+    # A skip on a --no-verify commit: no git hook will cover it (LAB-2948).
+    echo "ERROR: $TOP — $value" >&2
+    ERRORS=$((ERRORS + 1))
   elif [[ "$kind" == FILE ]]; then
     STAGED_FILES+="$value"$'\n'
     N=$((N + 1))

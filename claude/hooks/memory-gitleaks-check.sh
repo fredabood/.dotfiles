@@ -143,6 +143,10 @@ for i in "${!VAULT_TOPS[@]}"; do
     if [[ "$kind" == SKIP ]]; then
       skip "$value"
       SKIPPED=1
+    elif [[ "$kind" == BLOCK ]]; then
+      # A skip on a --no-verify commit: no git hook will cover it (LAB-2948).
+      echo "$TAG: $TOP: BLOCKED — $value" >&2
+      BLOCK=1
     elif [[ "$kind" == FILE ]]; then
       printf '%s\0' "$value" >>"$LIST"
       COUNT=$((COUNT + 1))

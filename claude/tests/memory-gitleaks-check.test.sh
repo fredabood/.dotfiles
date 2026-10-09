@@ -364,6 +364,10 @@ t_g_pyfail() {
 check "G-PYFAIL resolve_targets fails, clean commit -> rc 2, 'could not resolve the commit's repository' (item 4)" t_g_pyfail
 t_g_abort() { setup; stage "$WT" leak.md "$LEAK"; TMPDIR="$T/no-such-dir" run_hook "$WT" "git commit -m x"; [ "$RC" -eq 2 ] && grep -q 'aborted (exit 1)' <<<"$ERR"; }
 check "G-ABORT mktemp fails after vault identity -> rc 2, 'aborted (exit 1)' (item 5)" t_g_abort
+t_g_nv1() { setup; put "$WT" leak.md "$LEAK"; run_hook "$WT" "git add -p && git commit --no-verify -m x"; [ "$RC" -eq 2 ] && grep -q -- '--no-verify' <<<"$ERR"; }
+check "G-NV1 git add -p && git commit --no-verify, nothing staged -> rc 2, naming --no-verify (item 1)" t_g_nv1
+t_g_nv2() { setup; put "$WT" leak.md "$LEAK"; run_hook "$WT" "git add -p && git commit -n -m x"; [ "$RC" -eq 2 ] && grep -q -- '--no-verify' <<<"$ERR"; }
+check "G-NV2 git add -p && git commit -n, nothing staged -> rc 2, naming --no-verify (item 1)" t_g_nv2
 
 printf '\nSUITE_RESULT pass=%d fail=%d skip=%d\n' "$pass" "$failed" "$skipped"
 [ "$failed" -eq 0 ] && [ "$pass" -gt 0 ] && [ "$glpass" -gt 0 ]

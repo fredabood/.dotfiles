@@ -31,7 +31,10 @@
 #       is not in a git repository.
 #   commit_files <top> <commit dir> <json> <md_only 0|1> <renames yes|no> <diff filter> <label>
 #       The files the commit will contain, as "FILE<TAB><top-relative path>" or "SKIP<TAB><reason>"
-#       lines. md_only=1 keeps only .md files; renames=no lists a rename as an addition
+#       lines. When the json's no_verify is true (`-n`, `--no-verify`, or `git -c core.hooksPath=…`;
+#       a later `--verify` clears it), every SKIP is printed as "BLOCK<TAB><reason> (--no-verify: …)"
+#       instead, and the hooks block on it: the vault's git hook will not run to cover the gap
+#       (LAB-2948). md_only=1 keeps only .md files; renames=no lists a rename as an addition
 #       (--no-renames); the diff filter is git's --diff-filter; the label names a file in the skip
 #       text (".md" or "file"). Git runs with list argv, never a shell, and pathspecs go after `--`.
 #       Exit codes: 0 = the list is complete (SKIP lines name what it could not include); 3 = invalid
@@ -120,12 +123,15 @@ def segment(words, cur):
     git_dir_env = any(w.startswith(("GIT_DIR=", "GIT_WORK_TREE=")) for w in words[:k])
     args = words[k + 1:]
     target, j = cur, 0
+    hooks_off = False  # `-c core.hooksPath=…` points git away from the vault's hooks, like --no-verify
     while j < len(args):
         a = args[j]
         if a == "-C":
             target = resolve(target, args[j + 1]) if j + 1 < len(args) else Unknown("git -C with no path")
             j += 2
         elif a == "-c":
+            if j + 1 < len(args) and args[j + 1].lower().startswith("core.hookspath="):
+                hooks_off = True
             j += 2
         elif a.startswith(("--git-dir", "--work-tree")):
             git_dir_env = True
@@ -154,6 +160,7 @@ def segment(words, cur):
             emit("SKIP", target.reason)
         else:
             spec = parse_commit(rest)
+            spec["no_verify"] = spec["no_verify"] or hooks_off
             spec["adds"] = list(adds)
             emit("DIR", target, json.dumps(spec))
     return cur
@@ -204,7 +211,7 @@ COMMIT_LONG_VALUE = {"message", "file", "reuse-message", "reedit-message", "auth
                      "template", "fixup", "squash", "cleanup", "trailer"}
 
 def parse_commit(rest):
-    spec = {"all": False, "include": False, "specs": [], "skips": []}
+    spec = {"all": False, "include": False, "specs": [], "skips": [], "no_verify": False}
     k, after = 0, False
     while k < len(rest):
         a = rest[k]
@@ -219,6 +226,10 @@ def parse_commit(rest):
                 spec["all"] = True
             elif name == "include":
                 spec["include"] = True
+            elif name == "no-verify":
+                spec["no_verify"] = True
+            elif name == "verify":
+                spec["no_verify"] = False
             elif name in ("patch", "interactive", "pathspec-from-file"):
                 spec["skips"].append("interactive or file-driven git commit (--%s)" % name)
             elif name in COMMIT_LONG_VALUE and not eq:
@@ -231,6 +242,8 @@ def parse_commit(rest):
                     spec["include"] = True
                 elif ch == "p":
                     spec["skips"].append("interactive git commit (-p)")
+                elif ch == "n":
+                    spec["no_verify"] = True
                 elif ch in COMMIT_SHORT_VALUE:
                     if n + 2 == len(a):
                         k += 1
@@ -290,8 +303,14 @@ if (os.environ.get("CF_MD_ONLY") not in ("0", "1")
 top, cdir = os.environ["CF_TOP"], os.environ["CF_DIR"]
 seen = []
 failures = []  # a git listing that failed: the list is incomplete, so the caller must block (exit 4)
+# A --no-verify commit (or -c core.hooksPath=…) skips the vault's git hook, the only other check of
+# what a skip leaves out, so every SKIP for it becomes a BLOCK line (LAB-2948).
+NO_VERIFY = False
 
 def say(kind, value):
+    if kind == "SKIP" and NO_VERIFY:
+        kind = "BLOCK"
+        value += " (--no-verify: the vault's git hook will not run, so this part would go unexamined)"
     line = kind + "\t" + value
     if line not in seen:
         seen.append(line)
@@ -332,6 +351,7 @@ try:
     spec = json.loads(os.environ["CF_SPEC"] or "{}")
 except ValueError:
     spec = {"skips": ["could not read the parsed commit"]}
+NO_VERIFY = bool(spec.get("no_verify"))
 for reason in spec.get("skips", []):
     say("SKIP", reason)
 

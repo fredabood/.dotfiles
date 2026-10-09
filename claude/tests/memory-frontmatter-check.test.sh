@@ -396,6 +396,8 @@ t_f_blob() { setup; stage "$WT" bad.md "$BAD"; put "$WT" bad.md "$GOOD"; run_hoo
 check "F-BLOB bad .md staged, working tree fixed but not re-added -> blocked (item 7)" t_f_blob
 t_f_wtonly() { setup; put "$WT" good.md "$GOOD"; run_hook "$WT" "git add good.md && git commit -m x"; [ "$RC" -eq 0 ]; }
 check "F-WTONLY control: git add good.md && git commit, good.md untracked -> rc 0 (item 7)" t_f_wtonly
+t_f_nv1() { setup; put "$WT" bad.md "$BAD"; run_hook "$WT" "git add -p && git commit --no-verify -m x"; [ "$RC" -eq 2 ] && grep -q -- '--no-verify' <<<"$ERR"; }
+check "F-NV1 git add -p && git commit --no-verify, nothing staged -> rc 2, naming --no-verify (item 1)" t_f_nv1
 
 printf '\n%d passed, %d failed\n' "$pass" "$failed"
 printf 'SUITE_RESULT pass=%d fail=%d skip=0\n' "$pass" "$failed"
