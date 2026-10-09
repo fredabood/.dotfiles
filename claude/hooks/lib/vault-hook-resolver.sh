@@ -20,6 +20,8 @@
 #
 # FUNCTIONS
 #   resolve_targets <hook payload json>
+#       The payload reaches Python on fd 3, never through the environment or argv: a payload of
+#       1 MiB or more made the exec fail with E2BIG (LAB-2948).
 #       One line per `git commit` found: "DIR<TAB><abs path><TAB><json>" or "SKIP<TAB><reason>".
 #       The json says what else the commit will pick up: -a, -i, pathspecs, and every earlier
 #       `git add` in the same command (LAB-2062).
@@ -42,7 +44,7 @@
 # Tests: claude/tests/vault-hook-resolver.test.sh (the lib alone), plus both hook suites.
 
 resolve_targets() {
-  HOOK_PAYLOAD="$1" python3 -I - <<'PY'
+  python3 -I - 3<<<"$1" <<'PY'
 import json, os, re, shlex, sys
 
 class Unknown:
@@ -60,7 +62,7 @@ def emit(kind, value, extra=None):
 seen = []
 adds = []  # every `git add` seen so far in the command, in order
 try:
-    payload = json.loads(os.environ.get("HOOK_PAYLOAD") or "")
+    payload = json.loads(os.fdopen(3, "r", encoding="utf-8", errors="surrogateescape").read() or "")
 except ValueError:
     emit("SKIP", "hook payload is not JSON")
     sys.exit(0)

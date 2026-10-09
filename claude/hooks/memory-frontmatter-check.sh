@@ -85,10 +85,8 @@ if [ "${VAULT_HOOK_RESOLVER_API:-}" != 1 ] || ! declare -F resolve_targets commo
   echo "$TAG: BLOCKED — resolver lib at $LIB is incomplete" >&2; exit 2
 fi
 
-TARGETS=$(resolve_targets "$INPUT") || {
-  skip "could not resolve the commit's repository (python3 failed)"
-  exit 0
-}
+# A resolver failure (python3 missing or crashing) blocks: without it no commit can be judged (LAB-2948).
+TARGETS=$(resolve_targets "$INPUT") || { echo "$TAG: BLOCKED — could not resolve the commit's repository (the resolver failed); blocking rather than passing unchecked" >&2; exit 2; }
 if [[ -z "$TARGETS" ]]; then
   exit 0
 fi

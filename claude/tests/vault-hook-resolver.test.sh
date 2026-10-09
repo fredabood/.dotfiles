@@ -99,6 +99,19 @@ t_rt5() {
 check "RT5 a shlex.py in the process cwd is not imported (python3 -I) -> still the RT1 line" t_rt5
 t_rt6() { setup; resolve "$OTHER" "$OTHER" "git -C \"\$(touch '$T/pwn')\" commit -m x"; [ ! -e "$T/pwn" ] && [[ "$OUT" == "SKIP${TAB}"* ]]; }
 check "RT6 \$(touch ...) in a -C argument is never run" t_rt6
+# RT7: a 2 MiB payload. Passed through the environment it made python3's exec fail with E2BIG, and
+# both hooks read that failure as a skip (LAB-2948). Built inside python3: argv has the same limit.
+t_rt7() {
+    setup; local p
+    p=$(python3 -c '
+import json, sys
+cmd = "git -C %s commit -m %s" % ("\x27" + sys.argv[1] + "\x27", "\x27" + "x" * 2097152 + "\x27")
+print(json.dumps({"hook_event_name": "PreToolUse", "tool_name": "Bash",
+                  "tool_input": {"command": cmd}, "cwd": sys.argv[2]}))' "$WT" "$OTHER")
+    lib_run "$OTHER" resolve_targets "$p"
+    [ "$RC" -eq 0 ] && [ "$(line_count)" -eq 1 ] && [[ "$OUT" == "DIR${TAB}${WT}${TAB}{"* ]]
+}
+check "RT7 a 2 MiB payload -> exactly RT1's DIR line, rc 0 (payload on fd 3, not the environment)" t_rt7
 
 echo "common_dir"
 t_cd1() {

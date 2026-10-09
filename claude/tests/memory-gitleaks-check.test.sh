@@ -18,6 +18,9 @@ set -uo pipefail
 
 PKG="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 HOOK="${HOOK:-$PKG/hooks/memory-gitleaks-check.sh}"
+# The package the hook under test belongs to: mklayout copies from it, so HOOK=<an older copy's
+# hooks/memory-gitleaks-check.sh> runs the layout cases against that copy too (red runs, LAB-2948).
+SRC="$(cd "$(dirname "$HOOK")/.." && pwd)"
 SCAN="${MEMORY_GITLEAKS_CHECK_UNDER_TEST:-$PKG/scripts/memory-gitleaks-scan.sh}"
 export MEMORY_GITLEAKS_CHECK_UNDER_TEST="$SCAN"
 # Physical path: git reports /private/var/... on macOS, and the assertions compare paths.
@@ -266,9 +269,9 @@ echo "the resolver lib fails closed (LAB-2858)"
 # The scan script is copied too, else the layout would exit 2 for the wrong reason.
 mklayout() {
     mkdir -p "$1/hooks/lib" "$1/scripts"
-    cp "$PKG/hooks/$2" "$1/hooks/"
-    cp "$PKG/scripts/memory-gitleaks-scan.sh" "$1/scripts/"
-    [ "${3:-}" = none ] || cp "${3:-$PKG/hooks/lib/vault-hook-resolver.sh}" "$1/hooks/lib/"
+    cp "$SRC/hooks/$2" "$1/hooks/"
+    cp "$SRC/scripts/memory-gitleaks-scan.sh" "$1/scripts/"
+    [ "${3:-}" = none ] || cp "${3:-$SRC/hooks/lib/vault-hook-resolver.sh}" "$1/hooks/lib/"
 }
 GL_HOOK="memory-gitleaks-check.sh"
 REAL_LIB="$PKG/hooks/lib/vault-hook-resolver.sh"
@@ -336,6 +339,29 @@ t_g_gf() {
         && grep -q 'commit_files: could not read the index' <<<"$ERR"
 }
 check "G-GF a corrupt index in a vault worktree -> rc 2, blocked, the git reason shown (OD1)" t_g_gf
+
+echo "fail-open paths are closed (LAB-2948)"
+# run_hook_big <cwd> <repo>: run_hook with `git -C '<repo>' commit -m '<2 MiB>'`. The payload is built
+# inside python3, because argv has the same 1 MiB limit the environment had.
+run_hook_big() {
+    local payload
+    payload=$(python3 -c '
+import json, sys
+cmd = "git -C %s commit -m %s" % ("\x27" + sys.argv[2] + "\x27", "\x27" + "x" * 2097152 + "\x27")
+print(json.dumps({"hook_event_name": "PreToolUse", "tool_name": "Bash",
+                  "tool_input": {"command": cmd}, "cwd": sys.argv[1]}))' "$1" "$2")
+    OUT=$(bash "$HOOK" <<<"$payload" 2>"$T/stderr"); RC=$?
+    ERR=$(cat "$T/stderr")
+}
+t_g_big() { setup; stage "$WT" leak.md "$LEAK"; run_hook_big "$OTHER" "$WT"; blocked leak.md; }
+gl_check "G-BIG a 2 MiB commit command, token staged -> blocked (item 4)" t_g_big
+t_g_pyfail() {
+    setup; local L="$T/layout$n" HOOK="$T/layout$n/hooks/$GL_HOOK"; mklayout "$L" "$GL_HOOK"
+    printf 'resolve_targets() { return 1; }\n' >> "$L/hooks/lib/vault-hook-resolver.sh"
+    stage "$WT" ok.md "$PLACEHOLDERS"; run_hook "$WT" "git commit -m x"
+    [ "$RC" -eq 2 ] && grep -q "could not resolve the commit's repository" <<<"$ERR"
+}
+check "G-PYFAIL resolve_targets fails, clean commit -> rc 2, 'could not resolve the commit's repository' (item 4)" t_g_pyfail
 
 printf '\nSUITE_RESULT pass=%d fail=%d skip=%d\n' "$pass" "$failed" "$skipped"
 [ "$failed" -eq 0 ] && [ "$pass" -gt 0 ] && [ "$glpass" -gt 0 ]

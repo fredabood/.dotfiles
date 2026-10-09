@@ -7,6 +7,9 @@ set -uo pipefail
 
 PKG="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 HOOK="${HOOK:-$PKG/hooks/memory-frontmatter-check.sh}"
+# The package the hook under test belongs to: mklayout copies from it, so HOOK=<an older copy's
+# hooks/memory-frontmatter-check.sh> runs the layout cases against that copy too (red runs, LAB-2948).
+SRC="$(cd "$(dirname "$HOOK")/.." && pwd)"
 T="$(mktemp -d "${TMPDIR:-/tmp}/frontmatter-check-test.XXXXXX")"
 trap 'rm -rf "$T"' EXIT
 export HOME="$T/home"
@@ -261,9 +264,9 @@ echo "the resolver lib fails closed (LAB-2858)"
 # mklayout <dir> <hook-name> [lib-source|none]: a copy of the hook layout (hooks/, hooks/lib/, scripts/).
 mklayout() {
     mkdir -p "$1/hooks/lib" "$1/scripts"
-    cp "$PKG/hooks/$2" "$1/hooks/"
-    cp "$PKG/scripts/memory-gitleaks-scan.sh" "$1/scripts/"
-    [ "${3:-}" = none ] || cp "${3:-$PKG/hooks/lib/vault-hook-resolver.sh}" "$1/hooks/lib/"
+    cp "$SRC/hooks/$2" "$1/hooks/"
+    cp "$SRC/scripts/memory-gitleaks-scan.sh" "$1/scripts/"
+    [ "${3:-}" = none ] || cp "${3:-$SRC/hooks/lib/vault-hook-resolver.sh}" "$1/hooks/lib/"
 }
 FM_HOOK="memory-frontmatter-check.sh"
 REAL_LIB="$PKG/hooks/lib/vault-hook-resolver.sh"
@@ -340,6 +343,29 @@ t_f_unb() {
     run_hook "$WT" "git commit -m x bad.md"; blocked bad.md
 }
 check "F-UNB commit <bad.md> on an unborn HEAD (orphan branch) -> blocked" t_f_unb
+
+echo "fail-open paths are closed (LAB-2948)"
+# run_hook_big <cwd> <repo>: run_hook with `git -C '<repo>' commit -m '<2 MiB>'`. The payload is built
+# inside python3, because argv has the same 1 MiB limit the environment had.
+run_hook_big() {
+    local payload
+    payload=$(python3 -c '
+import json, sys
+cmd = "git -C %s commit -m %s" % ("\x27" + sys.argv[2] + "\x27", "\x27" + "x" * 2097152 + "\x27")
+print(json.dumps({"hook_event_name": "PreToolUse", "tool_name": "Bash",
+                  "tool_input": {"command": cmd}, "cwd": sys.argv[1]}))' "$1" "$2")
+    OUT=$(bash "$HOOK" <<<"$payload" 2>"$T/stderr"); RC=$?
+    ERR=$(cat "$T/stderr")
+}
+t_f_big() { setup; stage "$WT" bad.md "$BAD"; run_hook_big "$OTHER" "$WT"; blocked bad.md; }
+check "F-BIG a 2 MiB commit command, bad .md staged -> blocked (item 4)" t_f_big
+t_f_pyfail() {
+    setup; local L="$T/layout$n" HOOK="$T/layout$n/hooks/$FM_HOOK"; mklayout "$L" "$FM_HOOK"
+    printf 'resolve_targets() { return 1; }\n' >> "$L/hooks/lib/vault-hook-resolver.sh"
+    stage "$WT" good.md "$GOOD"; run_hook "$WT" "git commit -m x"
+    [ "$RC" -eq 2 ] && grep -q "could not resolve the commit's repository" <<<"$ERR"
+}
+check "F-PYFAIL resolve_targets fails, clean commit -> rc 2, 'could not resolve the commit's repository' (item 4)" t_f_pyfail
 
 printf '\n%d passed, %d failed\n' "$pass" "$failed"
 printf 'SUITE_RESULT pass=%d fail=%d skip=0\n' "$pass" "$failed"
