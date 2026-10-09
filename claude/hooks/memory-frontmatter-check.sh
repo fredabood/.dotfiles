@@ -122,6 +122,10 @@ if [[ ${#VAULT_TOPS[@]} -eq 0 ]]; then
   exit 0
 fi
 
+# From here on this is a vault commit: an abort (set -e, a failed cd or mktemp) blocks, never exits 1 (LAB-2948).
+WORK=""
+trap 'rc=$?; [ -z "$WORK" ] || rm -rf "$WORK"; if [ "$rc" -ne 0 ] && [ "$rc" -ne 2 ]; then echo "$TAG: BLOCKED — the gate aborted (exit $rc) while judging a vault commit; blocking rather than passing unchecked" >&2; exit 2; fi' EXIT
+
 # Every line of a BLOCK goes to stderr. On exit 2 Claude Code hands the model stderr only; when
 # this report went to stdout the agent saw "No stderr output" and could not tell what to fix
 # (LAB-1996 post-merge live control, 2026-09-12).

@@ -366,6 +366,15 @@ t_f_pyfail() {
     [ "$RC" -eq 2 ] && grep -q "could not resolve the commit's repository" <<<"$ERR"
 }
 check "F-PYFAIL resolve_targets fails, clean commit -> rc 2, 'could not resolve the commit's repository' (item 4)" t_f_pyfail
+t_f_abort() {
+    # A failing line right after the abort trap: set -e exits 1, which the trap must turn into 2.
+    setup; local L="$T/layout$n" HOOK="$T/layout$n/hooks/$FM_HOOK"; mklayout "$L" "$FM_HOOK"
+    awk '{print} /^trap .*aborted/{print "false"}' "$SRC/hooks/$FM_HOOK" > "$L/hooks/$FM_HOOK"
+    grep -qx false "$L/hooks/$FM_HOOK" || return 1
+    stage "$WT" good.md "$GOOD"; run_hook "$WT" "git commit -m x"
+    [ "$RC" -eq 2 ] && grep -q 'aborted (exit 1)' <<<"$ERR"
+}
+check "F-ABORT an abort after vault identity -> rc 2, 'aborted (exit 1)' (item 5)" t_f_abort
 
 printf '\n%d passed, %d failed\n' "$pass" "$failed"
 printf 'SUITE_RESULT pass=%d fail=%d skip=0\n' "$pass" "$failed"

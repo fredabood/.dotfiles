@@ -362,6 +362,8 @@ t_g_pyfail() {
     [ "$RC" -eq 2 ] && grep -q "could not resolve the commit's repository" <<<"$ERR"
 }
 check "G-PYFAIL resolve_targets fails, clean commit -> rc 2, 'could not resolve the commit's repository' (item 4)" t_g_pyfail
+t_g_abort() { setup; stage "$WT" leak.md "$LEAK"; TMPDIR="$T/no-such-dir" run_hook "$WT" "git commit -m x"; [ "$RC" -eq 2 ] && grep -q 'aborted (exit 1)' <<<"$ERR"; }
+check "G-ABORT mktemp fails after vault identity -> rc 2, 'aborted (exit 1)' (item 5)" t_g_abort
 
 printf '\nSUITE_RESULT pass=%d fail=%d skip=%d\n' "$pass" "$failed" "$skipped"
 [ "$failed" -eq 0 ] && [ "$pass" -gt 0 ] && [ "$glpass" -gt 0 ]

@@ -119,8 +119,10 @@ if [[ ${#VAULT_TOPS[@]} -eq 0 ]]; then
   exit 0
 fi
 
+# From here on this is a vault commit: an abort (set -e, a failed cd or mktemp) blocks, never exits 1 (LAB-2948).
+WORK=""
+trap 'rc=$?; [ -z "$WORK" ] || rm -rf "$WORK"; if [ "$rc" -ne 0 ] && [ "$rc" -ne 2 ]; then echo "$TAG: BLOCKED — the gate aborted (exit $rc) while judging a vault commit; blocking rather than passing unchecked" >&2; exit 2; fi' EXIT
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/memory-gitleaks-check.XXXXXX")"
-trap 'rm -rf "$WORK"' EXIT
 
 # Every line goes to stderr: on exit 2 Claude Code hands the model stderr only (LAB-1996).
 BLOCK=0
