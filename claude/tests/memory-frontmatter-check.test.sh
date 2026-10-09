@@ -317,6 +317,14 @@ t_f_l2c() {
     [ "$RC" -eq 2 ] && grep -q 'is incomplete' <<<"$ERR"
 }
 check "F-L2c sentinel set, commit_files missing, bad .md staged -> rc 2, 'incomplete'" t_f_l2c
+t_f_l2d() {
+    setup; local L="$T/layout$n" HOOK="$T/layout$n/hooks/$FM_HOOK"; mklayout "$L" "$FM_HOOK" none
+    lib_without alias_verdict > "$L/hooks/lib/vault-hook-resolver.sh"
+    grep -q '^alias_verdict_gone() {' "$L/hooks/lib/vault-hook-resolver.sh" || return 1
+    stage "$WT" bad.md "$BAD"; run_hook "$WT" "git commit -m x"
+    [ "$RC" -eq 2 ] && grep -q 'is incomplete' <<<"$ERR"
+}
+check "F-L2d sentinel set, alias_verdict missing, bad .md staged -> rc 2, 'incomplete' (LAB-2948)" t_f_l2d
 t_f_l3() {
     setup; local L="$T/layout$n" HOOK="$T/layout$n/hooks/$FM_HOOK"; mklayout "$L" "$FM_HOOK"
     # A failing top-level line mid-file, before the sentinel: set -e exits 1 (allow) on bash 3.2
@@ -404,6 +412,17 @@ t_f_pl3() { setup; run_hook "$WT" "git read-tree HEAD && git commit -m x"; [ "$R
 check "F-PL3 git read-tree HEAD && git commit -> rc 2, naming read-tree (item 3)" t_f_pl3
 t_f_pl0() { setup; put "$OTHER" x.md "$BAD"; run_hook "$OTHER" "git -C '$OTHER' update-index --add x.md && git -C '$WT' commit -m x"; [ "$RC" -eq 0 ]; }
 check "F-PL0 control: update-index in another repo, then a vault commit -> rc 0 (item 3)" t_f_pl0
+t_f_al1() { setup; stage "$WT" bad.md "$BAD"; run_hook "$WT" "git -c alias.zz=commit zz -m x"; [ "$RC" -eq 2 ] && grep -q "git alias 'zz'" <<<"$ERR"; }
+check "F-AL1 git -c alias.zz=commit zz, bad .md staged -> rc 2, naming alias zz (item 2)" t_f_al1
+t_f_al2() {
+    setup; git -C "$VAULT" config alias.ca '!git add -A && git commit -av'; stage "$WT" bad.md "$BAD"
+    run_hook "$WT" "git ca"; [ "$RC" -eq 2 ] && grep -q "git alias 'ca'" <<<"$ERR"
+}
+check "F-AL2 a configured vault alias 'git ca' that commits (no 'commit' in the payload) -> rc 2 (item 2)" t_f_al2
+t_f_al0() { setup; git -C "$VAULT" config alias.s 'status -s'; stage "$WT" bad.md "$BAD"; run_hook "$WT" "git s"; silent_pass; }
+check "F-AL0 control: a vault alias 'git s' = status -s -> silent (item 2)" t_f_al0
+t_f_al3() { setup; git -C "$OTHER" config alias.ca '!git add -A && git commit -av'; stage "$OTHER" bad.md "$BAD"; run_hook "$OTHER" "git ca"; silent_pass; }
+check "F-AL3 control: the committing alias is set in another repo and run there -> silent (item 2)" t_f_al3
 
 printf '\n%d passed, %d failed\n' "$pass" "$failed"
 printf 'SUITE_RESULT pass=%d fail=%d skip=0\n' "$pass" "$failed"

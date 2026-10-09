@@ -313,6 +313,14 @@ t_g_l2c() {
     [ "$RC" -eq 2 ] && grep -q 'is incomplete' <<<"$ERR"
 }
 check "G-L2c sentinel set, commit_files missing, token staged -> rc 2, 'incomplete'" t_g_l2c
+t_g_l2d() {
+    setup; local L="$T/layout$n" HOOK="$T/layout$n/hooks/$GL_HOOK"; mklayout "$L" "$GL_HOOK" none
+    lib_without alias_verdict > "$L/hooks/lib/vault-hook-resolver.sh"
+    grep -q '^alias_verdict_gone() {' "$L/hooks/lib/vault-hook-resolver.sh" || return 1
+    stage "$WT" leak.md "$LEAK"; run_hook "$WT" "git commit -m x"
+    [ "$RC" -eq 2 ] && grep -q 'is incomplete' <<<"$ERR"
+}
+check "G-L2d sentinel set, alias_verdict missing, token staged -> rc 2, 'incomplete' (LAB-2948)" t_g_l2d
 t_g_l3() {
     setup; local L="$T/layout$n" HOOK="$T/layout$n/hooks/$GL_HOOK"; mklayout "$L" "$GL_HOOK"
     awk '/^VAULT_HOOK_RESOLVER_API=1$/ { print "false" } { print }' "$REAL_LIB" > "$L/hooks/lib/vault-hook-resolver.sh"
@@ -374,6 +382,13 @@ t_g_pl2() { setup; put "$WT" p.diff ""; run_hook "$WT" "git apply --cached p.dif
 check "G-PL2 git apply --cached p.diff && git commit -> rc 2, naming git apply (item 3)" t_g_pl2
 t_g_ct() { setup; run_hook "$WT" "git commit-tree HEAD^{tree} -m x"; [ "$RC" -eq 2 ] && grep -q commit-tree <<<"$ERR"; }
 check "G-CT git commit-tree HEAD^{tree} -m x -> rc 2, naming commit-tree (item 3)" t_g_ct
+t_g_al1() { setup; stage "$WT" leak.md "$LEAK"; run_hook "$WT" "git -c alias.zz=commit zz -m x"; [ "$RC" -eq 2 ] && grep -q "git alias 'zz'" <<<"$ERR"; }
+check "G-AL1 git -c alias.zz=commit zz, token staged -> rc 2, naming alias zz (item 2)" t_g_al1
+t_g_al2() {
+    setup; git -C "$VAULT" config alias.ca '!git add -A && git commit -av'; stage "$WT" leak.md "$LEAK"
+    run_hook "$WT" "git ca"; [ "$RC" -eq 2 ] && grep -q "git alias 'ca'" <<<"$ERR"
+}
+check "G-AL2 a configured vault alias 'git ca' that commits (no 'commit' in the payload) -> rc 2 (item 2)" t_g_al2
 
 printf '\nSUITE_RESULT pass=%d fail=%d skip=%d\n' "$pass" "$failed" "$skipped"
 [ "$failed" -eq 0 ] && [ "$pass" -gt 0 ] && [ "$glpass" -gt 0 ]

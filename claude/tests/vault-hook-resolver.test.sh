@@ -136,6 +136,13 @@ t_rt9() {
         && [ "$(json_field 'd["plumbing"][-1]["cmd"]')" = commit-tree ]
 }
 check "RT9 update-index && commit -> spec.plumbing [update-index in <wt>]; commit-tree -> a DIR line ending in commit-tree" t_rt9
+# RT10: any other subcommand is reported as a possible alias, with an inline -c alias.<name>= value (LAB-2948, item 2).
+t_rt10() {
+    setup; resolve "$OTHER" "$WT" "git -c alias.zz=commit zz -m x"
+    [ "$RC" -eq 0 ] && [ "$(line_count)" -eq 1 ] && [[ "$OUT" == "ALIAS${TAB}${WT}${TAB}{"* ]] \
+        && [ "$(json_field 'd["name"], d["inline"]')" = "zz commit" ]
+}
+check "RT10 git -c alias.zz=commit zz -> one ALIAS line for <wt>, name zz, inline commit" t_rt10
 
 echo "common_dir"
 t_cd1() {
@@ -246,6 +253,20 @@ t_cf10() {
     [ "$RC" -eq 0 ]
 }
 check "CF10 a plumbing entry in the committed repo -> rc 4 with the reason on stderr; in another repo -> rc 0" t_cf10
+
+echo "alias_verdict"
+t_av1() {
+    setup
+    git -C "$VAULT" config alias.ca '!git add -A && git commit -av'
+    git -C "$VAULT" config alias.s 'status -s'
+    lib_run "$WT" alias_verdict "$WT" '{"name": "ca", "inline": null}'
+    [ "$RC" -eq 0 ] && [ "$OUT" = "COMMITS${TAB}!git add -A && git commit -av${TAB}ca" ] || return 1
+    lib_run "$WT" alias_verdict "$WT" '{"name": "s", "inline": null}'
+    [ "$RC" -eq 0 ] && [ -z "$OUT" ] || return 1
+    lib_run "$WT" alias_verdict "$WT" '{"name": "status", "inline": null}'
+    [ "$RC" -eq 0 ] && [ -z "$OUT" ]
+}
+check "AV1 a configured '!git add -A && git commit -av' -> COMMITS; 'status -s' and no alias -> nothing, rc 0" t_av1
 
 echo "the lib's own red test"
 # ST1: the same cases against a stub that defines the three functions as no-ops and sets the

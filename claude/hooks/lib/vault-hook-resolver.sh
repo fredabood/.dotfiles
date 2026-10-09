@@ -4,10 +4,10 @@
 # gate open.
 #
 # CONTRACT
-#   - Sourced only, never run. It defines three functions and, as its LAST line, sets
+#   - Sourced only, never run. It defines four functions and, as its LAST line, sets
 #     VAULT_HOOK_RESOLVER_API=1. There is no other top-level command: a failing top-level line under
 #     the hooks' `set -e` would exit 1 (allow) on bash 3.2, so the hooks load this file inside an
-#     EXIT trap that turns any exit into 2 and then check the sentinel and the three functions.
+#     EXIT trap that turns any exit into 2 and then check the sentinel and the four functions.
 #   - It never exits, never sets shell options, never cds and never shopts. It reads no hook
 #     globals: everything comes in as arguments.
 #   - Command text is parsed with shlex, never evaluated: a path containing $, a backtick or a glob
@@ -23,6 +23,10 @@
 #       The payload reaches Python on fd 3, never through the environment or argv: a payload of
 #       1 MiB or more made the exec fail with E2BIG (LAB-2948).
 #       One line per `git commit` found: "DIR<TAB><abs path><TAB><json>" or "SKIP<TAB><reason>".
+#       Any other git subcommand in a known directory (not add, stage, commit, commit-tree,
+#       update-index, read-tree or apply) prints "ALIAS<TAB><abs path><TAB>{"name", "inline"}", where
+#       inline is the value of a `-c alias.<name>=…` on the same command line, else null. Every
+#       payload mentioning "git" is parsed, not only ones mentioning "commit" (LAB-2948).
 #       The json says what else the commit will pick up: -a, -i, pathspecs, and every earlier
 #       `git add` in the same command (LAB-2062). Its `plumbing` list names every earlier
 #       index-writing call (update-index, read-tree, apply --cached/--index) as {"cmd", "dir"} or
@@ -47,6 +51,12 @@
 #       must then be discarded. Both hooks block on any non-zero exit ("could not compute the files
 #       this commit will contain"; LAB-2858, OD1). An unborn HEAD is not a failure: a pathspec
 #       commit there is diffed against the empty tree.
+#   alias_verdict <dir> <ALIAS json>
+#       Whether that subcommand is an alias that commits. The expansion is the json's inline value,
+#       else `git -C <dir> config --get alias.<name>` (rc 1 = no such alias: nothing is printed).
+#       Prints "COMMITS<TAB><expansion><TAB><name>" when the expansion contains the word commit,
+#       nothing otherwise. Exit 4 when the spec is unreadable or git config fails otherwise; the
+#       hooks block on any non-zero exit (LAB-2948).
 #
 # Tests: claude/tests/vault-hook-resolver.test.sh (the lib alone), plus both hook suites.
 
@@ -79,7 +89,8 @@ except ValueError:
 if not isinstance(payload, dict):
     sys.exit(0)
 cmd = (payload.get("tool_input") or {}).get("command") or ""
-if not isinstance(cmd, str) or "git" not in cmd or "commit" not in cmd:
+# Not "commit" too: an alias such as `git ca` can commit without the word appearing (LAB-2948).
+if not isinstance(cmd, str) or "git" not in cmd:
     sys.exit(0)
 cwd = payload.get("cwd") or ""
 start = cwd if isinstance(cwd, str) and os.path.isabs(cwd) else Unknown("no cwd in the hook payload")
@@ -131,14 +142,20 @@ def segment(words, cur):
     args = words[k + 1:]
     target, j = cur, 0
     hooks_off = False  # `-c core.hooksPath=…` points git away from the vault's hooks, like --no-verify
+    inline = {}  # `-c alias.<name>=<value>` given on this command line
     while j < len(args):
         a = args[j]
         if a == "-C":
             target = resolve(target, args[j + 1]) if j + 1 < len(args) else Unknown("git -C with no path")
             j += 2
         elif a == "-c":
-            if j + 1 < len(args) and args[j + 1].lower().startswith("core.hookspath="):
-                hooks_off = True
+            if j + 1 < len(args):
+                kv = args[j + 1]
+                if kv.lower().startswith("core.hookspath="):
+                    hooks_off = True
+                if kv.lower().startswith("alias.") and "=" in kv:
+                    name, _, value = kv[len("alias."):].partition("=")
+                    inline[name] = value
             j += 2
         elif a.startswith(("--git-dir", "--work-tree")):
             git_dir_env = True
@@ -188,6 +205,9 @@ def segment(words, cur):
             emit("DIR", target, json.dumps({"all": False, "include": False, "specs": [], "skips": [],
                                             "no_verify": False, "adds": list(adds),
                                             "plumbing": list(plumbing) + [{"cmd": "commit-tree", "dir": target}]}))
+    elif sub is not None and sub != "apply" and not git_dir_env and not isinstance(target, Unknown):
+        # Any other subcommand may be an alias that commits; the hooks ask alias_verdict (LAB-2948).
+        emit("ALIAS", target, json.dumps({"name": sub, "inline": inline.get(sub)}))
     return cur
 
 def expands(spec):
@@ -300,8 +320,9 @@ for tok in tokens:
     words.append(tok)
 segment(words, cur)
 
-# A commit inside one quoted token (bash -c "...", eval "...") is not inspected. Say so.
-if not seen and any(" " in t and re.search(r"\bgit\b.*\bcommit\b", t) for t in tokens):
+# A commit inside one quoted token (bash -c "...", eval "...") is not inspected. Say so. ALIAS lines
+# do not count: a `git status` before a `bash -c "git commit"` must not hide it.
+if not any(l.startswith(("DIR\t", "SKIP\t")) for l in seen) and any(" " in t and re.search(r"\bgit\b.*\bcommit\b", t) for t in tokens):
     emit("SKIP", "a git commit inside a quoted string (bash -c, eval) was not inspected")
 PY
 }
@@ -435,6 +456,33 @@ if failures:
     for reason in failures:
         sys.stderr.write("vault-hook-resolver: commit_files: " + reason + "\n")
     sys.exit(4)
+PY
+}
+
+alias_verdict() {
+  AV_DIR="$1" AV_SPEC="$2" python3 -I - <<'PY'
+import json, os, re, subprocess, sys
+
+try:
+    spec = json.loads(os.environ.get("AV_SPEC") or "")
+    name = spec["name"]
+except (ValueError, KeyError, TypeError):
+    sys.stderr.write("vault-hook-resolver: alias_verdict: could not read the alias spec\n")
+    sys.exit(4)
+expansion = spec.get("inline")
+if expansion is None:
+    r = subprocess.run(["git", "-c", "core.fsmonitor=false", "-C", os.environ.get("AV_DIR") or ".",
+                        "config", "--get", "alias." + name],
+                       stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    if r.returncode == 1:
+        sys.exit(0)  # no such alias: a builtin or an unknown command, not a commit
+    if r.returncode != 0:
+        sys.stderr.write("vault-hook-resolver: alias_verdict: git config failed for alias.%s\n" % name)
+        sys.exit(4)
+    expansion = r.stdout.decode("utf-8", "surrogateescape").strip()
+if re.search(r"\bcommit\b", expansion):
+    flat = lambda s: s.replace("\n", " ").replace("\t", " ")
+    print("COMMITS\t" + flat(expansion) + "\t" + flat(name))
 PY
 }
 

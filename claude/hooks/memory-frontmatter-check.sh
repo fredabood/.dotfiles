@@ -10,7 +10,8 @@ set -euo pipefail
 # Modern hook payload arrives as JSON on stdin (legacy TOOL_INPUT env was always
 # empty, making this gate a silent no-op — LAB-215, 2026-07-13).
 INPUT=$(cat)
-if [[ "$INPUT" != *git* || "$INPUT" != *commit* ]]; then
+# Not *commit* too: an alias such as `git ca` commits without the word in the payload (LAB-2948).
+if [[ "$INPUT" != *git* ]]; then
   exit 0
 fi
 
@@ -81,7 +82,7 @@ trap 'echo "$TAG: BLOCKED — resolver lib at $LIB failed to load" >&2; exit 2' 
 # shellcheck source=lib/vault-hook-resolver.sh
 . "$LIB"
 trap - EXIT
-if [ "${VAULT_HOOK_RESOLVER_API:-}" != 1 ] || ! declare -F resolve_targets common_dir commit_files >/dev/null; then
+if [ "${VAULT_HOOK_RESOLVER_API:-}" != 1 ] || ! declare -F resolve_targets common_dir commit_files alias_verdict >/dev/null; then
   echo "$TAG: BLOCKED — resolver lib at $LIB is incomplete" >&2; exit 2
 fi
 
@@ -94,6 +95,18 @@ fi
 MEMORY_DIR="${MEMORY_VAULT_PATH:-$HOME/Repositories/memory}"
 VAULT_COMMON=""
 
+# fail_report: the closing lines of a block. Every line of a BLOCK goes to stderr: on exit 2 Claude
+# Code hands the model stderr only (LAB-1996).
+fail_report() {
+  {
+    echo ""
+    echo "Vault frontmatter validation failed ($ERRORS errors)."
+    echo "Run /obsidian-lint --fix to auto-repair, or fix manually."
+  } >&2
+}
+
+ERRORS=0
+ALIAS_BLOCKS=0
 VAULT_TOPS=()
 VAULT_DIRS=()
 VAULT_SPECS=()
@@ -103,7 +116,8 @@ while IFS=$'\t' read -r kind value spec; do
     continue
   fi
   if ! TOP=$(git -C "$value" rev-parse --show-toplevel 2>/dev/null) || [[ -z "$TOP" ]]; then
-    skip "$value is not in a git work tree"
+    # An ALIAS line is any git subcommand, not a commit: outside a work tree it is not worth a notice.
+    [[ "$kind" == ALIAS ]] || skip "$value is not in a git work tree"
     continue
   fi
   if [[ -z "$VAULT_COMMON" ]] && ! VAULT_COMMON=$(common_dir "$MEMORY_DIR"); then
@@ -112,6 +126,20 @@ while IFS=$'\t' read -r kind value spec; do
     exit 0
   fi
   if [[ "$(common_dir "$TOP" || true)" == "$VAULT_COMMON" ]]; then
+    if [[ "$kind" == ALIAS ]]; then
+      # A vault alias whose expansion commits is a commit these gates cannot see (LAB-2948, OD-B).
+      if ! V=$(alias_verdict "$value" "$spec"); then
+        echo "$TAG: BLOCKED — could not tell whether a git alias in $TOP commits (alias_verdict failed); blocking rather than passing unchecked" >&2
+        ALIAS_BLOCKS=$((ALIAS_BLOCKS + 1))
+        ERRORS=$((ERRORS + 1))
+      elif [[ "$V" == COMMITS$'\t'* ]]; then
+        IFS=$'\t' read -r _ AV_EXP AV_NAME <<<"$V"
+        echo "$TAG: BLOCKED — git alias '$AV_NAME' (= $AV_EXP) runs a commit the vault gates cannot see; run git commit directly" >&2
+        ALIAS_BLOCKS=$((ALIAS_BLOCKS + 1))
+        ERRORS=$((ERRORS + 1))
+      fi
+      continue
+    fi
     VAULT_TOPS+=("$TOP")
     VAULT_DIRS+=("$value")
     VAULT_SPECS+=("$spec")
@@ -119,6 +147,7 @@ while IFS=$'\t' read -r kind value spec; do
 done <<<"$TARGETS"
 
 if [[ ${#VAULT_TOPS[@]} -eq 0 ]]; then
+  [[ $ALIAS_BLOCKS -eq 0 ]] || { fail_report; exit 2; }
   exit 0
 fi
 
@@ -174,8 +203,7 @@ validate_note() {
 
 # Every line of a BLOCK goes to stderr. On exit 2 Claude Code hands the model stderr only; when
 # this report went to stdout the agent saw "No stderr output" and could not tell what to fix
-# (LAB-1996 post-merge live control, 2026-09-12).
-ERRORS=0
+# (LAB-1996 post-merge live control, 2026-09-12). ERRORS already counts any blocked alias.
 # Every vault target prints how many .md files it examined, or a ZERO-INPUT-OK reason; a silent
 # "nothing checked" exit is gone (testing.md rule 1; LAB-2948).
 TOTAL=0
@@ -245,12 +273,8 @@ echo "$TAG: $TOP: $N .md file(s) examined" >&2
 TOTAL=$((TOTAL + N))
 done
 
-if [[ $ERRORS -gt 0 ]]; then
-  {
-    echo ""
-    echo "Vault frontmatter validation failed ($ERRORS errors)."
-    echo "Run /obsidian-lint --fix to auto-repair, or fix manually."
-  } >&2
+if [[ $ERRORS -gt 0 || $ALIAS_BLOCKS -gt 0 ]]; then
+  fail_report
   exit 2
 fi
 

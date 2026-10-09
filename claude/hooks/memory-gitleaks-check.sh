@@ -57,7 +57,8 @@ if [[ "${MEMORY_GITLEAKS_CHECK:-}" == off ]]; then
   fi
   exit 0
 fi
-if [[ "$INPUT" != *git* || "$INPUT" != *commit* ]]; then
+# Not *commit* too: an alias such as `git ca` commits without the word in the payload (LAB-2948).
+if [[ "$INPUT" != *git* ]]; then
   exit 0
 fi
 
@@ -78,7 +79,7 @@ trap 'echo "$TAG: BLOCKED — resolver lib at $LIB failed to load" >&2; exit 2' 
 # shellcheck source=lib/vault-hook-resolver.sh
 . "$LIB"
 trap - EXIT
-if [ "${VAULT_HOOK_RESOLVER_API:-}" != 1 ] || ! declare -F resolve_targets common_dir commit_files >/dev/null; then
+if [ "${VAULT_HOOK_RESOLVER_API:-}" != 1 ] || ! declare -F resolve_targets common_dir commit_files alias_verdict >/dev/null; then
   echo "$TAG: BLOCKED — resolver lib at $LIB is incomplete" >&2; exit 2
 fi
 
@@ -91,6 +92,9 @@ fi
 MEMORY_DIR="${MEMORY_VAULT_PATH:-$HOME/Repositories/memory}"
 VAULT_COMMON=""
 
+TRAILER="Vault secret scan blocked this commit. Remove the value (store it in 1Password and reference it), or, if it is a false positive, add a one-line allowlist with a reason to .gitleaks.toml."
+
+ALIAS_BLOCKS=0
 VAULT_TOPS=()
 VAULT_DIRS=()
 VAULT_SPECS=()
@@ -100,7 +104,8 @@ while IFS=$'\t' read -r kind value spec; do
     continue
   fi
   if ! TOP=$(git -C "$value" rev-parse --show-toplevel 2>/dev/null) || [[ -z "$TOP" ]]; then
-    skip "$value is not in a git work tree"
+    # An ALIAS line is any git subcommand, not a commit: outside a work tree it is not worth a notice.
+    [[ "$kind" == ALIAS ]] || skip "$value is not in a git work tree"
     continue
   fi
   if [[ -z "$VAULT_COMMON" ]] && ! VAULT_COMMON=$(common_dir "$MEMORY_DIR"); then
@@ -109,6 +114,18 @@ while IFS=$'\t' read -r kind value spec; do
     exit 0
   fi
   if [[ "$(common_dir "$TOP" || true)" == "$VAULT_COMMON" ]]; then
+    if [[ "$kind" == ALIAS ]]; then
+      # A vault alias whose expansion commits is a commit these gates cannot see (LAB-2948, OD-B).
+      if ! V=$(alias_verdict "$value" "$spec"); then
+        echo "$TAG: BLOCKED — could not tell whether a git alias in $TOP commits (alias_verdict failed); blocking rather than passing unchecked" >&2
+        ALIAS_BLOCKS=$((ALIAS_BLOCKS + 1))
+      elif [[ "$V" == COMMITS$'\t'* ]]; then
+        IFS=$'\t' read -r _ AV_EXP AV_NAME <<<"$V"
+        echo "$TAG: BLOCKED — git alias '$AV_NAME' (= $AV_EXP) runs a commit the vault gates cannot see; run git commit directly" >&2
+        ALIAS_BLOCKS=$((ALIAS_BLOCKS + 1))
+      fi
+      continue
+    fi
     VAULT_TOPS+=("$TOP")
     VAULT_DIRS+=("$value")
     VAULT_SPECS+=("$spec")
@@ -116,6 +133,7 @@ while IFS=$'\t' read -r kind value spec; do
 done <<<"$TARGETS"
 
 if [[ ${#VAULT_TOPS[@]} -eq 0 ]]; then
+  [[ $ALIAS_BLOCKS -eq 0 ]] || { echo "$TRAILER" >&2; exit 2; }
   exit 0
 fi
 
@@ -185,8 +203,8 @@ for i in "${!VAULT_TOPS[@]}"; do
   fi
 done
 
-if [[ $BLOCK -eq 1 ]]; then
-  echo "Vault secret scan blocked this commit. Remove the value (store it in 1Password and reference it), or, if it is a false positive, add a one-line allowlist with a reason to .gitleaks.toml." >&2
+if [[ $BLOCK -eq 1 || $ALIAS_BLOCKS -gt 0 ]]; then
+  echo "$TRAILER" >&2
   exit 2
 fi
 exit 0
