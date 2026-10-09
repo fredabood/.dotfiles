@@ -7,6 +7,9 @@ set -uo pipefail
 
 PKG="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 HOOK="${HOOK:-$PKG/hooks/memory-frontmatter-check.sh}"
+# The package the hook under test belongs to: mklayout copies from it, so HOOK=<an older copy's
+# hooks/memory-frontmatter-check.sh> runs the layout cases against that copy too (red runs, LAB-2948).
+SRC="$(cd "$(dirname "$HOOK")/.." && pwd)"
 T="$(mktemp -d "${TMPDIR:-/tmp}/frontmatter-check-test.XXXXXX")"
 trap 'rm -rf "$T"' EXIT
 export HOME="$T/home"
@@ -62,6 +65,13 @@ print(json.dumps(d))' "$1" "$2")
 blocked() { [ "$RC" -eq 2 ] && grep -q "ERROR: $1" <<<"$ERR" && grep -q 'obsidian-lint' <<<"$ERR"; }
 silent_pass() { [ "$RC" -eq 0 ] && [ -z "$OUT" ] && [ -z "$ERR" ]; }
 one_skip_notice() { [ "$RC" -eq 0 ] && [ "$(printf '%s\n' "$ERR" | wc -l | tr -d ' ')" -eq 1 ] && grep -q 'skipped' <<<"$ERR"; }
+# A vault commit with no .md content prints its count and reason (LAB-2948, item 6; owner decision OD-E).
+zero_input_ok() { [ "$RC" -eq 0 ] && [ -z "$OUT" ] && [ "$(printf '%s\n' "$ERR" | wc -l | tr -d ' ')" -eq 1 ] && grep -q 'ZERO-INPUT-OK' <<<"$ERR"; }
+skip_then_zero() {
+    [ "$RC" -eq 0 ] && [ "$(printf '%s\n' "$ERR" | wc -l | tr -d ' ')" -eq 2 ] \
+        && sed -n 1p <<<"$ERR" | grep -q 'skipped' \
+        && sed -n 2p <<<"$ERR" | grep -q 'the skipped part above was not validated'
+}
 
 echo "which index is read"
 t_worktree_blocked() { setup; stage "$WT" bad.md "$BAD"; run_hook "$WT" "git commit -m x"; blocked bad.md; }
@@ -165,19 +175,19 @@ t_commit_path_excludes_index() {
     [ "$RC" -eq 0 ] && ! grep -q bad.md <<<"$OUT$ERR"
 }
 check "git commit <good path> is not blocked by a bad .md staged outside the pathspec" t_commit_path_excludes_index
-t_commit_msg_file() { setup; put "$WT" msg.md "$BAD"; run_hook "$WT" "git commit -F msg.md"; silent_pass; }
+t_commit_msg_file() { setup; put "$WT" msg.md "$BAD"; run_hook "$WT" "git commit -F msg.md"; zero_input_ok; }
 check "git commit -F msg.md: an option value is not a pathspec -> silent" t_commit_msg_file
-t_add_after_commit() { setup; put "$WT" bad.md "$BAD"; run_hook "$WT" "git commit -m x; git add bad.md"; silent_pass; }
+t_add_after_commit() { setup; put "$WT" bad.md "$BAD"; run_hook "$WT" "git commit -m x; git add bad.md"; zero_input_ok; }
 check "git add after the commit is not counted -> silent" t_add_after_commit
-t_add_other_repo() { setup; put "$OTHER" x.md "$BAD"; run_hook "$OTHER" "git -C '$OTHER' add x.md && git -C '$WT' commit -m x"; silent_pass; }
+t_add_other_repo() { setup; put "$OTHER" x.md "$BAD"; run_hook "$OTHER" "git -C '$OTHER' add x.md && git -C '$WT' commit -m x"; zero_input_ok; }
 check "git add in another repo does not count toward a vault commit -> silent" t_add_other_repo
-t_add_dry_run() { setup; put "$WT" bad.md "$BAD"; run_hook "$WT" "git add -n bad.md && git commit -m x"; silent_pass; }
+t_add_dry_run() { setup; put "$WT" bad.md "$BAD"; run_hook "$WT" "git add -n bad.md && git commit -m x"; zero_input_ok; }
 check "git add -n (dry run) stages nothing -> silent" t_add_dry_run
-t_add_rm() { setup; commit_tracked "$WT" bad.md; run_hook "$WT" "git rm -q --cached bad.md && git commit -m x"; silent_pass; }
+t_add_rm() { setup; commit_tracked "$WT" bad.md; run_hook "$WT" "git rm -q --cached bad.md && git commit -m x"; zero_input_ok; }
 check "git rm stages no content -> silent" t_add_rm
-t_add_patch_skip() { setup; put "$WT" bad.md "$BAD"; run_hook "$WT" "git add -p && git commit -m x"; one_skip_notice; }
+t_add_patch_skip() { setup; put "$WT" bad.md "$BAD"; run_hook "$WT" "git add -p && git commit -m x"; skip_then_zero; }
 check "git add -p && git commit -> one-line skip notice" t_add_patch_skip
-t_add_subst_skip() { setup; put "$WT" bad.md "$BAD"; run_hook "$WT" "git add \$(ls) && git commit -m x"; one_skip_notice; }
+t_add_subst_skip() { setup; put "$WT" bad.md "$BAD"; run_hook "$WT" "git add \$(ls) && git commit -m x"; skip_then_zero; }
 check "git add \$(ls) && git commit -> one-line skip notice" t_add_subst_skip
 t_add_skip_still_validates() { setup; stage "$WT" staged-bad.md "$BAD"; run_hook "$WT" "git add -p && git commit -m x"; blocked staged-bad.md && grep -q skipped <<<"$ERR"; }
 check "a skipped git add does not cancel validation of the index -> blocked" t_add_skip_still_validates
@@ -205,7 +215,7 @@ t_status() { setup; stage "$WT" bad.md "$BAD"; run_hook "$WT" "git status"; sile
 check "git status -> silent" t_status
 t_log_grep() { setup; stage "$WT" bad.md "$BAD"; run_hook "$WT" "git log --grep commit"; silent_pass; }
 check "git log --grep commit -> silent" t_log_grep
-t_commit_tree() { setup; stage "$WT" bad.md "$BAD"; run_hook "$WT" "git commit-tree HEAD^{tree}"; silent_pass; }
+t_commit_tree() { setup; stage "$WT" bad.md "$BAD"; run_hook "$WT" "git commit-tree HEAD^{tree}"; [ "$RC" -eq 2 ] && grep -q commit-tree <<<"$ERR"; }
 check "git commit-tree -> silent" t_commit_tree
 t_not_bash() { setup; OUT=$(bash "$HOOK" <<<'{"tool_name":"Read","tool_input":{"file_path":"/x"}}' 2>&1); RC=$?; [ "$RC" -eq 0 ] && [ -z "$OUT" ]; }
 check "payload with no command -> silent" t_not_bash
@@ -217,7 +227,7 @@ t_no_exec_backtick() { setup; run_hook "$OTHER" "cd \`touch '$T/pwned2'\` && git
 check "backticks in a cd argument are not run" t_no_exec_backtick
 t_no_exec_semicolon() { setup; run_hook "$OTHER" "git -C '$WT; touch $T/pwned3' commit -m x"; [ ! -e "$T/pwned3" ] && [ "$RC" -eq 0 ]; }
 check "a quoted ';' in a -C path is a path, not a command" t_no_exec_semicolon
-t_no_exec_add_pathspec() { setup; run_hook "$WT" "git add \"\$(touch '$T/pwned4')\" && git commit -m x"; [ ! -e "$T/pwned4" ] && one_skip_notice; }
+t_no_exec_add_pathspec() { setup; run_hook "$WT" "git add \"\$(touch '$T/pwned4')\" && git commit -m x"; [ ! -e "$T/pwned4" ] && skip_then_zero; }
 check "\$(...) in a git add pathspec is not run -> one-line skip notice" t_no_exec_add_pathspec
 
 echo "renames and typechanges are validated (LAB-2858)"
@@ -261,9 +271,9 @@ echo "the resolver lib fails closed (LAB-2858)"
 # mklayout <dir> <hook-name> [lib-source|none]: a copy of the hook layout (hooks/, hooks/lib/, scripts/).
 mklayout() {
     mkdir -p "$1/hooks/lib" "$1/scripts"
-    cp "$PKG/hooks/$2" "$1/hooks/"
-    cp "$PKG/scripts/memory-gitleaks-scan.sh" "$1/scripts/"
-    [ "${3:-}" = none ] || cp "${3:-$PKG/hooks/lib/vault-hook-resolver.sh}" "$1/hooks/lib/"
+    cp "$SRC/hooks/$2" "$1/hooks/"
+    cp "$SRC/scripts/memory-gitleaks-scan.sh" "$1/scripts/"
+    [ "${3:-}" = none ] || cp "${3:-$SRC/hooks/lib/vault-hook-resolver.sh}" "$1/hooks/lib/"
 }
 FM_HOOK="memory-frontmatter-check.sh"
 REAL_LIB="$PKG/hooks/lib/vault-hook-resolver.sh"
@@ -307,6 +317,14 @@ t_f_l2c() {
     [ "$RC" -eq 2 ] && grep -q 'is incomplete' <<<"$ERR"
 }
 check "F-L2c sentinel set, commit_files missing, bad .md staged -> rc 2, 'incomplete'" t_f_l2c
+t_f_l2d() {
+    setup; local L="$T/layout$n" HOOK="$T/layout$n/hooks/$FM_HOOK"; mklayout "$L" "$FM_HOOK" none
+    lib_without alias_verdict > "$L/hooks/lib/vault-hook-resolver.sh"
+    grep -q '^alias_verdict_gone() {' "$L/hooks/lib/vault-hook-resolver.sh" || return 1
+    stage "$WT" bad.md "$BAD"; run_hook "$WT" "git commit -m x"
+    [ "$RC" -eq 2 ] && grep -q 'is incomplete' <<<"$ERR"
+}
+check "F-L2d sentinel set, alias_verdict missing, bad .md staged -> rc 2, 'incomplete' (LAB-2948)" t_f_l2d
 t_f_l3() {
     setup; local L="$T/layout$n" HOOK="$T/layout$n/hooks/$FM_HOOK"; mklayout "$L" "$FM_HOOK"
     # A failing top-level line mid-file, before the sentinel: set -e exits 1 (allow) on bash 3.2
@@ -340,6 +358,88 @@ t_f_unb() {
     run_hook "$WT" "git commit -m x bad.md"; blocked bad.md
 }
 check "F-UNB commit <bad.md> on an unborn HEAD (orphan branch) -> blocked" t_f_unb
+
+echo "fail-open paths are closed (LAB-2948)"
+# run_hook_big <cwd> <repo>: run_hook with `git -C '<repo>' commit -m '<2 MiB>'`. The payload is built
+# inside python3, because argv has the same 1 MiB limit the environment had.
+run_hook_big() {
+    local payload
+    payload=$(python3 -c '
+import json, sys
+cmd = "git -C %s commit -m %s" % ("\x27" + sys.argv[2] + "\x27", "\x27" + "x" * 2097152 + "\x27")
+print(json.dumps({"hook_event_name": "PreToolUse", "tool_name": "Bash",
+                  "tool_input": {"command": cmd}, "cwd": sys.argv[1]}))' "$1" "$2")
+    OUT=$(bash "$HOOK" <<<"$payload" 2>"$T/stderr"); RC=$?
+    ERR=$(cat "$T/stderr")
+}
+t_f_big() { setup; stage "$WT" bad.md "$BAD"; run_hook_big "$OTHER" "$WT"; blocked bad.md; }
+check "F-BIG a 2 MiB commit command, bad .md staged -> blocked (item 4)" t_f_big
+t_f_pyfail() {
+    setup; local L="$T/layout$n" HOOK="$T/layout$n/hooks/$FM_HOOK"; mklayout "$L" "$FM_HOOK"
+    printf 'resolve_targets() { return 1; }\n' >> "$L/hooks/lib/vault-hook-resolver.sh"
+    stage "$WT" good.md "$GOOD"; run_hook "$WT" "git commit -m x"
+    [ "$RC" -eq 2 ] && grep -q "could not resolve the commit's repository" <<<"$ERR"
+}
+check "F-PYFAIL resolve_targets fails, clean commit -> rc 2, 'could not resolve the commit's repository' (item 4)" t_f_pyfail
+t_f_abort() {
+    # A failing line right after the abort trap: set -e exits 1, which the trap must turn into 2.
+    setup; local L="$T/layout$n" HOOK="$T/layout$n/hooks/$FM_HOOK"; mklayout "$L" "$FM_HOOK"
+    awk '{print} /^trap .*aborted/{print "false"}' "$SRC/hooks/$FM_HOOK" > "$L/hooks/$FM_HOOK"
+    grep -qx false "$L/hooks/$FM_HOOK" || return 1
+    stage "$WT" good.md "$GOOD"; run_hook "$WT" "git commit -m x"
+    [ "$RC" -eq 2 ] && grep -q 'aborted (exit 1)' <<<"$ERR"
+}
+check "F-ABORT an abort after vault identity -> rc 2, 'aborted (exit 1)' (item 5)" t_f_abort
+t_f_z1() {
+    setup; run_hook "$WT" "git commit --allow-empty -m x"; zero_input_ok || return 1
+    local reason; reason=$(sed -n 's/^ *# ZERO-INPUT-OK: //p' "$HOOK")
+    [ -n "$reason" ] && grep -qF "0 .md file(s) examined — ZERO-INPUT-OK: $reason" <<<"$ERR"
+}
+check "F-Z1 --allow-empty in the vault -> rc 0, one ZERO-INPUT-OK line whose reason is the one in the source (item 6)" t_f_z1
+t_f_cnt() { setup; stage "$WT" good.md "$GOOD"; run_hook "$WT" "git commit -m x"; [ "$RC" -eq 0 ] && grep -q ': 1 .md file(s) examined' <<<"$ERR"; }
+check "F-CNT one valid .md staged -> rc 0 and '1 .md file(s) examined' (item 6)" t_f_cnt
+t_f_wtdel() { setup; stage "$WT" bad.md "$BAD"; rm "$WT/bad.md"; run_hook "$WT" "git commit -m x"; blocked bad.md; }
+check "F-WTDEL bad .md staged, then deleted from the working tree -> blocked naming bad.md (item 7)" t_f_wtdel
+t_f_blob() { setup; stage "$WT" bad.md "$BAD"; put "$WT" bad.md "$GOOD"; run_hook "$WT" "git commit -m x"; blocked bad.md; }
+check "F-BLOB bad .md staged, working tree fixed but not re-added -> blocked (item 7)" t_f_blob
+t_f_wtonly() { setup; put "$WT" good.md "$GOOD"; run_hook "$WT" "git add good.md && git commit -m x"; [ "$RC" -eq 0 ]; }
+check "F-WTONLY control: git add good.md && git commit, good.md untracked -> rc 0 (item 7)" t_f_wtonly
+t_f_nv1() { setup; put "$WT" bad.md "$BAD"; run_hook "$WT" "git add -p && git commit --no-verify -m x"; [ "$RC" -eq 2 ] && grep -q -- '--no-verify' <<<"$ERR"; }
+check "F-NV1 git add -p && git commit --no-verify, nothing staged -> rc 2, naming --no-verify (item 1)" t_f_nv1
+t_f_pl1() { setup; put "$WT" bad.md "$BAD"; run_hook "$WT" "git update-index --add bad.md && git commit -m x"; [ "$RC" -eq 2 ] && grep -q update-index <<<"$ERR"; }
+check "F-PL1 git update-index --add bad.md && git commit -> rc 2, naming update-index (item 3)" t_f_pl1
+t_f_pl3() { setup; run_hook "$WT" "git read-tree HEAD && git commit -m x"; [ "$RC" -eq 2 ] && grep -q read-tree <<<"$ERR"; }
+check "F-PL3 git read-tree HEAD && git commit -> rc 2, naming read-tree (item 3)" t_f_pl3
+t_f_pl0() { setup; put "$OTHER" x.md "$BAD"; run_hook "$OTHER" "git -C '$OTHER' update-index --add x.md && git -C '$WT' commit -m x"; [ "$RC" -eq 0 ]; }
+check "F-PL0 control: update-index in another repo, then a vault commit -> rc 0 (item 3)" t_f_pl0
+t_f_al1() { setup; stage "$WT" bad.md "$BAD"; run_hook "$WT" "git -c alias.zz=commit zz -m x"; [ "$RC" -eq 2 ] && grep -q "git alias 'zz'" <<<"$ERR"; }
+check "F-AL1 git -c alias.zz=commit zz, bad .md staged -> rc 2, naming alias zz (item 2)" t_f_al1
+t_f_al2() {
+    setup; git -C "$VAULT" config alias.ca '!git add -A && git commit -av'; stage "$WT" bad.md "$BAD"
+    run_hook "$WT" "git ca"; [ "$RC" -eq 2 ] && grep -q "git alias 'ca'" <<<"$ERR"
+}
+check "F-AL2 a configured vault alias 'git ca' that commits (no 'commit' in the payload) -> rc 2 (item 2)" t_f_al2
+t_f_al0() { setup; git -C "$VAULT" config alias.s 'status -s'; stage "$WT" bad.md "$BAD"; run_hook "$WT" "git s"; silent_pass; }
+check "F-AL0 control: a vault alias 'git s' = status -s -> silent (item 2)" t_f_al0
+t_f_al3() { setup; git -C "$OTHER" config alias.ca '!git add -A && git commit -av'; stage "$OTHER" bad.md "$BAD"; run_hook "$OTHER" "git ca"; silent_pass; }
+check "F-AL3 control: the committing alias is set in another repo and run there -> silent (item 2)" t_f_al3
+# run_hook_path <PATH> <cwd> <command>: run_hook with PATH set for the hook only. The payload is built
+# first, with the real python3, since a planted one would print nothing.
+run_hook_path() {
+    local payload
+    payload=$(python3 -c '
+import json, sys
+print(json.dumps({"hook_event_name": "PreToolUse", "tool_name": "Bash",
+                  "tool_input": {"command": sys.argv[2]}, "cwd": sys.argv[1]}))' "$2" "$3")
+    OUT=$(PATH="$1" bash "$HOOK" <<<"$payload" 2>"$T/stderr"); RC=$?
+    ERR=$(cat "$T/stderr")
+}
+t_f_path1() {
+    setup; mkdir -p "$T/evil$n"
+    local tool; for tool in python3 git; do printf '#!/bin/sh\nexit 0\n' > "$T/evil$n/$tool"; chmod 755 "$T/evil$n/$tool"; done
+    stage "$WT" bad.md "$BAD"; run_hook_path "$T/evil$n:$PATH" "$WT" "git commit -m x"; blocked bad.md
+}
+check "F-PATH1 python3 and git that exit 0 planted first on PATH, bad .md staged -> blocked (item 9)" t_f_path1
 
 printf '\n%d passed, %d failed\n' "$pass" "$failed"
 printf 'SUITE_RESULT pass=%d fail=%d skip=0\n' "$pass" "$failed"

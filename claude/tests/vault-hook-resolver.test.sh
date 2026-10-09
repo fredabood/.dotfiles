@@ -99,6 +99,50 @@ t_rt5() {
 check "RT5 a shlex.py in the process cwd is not imported (python3 -I) -> still the RT1 line" t_rt5
 t_rt6() { setup; resolve "$OTHER" "$OTHER" "git -C \"\$(touch '$T/pwn')\" commit -m x"; [ ! -e "$T/pwn" ] && [[ "$OUT" == "SKIP${TAB}"* ]]; }
 check "RT6 \$(touch ...) in a -C argument is never run" t_rt6
+# RT7: a 2 MiB payload. Passed through the environment it made python3's exec fail with E2BIG, and
+# both hooks read that failure as a skip (LAB-2948). Built inside python3: argv has the same limit.
+t_rt7() {
+    setup; local p
+    p=$(python3 -c '
+import json, sys
+cmd = "git -C %s commit -m %s" % ("\x27" + sys.argv[1] + "\x27", "\x27" + "x" * 2097152 + "\x27")
+print(json.dumps({"hook_event_name": "PreToolUse", "tool_name": "Bash",
+                  "tool_input": {"command": cmd}, "cwd": sys.argv[2]}))' "$WT" "$OTHER")
+    lib_run "$OTHER" resolve_targets "$p"
+    [ "$RC" -eq 0 ] && [ "$(line_count)" -eq 1 ] && [[ "$OUT" == "DIR${TAB}${WT}${TAB}{"* ]]
+}
+check "RT7 a 2 MiB payload -> exactly RT1's DIR line, rc 0 (payload on fd 3, not the environment)" t_rt7
+# RT8: the parsed commit records --no-verify (LAB-2948, item 1).
+t_rt8() {
+    setup
+    # rt8 <command> <expected no_verify>
+    rt8() {
+        resolve "$OTHER" "$WT" "$1"
+        [ "$RC" -eq 0 ] && [ "$(json_field 'd.get("no_verify")')" = "$2" ] || { echo "    [$1] -> $(json_field 'd.get("no_verify")')"; return 1; }
+    }
+    rt8 "git commit --no-verify -m x" True && rt8 "git commit -n -m x" True && rt8 "git commit -anm x" True \
+        && rt8 "git commit -m -n" False && rt8 "git commit --no-verify --verify -m x" False \
+        && rt8 "git -c core.hooksPath=/dev/null commit -m x" True && rt8 "git commit -m x" False
+}
+check "RT8 no_verify: --no-verify, -n, -anm, -c core.hooksPath= -> true; -m -n, --no-verify --verify, plain -> false" t_rt8
+# RT9: index-writing plumbing before a commit is recorded, and commit-tree gets a DIR line (LAB-2948, item 3).
+t_rt9() {
+    setup
+    resolve "$OTHER" "$WT" "git update-index --add a.md && git commit -m x"
+    [ "$RC" -eq 0 ] && [ "$(line_count)" -eq 1 ] \
+        && [ "$(json_field '[(p["cmd"], p["dir"]) for p in d["plumbing"]]')" = "[('update-index', '$WT')]" ] || return 1
+    resolve "$OTHER" "$OTHER" "git -C '$WT' commit-tree HEAD^{tree} -m x"
+    [ "$RC" -eq 0 ] && [ "$(line_count)" -eq 1 ] && [[ "$OUT" == "DIR${TAB}${WT}${TAB}{"* ]] \
+        && [ "$(json_field 'd["plumbing"][-1]["cmd"]')" = commit-tree ]
+}
+check "RT9 update-index && commit -> spec.plumbing [update-index in <wt>]; commit-tree -> a DIR line ending in commit-tree" t_rt9
+# RT10: any other subcommand is reported as a possible alias, with an inline -c alias.<name>= value (LAB-2948, item 2).
+t_rt10() {
+    setup; resolve "$OTHER" "$WT" "git -c alias.zz=commit zz -m x"
+    [ "$RC" -eq 0 ] && [ "$(line_count)" -eq 1 ] && [[ "$OUT" == "ALIAS${TAB}${WT}${TAB}{"* ]] \
+        && [ "$(json_field 'd["name"], d["inline"]')" = "zz commit" ]
+}
+check "RT10 git -c alias.zz=commit zz -> one ALIAS line for <wt>, name zz, inline commit" t_rt10
 
 echo "common_dir"
 t_cd1() {
@@ -190,6 +234,39 @@ t_cf8() {
     [ "$RC" -eq 4 ] && grep -q 'commit_files: could not diff the commit pathspec' "$T/cf8.err"
 }
 check "CF8 a corrupt index -> rc 4 and the reason on stderr (index and pathspec paths)" t_cf8
+# CF9: on a --no-verify commit every skip is a BLOCK line; without it, a SKIP line (LAB-2948, item 1).
+t_cf9() {
+    setup
+    lib_run "$WT" commit_files "$WT" "$WT" '{"skips": ["r1"], "no_verify": true}' 1 no ACMT ".md"
+    [ "$RC" -eq 0 ] && [[ "$OUT" == "BLOCK${TAB}r1 (--no-verify: "* ]] || return 1
+    lib_run "$WT" commit_files "$WT" "$WT" '{"skips": ["r1"]}' 1 no ACMT ".md"
+    [ "$RC" -eq 0 ] && [ "$OUT" = "SKIP${TAB}r1" ]
+}
+check "CF9 a no_verify spec with skips -> BLOCK lines, rc 0; the same spec without no_verify -> SKIP lines" t_cf9
+# CF10: a plumbing entry in the committed repo makes the list incomplete -> exit 4 (LAB-2948, item 3).
+t_cf10() {
+    setup
+    lib_run "$WT" commit_files "$WT" "$WT" '{"plumbing": [{"cmd": "update-index", "dir": "'"$WT"'"}]}' 1 no ACMT ".md" 2>"$T/cf10.err"
+    [ "$RC" -eq 4 ] && grep -q 'commit_files: git update-index in the same command writes the index' "$T/cf10.err" || return 1
+    # Control: the same entry in another repo is not this commit's business.
+    lib_run "$WT" commit_files "$WT" "$WT" '{"plumbing": [{"cmd": "update-index", "dir": "'"$OTHER"'"}]}' 1 no ACMT ".md"
+    [ "$RC" -eq 0 ]
+}
+check "CF10 a plumbing entry in the committed repo -> rc 4 with the reason on stderr; in another repo -> rc 0" t_cf10
+
+echo "alias_verdict"
+t_av1() {
+    setup
+    git -C "$VAULT" config alias.ca '!git add -A && git commit -av'
+    git -C "$VAULT" config alias.s 'status -s'
+    lib_run "$WT" alias_verdict "$WT" '{"name": "ca", "inline": null}'
+    [ "$RC" -eq 0 ] && [ "$OUT" = "COMMITS${TAB}!git add -A && git commit -av${TAB}ca" ] || return 1
+    lib_run "$WT" alias_verdict "$WT" '{"name": "s", "inline": null}'
+    [ "$RC" -eq 0 ] && [ -z "$OUT" ] || return 1
+    lib_run "$WT" alias_verdict "$WT" '{"name": "status", "inline": null}'
+    [ "$RC" -eq 0 ] && [ -z "$OUT" ]
+}
+check "AV1 a configured '!git add -A && git commit -av' -> COMMITS; 'status -s' and no alias -> nothing, rc 0" t_av1
 
 echo "the lib's own red test"
 # ST1: the same cases against a stub that defines the three functions as no-ops and sets the
@@ -247,6 +324,21 @@ t_s2() {
         }' "$LIB"
 }
 check "S2 outside functions: only comments, blanks and VAULT_HOOK_RESOLVER_API=1 as the last line" t_s2
+# S3: settings.base.json launches both vault gates with /bin/bash, so a bash planted earlier on PATH
+# never runs them (LAB-2948, item 9). Fewer than two gate commands found is a FAIL.
+t_s3() {
+    python3 - "$PKG/settings.base.json" <<'PY'
+import json, sys
+s = json.load(open(sys.argv[1]))
+cmds = [h.get("command", "") for e in s["hooks"]["PreToolUse"] for h in e.get("hooks", [])
+        if "memory-frontmatter-check.sh" in h.get("command", "") or "memory-gitleaks-check.sh" in h.get("command", "")]
+bad = [c for c in cmds if not c.startswith("/bin/bash ")]
+if len(cmds) < 2 or bad:
+    print("    gate commands: %r" % cmds)
+    sys.exit(1)
+PY
+}
+check "S3 both vault gate commands in settings.base.json start with '/bin/bash '" t_s3
 
 printf '\nSUITE_RESULT pass=%d fail=%d skip=0\n' "$pass" "$failed"
 [ "$failed" -eq 0 ] && [ "$pass" -gt 0 ]

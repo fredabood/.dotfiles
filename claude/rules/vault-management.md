@@ -108,19 +108,31 @@ Optional fields: `type`, `aliases`, `entities`, `importance`, `source`, `_migrat
   - It resolves the repo from `git -C`, a leading `cd … &&`, or the session cwd.
   - It reads the file set from the index, an earlier `git add` in the same command, `commit -a` or
     `commit <paths>`.
-  - When it cannot tell, for example with `git add -p` or `git add $(…)`, it prints a one-line
-    `skipped` notice.
+  - When it cannot tell, for example with `git add -p` or `git add $(…)`, it prints a `skipped`
+    notice and a `0 .md file(s) examined` line; with `--no-verify` the skip blocks.
+  - Otherwise it prints `<n> .md file(s) examined`, or a `ZERO-INPUT-OK` reason when the commit has no
+    `.md` content.
   - When the file list itself cannot be computed (the resolver failed, or a git call listing the
     commit failed, e.g. on a corrupt index), it blocks rather than passing unchecked; so does the
-    secret scan below (LAB-2858).
+    secret scan below (LAB-2858). So does an abort once the commit is known to be a vault commit
+    (LAB-2948).
   - It validates renamed-and-edited and typechanged notes as additions, so a pure `git mv` of a note
     without frontmatter is blocked until the note gets frontmatter.
+  - It validates the staged blob as well as the working-tree file, so a staged-then-deleted note is
+    caught.
+  - **Both gates block** (LAB-2948): a commit with `-n`, `--no-verify` or `-c core.hooksPath=…` whose
+    file list has a skipped part; `update-index`, `read-tree` or `apply --cached`/`--index` before a
+    commit in the same repo, and `commit-tree`; and a vault git alias whose expansion commits. Every
+    Bash call mentioning `git` is parsed, which adds latency to each. Both run with PATH pinned to
+    the system tool dirs first, launched by `/bin/bash`.
+  - **Not covered:** a commit or alias whose directory cannot be resolved, or one run with an explicit
+    `--git-dir`/`--work-tree`/`GIT_DIR`, and a `gitleaks` planted earlier on PATH.
   - `/obsidian-lint --fix` repairs findings.
 - **Pre-commit secret scan:** `memory-gitleaks-check.sh` runs gitleaks with the vault's
   `.gitleaks.toml` (HEAD's committed copy, so a commit cannot allowlist itself) over the files the
   commit will contain, and blocks a finding. It is a keyword-and-entropy check, not a proof: gitleaks'
   default stopwords can suppress a real credential. A missing gitleaks or config blocks too. Human
-  kill switch: `MEMORY_GITLEAKS_CHECK=off`.
+  kill switch: `MEMORY_GITLEAKS_CHECK=off`. No environment variable can swap its scanner (LAB-2948).
 - **Secret scan outside Claude Code (LAB-2857):** the vault's own git hooks, installed into its
   common `.git/hooks` by `claude/install.sh` (`claude/scripts/install-vault-hooks.sh`), run the same
   scan through `claude/scripts/memory-gitleaks-commit-check.sh`.

@@ -6,7 +6,8 @@
 # Runs against a throwaway HOME and temp repos. The harness is copied from
 # memory-frontmatter-check.test.sh, not imported (testing.md: copy the harness, don't import one).
 #   Run: bash claude/tests/memory-gitleaks-check.test.sh
-#   HOOK=<path> and MEMORY_GITLEAKS_CHECK_UNDER_TEST=<scan script> point it at a modified copy.
+#   HOOK=<path> points it at a modified copy of the hook. A modified scan goes in a mklayout copy
+#   (hooks/, hooks/lib/, scripts/): the hook reads no scanner override from the environment (LAB-2948).
 #
 # This file is in a PUBLIC repo whose pre-commit hook runs gitleaks, so no secret and no placeholder
 # is written literally: the planted token is generated at runtime, and the placeholder strings are
@@ -18,8 +19,10 @@ set -uo pipefail
 
 PKG="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 HOOK="${HOOK:-$PKG/hooks/memory-gitleaks-check.sh}"
-SCAN="${MEMORY_GITLEAKS_CHECK_UNDER_TEST:-$PKG/scripts/memory-gitleaks-scan.sh}"
-export MEMORY_GITLEAKS_CHECK_UNDER_TEST="$SCAN"
+# The package the hook under test belongs to: mklayout copies from it, so HOOK=<an older copy's
+# hooks/memory-gitleaks-check.sh> runs the layout cases against that copy too (red runs, LAB-2948).
+SRC="$(cd "$(dirname "$HOOK")/.." && pwd)"
+SCAN="$PKG/scripts/memory-gitleaks-scan.sh"
 # Physical path: git reports /private/var/... on macOS, and the assertions compare paths.
 T="$(cd "$(mktemp -d "${TMPDIR:-/tmp}/gitleaks-check-test.XXXXXX")" && pwd -P)"
 trap 'rm -rf "$T"' EXIT
@@ -108,6 +111,15 @@ run_scan() {
     local p; for p in "$@"; do printf '%s\0' "$p" >> "$T/list"; done
     OUT=$(bash "$SCAN" "$top" "$config" "$T/list" 2>"$T/stderr"); RC=$?
     ERR=$(cat "$T/stderr")
+}
+
+# mklayout <dir> <hook-name> [lib-source|none]: a copy of the hook layout (hooks/, hooks/lib/, scripts/).
+# The scan script is copied too, else the layout would exit 2 for the wrong reason.
+mklayout() {
+    mkdir -p "$1/hooks/lib" "$1/scripts"
+    cp "$SRC/hooks/$2" "$1/hooks/"
+    cp "$SRC/scripts/memory-gitleaks-scan.sh" "$1/scripts/"
+    [ "${3:-}" = none ] || cp "${3:-$SRC/hooks/lib/vault-hook-resolver.sh}" "$1/hooks/lib/"
 }
 
 count_line() { grep -Eq "memory-gitleaks-check: .*: [1-9][0-9]* staged path\(s\) examined" <<<"$ERR"; }
@@ -208,10 +220,12 @@ check "K1 MEMORY_GITLEAKS_CHECK=off -> allowed, with a DISABLED line" t_k1
 
 echo "-c is load-bearing (mutation)"
 t_m1() {
+    # The modified scan goes in a layout copy: the hook takes no scanner from the environment (LAB-2948).
     setup; stage "$WT" ok.md "$PLACEHOLDERS"
-    sed 's/ -c "\$CONFIG"//' "$SCAN" > "$T/scan-no-c.sh"
-    grep -q -- '-c "\$CONFIG"' "$T/scan-no-c.sh" && return 1
-    MEMORY_GITLEAKS_CHECK_UNDER_TEST="$T/scan-no-c.sh" run_hook "$WT" "git commit -m x"
+    mklayout "$T/m1" memory-gitleaks-check.sh
+    sed 's/ -c "\$CONFIG"//' "$SCAN" > "$T/m1/scripts/memory-gitleaks-scan.sh"
+    grep -q -- '-c "\$CONFIG"' "$T/m1/scripts/memory-gitleaks-scan.sh" && return 1
+    HOOK="$T/m1/hooks/memory-gitleaks-check.sh" run_hook "$WT" "git commit -m x"
     [ "$RC" -ne 0 ]
 }
 gl_check "M1 deleting -c from the check turns the placeholder case red" t_m1
@@ -262,14 +276,7 @@ t_g_plant2() {
 gl_check "G-PLANT2 subprocess.py at the vault root, process cwd = vault root, token staged -> blocked" t_g_plant2
 
 echo "the resolver lib fails closed (LAB-2858)"
-# mklayout <dir> <hook-name> [lib-source|none]: a copy of the hook layout (hooks/, hooks/lib/, scripts/).
-# The scan script is copied too, else the layout would exit 2 for the wrong reason.
-mklayout() {
-    mkdir -p "$1/hooks/lib" "$1/scripts"
-    cp "$PKG/hooks/$2" "$1/hooks/"
-    cp "$PKG/scripts/memory-gitleaks-scan.sh" "$1/scripts/"
-    [ "${3:-}" = none ] || cp "${3:-$PKG/hooks/lib/vault-hook-resolver.sh}" "$1/hooks/lib/"
-}
+# mklayout is defined with the harness above (M1 uses it too).
 GL_HOOK="memory-gitleaks-check.sh"
 REAL_LIB="$PKG/hooks/lib/vault-hook-resolver.sh"
 t_g_l0() {
@@ -310,6 +317,14 @@ t_g_l2c() {
     [ "$RC" -eq 2 ] && grep -q 'is incomplete' <<<"$ERR"
 }
 check "G-L2c sentinel set, commit_files missing, token staged -> rc 2, 'incomplete'" t_g_l2c
+t_g_l2d() {
+    setup; local L="$T/layout$n" HOOK="$T/layout$n/hooks/$GL_HOOK"; mklayout "$L" "$GL_HOOK" none
+    lib_without alias_verdict > "$L/hooks/lib/vault-hook-resolver.sh"
+    grep -q '^alias_verdict_gone() {' "$L/hooks/lib/vault-hook-resolver.sh" || return 1
+    stage "$WT" leak.md "$LEAK"; run_hook "$WT" "git commit -m x"
+    [ "$RC" -eq 2 ] && grep -q 'is incomplete' <<<"$ERR"
+}
+check "G-L2d sentinel set, alias_verdict missing, token staged -> rc 2, 'incomplete' (LAB-2948)" t_g_l2d
 t_g_l3() {
     setup; local L="$T/layout$n" HOOK="$T/layout$n/hooks/$GL_HOOK"; mklayout "$L" "$GL_HOOK"
     awk '/^VAULT_HOOK_RESOLVER_API=1$/ { print "false" } { print }' "$REAL_LIB" > "$L/hooks/lib/vault-hook-resolver.sh"
@@ -336,6 +351,70 @@ t_g_gf() {
         && grep -q 'commit_files: could not read the index' <<<"$ERR"
 }
 check "G-GF a corrupt index in a vault worktree -> rc 2, blocked, the git reason shown (OD1)" t_g_gf
+
+echo "fail-open paths are closed (LAB-2948)"
+# run_hook_big <cwd> <repo>: run_hook with `git -C '<repo>' commit -m '<2 MiB>'`. The payload is built
+# inside python3, because argv has the same 1 MiB limit the environment had.
+run_hook_big() {
+    local payload
+    payload=$(python3 -c '
+import json, sys
+cmd = "git -C %s commit -m %s" % ("\x27" + sys.argv[2] + "\x27", "\x27" + "x" * 2097152 + "\x27")
+print(json.dumps({"hook_event_name": "PreToolUse", "tool_name": "Bash",
+                  "tool_input": {"command": cmd}, "cwd": sys.argv[1]}))' "$1" "$2")
+    OUT=$(bash "$HOOK" <<<"$payload" 2>"$T/stderr"); RC=$?
+    ERR=$(cat "$T/stderr")
+}
+t_g_big() { setup; stage "$WT" leak.md "$LEAK"; run_hook_big "$OTHER" "$WT"; blocked leak.md; }
+gl_check "G-BIG a 2 MiB commit command, token staged -> blocked (item 4)" t_g_big
+t_g_pyfail() {
+    setup; local L="$T/layout$n" HOOK="$T/layout$n/hooks/$GL_HOOK"; mklayout "$L" "$GL_HOOK"
+    printf 'resolve_targets() { return 1; }\n' >> "$L/hooks/lib/vault-hook-resolver.sh"
+    stage "$WT" ok.md "$PLACEHOLDERS"; run_hook "$WT" "git commit -m x"
+    [ "$RC" -eq 2 ] && grep -q "could not resolve the commit's repository" <<<"$ERR"
+}
+check "G-PYFAIL resolve_targets fails, clean commit -> rc 2, 'could not resolve the commit's repository' (item 4)" t_g_pyfail
+t_g_abort() { setup; stage "$WT" leak.md "$LEAK"; TMPDIR="$T/no-such-dir" run_hook "$WT" "git commit -m x"; [ "$RC" -eq 2 ] && grep -q 'aborted (exit 1)' <<<"$ERR"; }
+check "G-ABORT mktemp fails after vault identity -> rc 2, 'aborted (exit 1)' (item 5)" t_g_abort
+t_g_nv1() { setup; put "$WT" leak.md "$LEAK"; run_hook "$WT" "git add -p && git commit --no-verify -m x"; [ "$RC" -eq 2 ] && grep -q -- '--no-verify' <<<"$ERR"; }
+check "G-NV1 git add -p && git commit --no-verify, nothing staged -> rc 2, naming --no-verify (item 1)" t_g_nv1
+t_g_nv2() { setup; put "$WT" leak.md "$LEAK"; run_hook "$WT" "git add -p && git commit -n -m x"; [ "$RC" -eq 2 ] && grep -q -- '--no-verify' <<<"$ERR"; }
+check "G-NV2 git add -p && git commit -n, nothing staged -> rc 2, naming --no-verify (item 1)" t_g_nv2
+t_g_pl1() { setup; put "$WT" leak.md "$LEAK"; run_hook "$WT" "git update-index --add leak.md && git commit -m x"; [ "$RC" -eq 2 ] && grep -q update-index <<<"$ERR"; }
+check "G-PL1 git update-index --add leak.md && git commit -> rc 2, naming update-index (item 3)" t_g_pl1
+t_g_pl2() { setup; put "$WT" p.diff ""; run_hook "$WT" "git apply --cached p.diff && git commit -m x"; [ "$RC" -eq 2 ] && grep -q 'git apply' <<<"$ERR"; }
+check "G-PL2 git apply --cached p.diff && git commit -> rc 2, naming git apply (item 3)" t_g_pl2
+t_g_ct() { setup; run_hook "$WT" "git commit-tree HEAD^{tree} -m x"; [ "$RC" -eq 2 ] && grep -q commit-tree <<<"$ERR"; }
+check "G-CT git commit-tree HEAD^{tree} -m x -> rc 2, naming commit-tree (item 3)" t_g_ct
+t_g_al1() { setup; stage "$WT" leak.md "$LEAK"; run_hook "$WT" "git -c alias.zz=commit zz -m x"; [ "$RC" -eq 2 ] && grep -q "git alias 'zz'" <<<"$ERR"; }
+check "G-AL1 git -c alias.zz=commit zz, token staged -> rc 2, naming alias zz (item 2)" t_g_al1
+t_g_al2() {
+    setup; git -C "$VAULT" config alias.ca '!git add -A && git commit -av'; stage "$WT" leak.md "$LEAK"
+    run_hook "$WT" "git ca"; [ "$RC" -eq 2 ] && grep -q "git alias 'ca'" <<<"$ERR"
+}
+check "G-AL2 a configured vault alias 'git ca' that commits (no 'commit' in the payload) -> rc 2 (item 2)" t_g_al2
+t_g_ut1() {
+    setup; stage "$WT" leak.md "$LEAK"; printf '#!/bin/sh\nexit 0\n' > "$T/stub-scan.sh"
+    MEMORY_GITLEAKS_CHECK_UNDER_TEST="$T/stub-scan.sh" run_hook "$WT" "git commit -m x"; blocked leak.md
+}
+gl_check "G-UT1 MEMORY_GITLEAKS_CHECK_UNDER_TEST pointing at an exit-0 stub, token staged -> still blocked (item 8)" t_g_ut1
+# run_hook_path <PATH> <cwd> <command>: run_hook with PATH set for the hook only. The payload is built
+# first, with the real python3, since a planted one would print nothing.
+run_hook_path() {
+    local payload
+    payload=$(python3 -c '
+import json, sys
+print(json.dumps({"hook_event_name": "PreToolUse", "tool_name": "Bash",
+                  "tool_input": {"command": sys.argv[2]}, "cwd": sys.argv[1]}))' "$2" "$3")
+    OUT=$(PATH="$1" bash "$HOOK" <<<"$payload" 2>"$T/stderr"); RC=$?
+    ERR=$(cat "$T/stderr")
+}
+t_g_path1() {
+    setup; mkdir -p "$T/evil$n"
+    local tool; for tool in python3 git; do printf '#!/bin/sh\nexit 0\n' > "$T/evil$n/$tool"; chmod 755 "$T/evil$n/$tool"; done
+    stage "$WT" leak.md "$LEAK"; run_hook_path "$T/evil$n:$PATH" "$WT" "git commit -m x"; blocked leak.md
+}
+gl_check "G-PATH1 python3 and git that exit 0 planted first on PATH, token staged -> blocked (item 9)" t_g_path1
 
 printf '\nSUITE_RESULT pass=%d fail=%d skip=%d\n' "$pass" "$failed" "$skipped"
 [ "$failed" -eq 0 ] && [ "$pass" -gt 0 ] && [ "$glpass" -gt 0 ]

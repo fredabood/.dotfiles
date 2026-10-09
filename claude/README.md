@@ -167,19 +167,43 @@ checkout or any worktree), resolving the repo from `git -C`, a leading `cd`, or 
   `MEMORY_GITLEAKS_CHECK=off` (prints a DISABLED line for each commit it lets through).
 
 Both gates find the commit and its files through one shared resolver,
-`hooks/lib/vault-hook-resolver.sh` (`resolve_targets`, `common_dir`, `commit_files`), which they
-source; it is never run on its own. Its Python runs with `python3 -I`, so a `shlex.py` or
-`subprocess.py` planted in the working directory or the repo root is never imported in place of the
-standard module.
+`hooks/lib/vault-hook-resolver.sh` (`resolve_targets`, `common_dir`, `commit_files`,
+`alias_verdict`), which they source; it is never run on its own. Its Python runs with `python3 -I`,
+so a `shlex.py` or `subprocess.py` planted in the working directory or the repo root is never
+imported in place of the standard module.
 
 - **The lib fails closed.** If it is missing, incomplete or fails to load, both hooks exit 2. That
-  happens before the vault is identified, so it refuses **any** Bash call whose payload mentions both
-  "git" and "commit", in every repo, until the lib is restored (from a terminal:
+  happens before the vault is identified, so it refuses **any** Bash call whose payload mentions
+  "git", in every repo, until the lib is restored (from a terminal:
   `git -C ~/Repositories/dotfiles restore claude/hooks/lib`, or revert the change that broke it).
+- **A resolver failure blocks.** If `resolve_targets` fails (python3 missing or crashing), both gates
+  exit 2. The payload reaches it on fd 3, so a command of 1 MiB or more no longer fails with E2BIG.
 - **An unknown file list blocks.** When a vault commit's file list cannot be computed, both gates
   block rather than pass it unchecked. That covers a `commit_files` crash, invalid parameters (exit 3)
   and any git call that lists part of the commit failing (exit 4, for example on a corrupt index). A
   pathspec commit on an unborn HEAD is not a failure: it is diffed against the empty tree.
+- **An abort blocks.** Once a commit is known to be a vault commit, any other exit than 0 or 2 (a
+  `set -e` abort, a failed `cd` or `mktemp`) becomes exit 2.
+- **Counts are printed.** The frontmatter gate prints `<n> .md file(s) examined` per vault target, or a
+  `ZERO-INPUT-OK` reason (message-only amend, `--allow-empty`, deletion-only or non-`.md` content), or
+  a line saying a skipped part was not validated. The secret scan already did.
+- **The staged blob is validated.** The frontmatter gate checks each note's working-tree file and,
+  when it differs or is missing, its staged blob, so a staged-then-deleted note is caught.
+- **`--no-verify` turns skips into blocks.** With `-n`, `--no-verify` or `-c core.hooksPath=…`, the
+  vault's git hook will not run, so every part a gate would have skipped blocks instead.
+- **Plumbing blocks.** `update-index`, `read-tree` or `apply --cached`/`--index` before a commit in the
+  same repo, and `commit-tree`, are not modelled, so they block. Run plumbing in its own call.
+- **Aliases that commit block.** Every Bash call mentioning "git" is parsed. A vault alias (inline
+  `-c alias.X=…` or configured) whose expansion contains `commit` blocks; run `git commit` directly.
+  The cost: every git call now pays for this parse. When LAB-2948 measured it, each gate took about
+  130 ms per `git status`, and about 210 ms in the vault, against 14 ms before.
+- **No scan override.** The secret scan takes its scanner only from `scripts/`, never from the
+  environment.
+- **PATH is pinned.** Both hooks put `/usr/bin:/bin:/usr/sbin:/sbin` first, and `settings.base.json`
+  launches them with `/bin/bash`, so a `python3`, `git` or `bash` planted earlier on PATH is never run.
+- **Not covered:** a commit or alias whose directory cannot be resolved, or one run with an explicit
+  `--git-dir`/`--work-tree`/`GIT_DIR` (a commit prints a skip; an alias prints nothing); a `gitleaks`
+  planted earlier on PATH (it is not in `/usr/bin`).
 
 Commits and pushes made **outside** Claude Code are scanned by the vault's own git hooks (LAB-2857).
 `install.sh` runs `scripts/install-vault-hooks.sh`. It copies `git-hooks/vault/{pre-commit,pre-push}`

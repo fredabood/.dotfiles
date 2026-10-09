@@ -26,9 +26,14 @@
 # resolver lib missing, incomplete or failing to load, or — for a vault commit — the list of files
 # the commit will contain could not be computed: commit_files failed in python3, got invalid
 # parameters, or a git listing call failed, such as on a corrupt index; LAB-2858). A pathspec
-# commit on an unborn HEAD is diffed against the empty tree, not blocked. The lib refusals come
-# before the vault is identified, so they block any Bash call whose payload mentions both git and
-# commit.
+# commit on an unborn HEAD is diffed against the empty tree, not blocked. LAB-2948 added these
+# blocks: resolve_targets failing (python3 missing or crashing); any abort after the commit is known
+# to be a vault commit (set -e, a failed mktemp: an EXIT trap turns it into 2); a skip on a
+# --no-verify commit (-n, or -c core.hooksPath=…), since no git hook will run; update-index,
+# read-tree or apply --cached/--index before the commit in the same repo, and commit-tree; and a
+# vault git alias whose expansion commits. The lib refusals come before the vault is identified, so
+# they block any Bash call whose payload mentions git (the prefilter no longer also needs
+# "commit", because an alias such as `git ca` commits without the word).
 #
 # KILL SWITCH (human only): MEMORY_GITLEAKS_CHECK=off disables the gate and prints a DISABLED line
 # on stderr for every commit it waves through.
@@ -41,13 +46,21 @@
 #     vault's own git hooks, claude/scripts/memory-gitleaks-commit-check.sh (LAB-2857); vault-sync's
 #     planned auto-commit is to call that script explicitly (fredabood/homelab#2548).
 #   - Interactive or file-driven adds and commits, and pathspecs using $, backticks or braces, are
-#     a visible "skipped" line, as in the frontmatter hook.
+#     a visible "skipped" line, as in the frontmatter hook (a block with --no-verify).
+#   - Not covered: a commit or alias whose directory cannot be resolved, or one run with an explicit
+#     --git-dir/--work-tree/GIT_DIR (a commit prints a skip; an alias prints nothing).
+#   - PATH starts with the system tool dirs (LAB-2948), so python3, git and bash come from
+#     /usr/bin and /bin; gitleaks is not there and still resolves from the rest of PATH, so a
+#     gitleaks planted earlier on PATH is not covered.
+#   - No environment variable selects the scan script (LAB-2948 retired the test override).
 #
 # If you change this file, prove it with claude/tests/memory-gitleaks-check.test.sh AND the live
 # probe in fredabood/homelab#2457 (a runtime-generated token staged in a throwaway vault worktree
 # must be BLOCKED) — never by observing that the hook ran without error.
 
 set -euo pipefail
+# System tool dirs first, so a python3/git/bash planted earlier on PATH is never run (LAB-2948).
+PATH="/usr/bin:/bin:/usr/sbin:/sbin:${PATH:-}"; export PATH
 
 TAG="memory-gitleaks-check"
 INPUT=$(cat)
@@ -57,7 +70,8 @@ if [[ "${MEMORY_GITLEAKS_CHECK:-}" == off ]]; then
   fi
   exit 0
 fi
-if [[ "$INPUT" != *git* || "$INPUT" != *commit* ]]; then
+# Not *commit* too: an alias such as `git ca` commits without the word in the payload (LAB-2948).
+if [[ "$INPUT" != *git* ]]; then
   exit 0
 fi
 
@@ -66,7 +80,9 @@ skip() {
 }
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
-SCAN="${MEMORY_GITLEAKS_CHECK_UNDER_TEST:-$HERE/../scripts/memory-gitleaks-scan.sh}"
+# No environment override: a production hook must not take its scanner from the environment
+# (LAB-2948, owner decision OD-G). Tests point a layout copy at a modified scan instead.
+SCAN="$HERE/../scripts/memory-gitleaks-scan.sh"
 LIB="$HERE/lib/vault-hook-resolver.sh"
 # The shared resolver (resolve_targets, common_dir, commit_files; LAB-2858). Every way it can fail to
 # load blocks, because this hook cannot judge a commit without it.
@@ -78,14 +94,12 @@ trap 'echo "$TAG: BLOCKED — resolver lib at $LIB failed to load" >&2; exit 2' 
 # shellcheck source=lib/vault-hook-resolver.sh
 . "$LIB"
 trap - EXIT
-if [ "${VAULT_HOOK_RESOLVER_API:-}" != 1 ] || ! declare -F resolve_targets common_dir commit_files >/dev/null; then
+if [ "${VAULT_HOOK_RESOLVER_API:-}" != 1 ] || ! declare -F resolve_targets common_dir commit_files alias_verdict >/dev/null; then
   echo "$TAG: BLOCKED — resolver lib at $LIB is incomplete" >&2; exit 2
 fi
 
-TARGETS=$(resolve_targets "$INPUT") || {
-  skip "could not resolve the commit's repository (python3 failed)"
-  exit 0
-}
+# A resolver failure (python3 missing or crashing) blocks: without it no commit can be judged (LAB-2948).
+TARGETS=$(resolve_targets "$INPUT") || { echo "$TAG: BLOCKED — could not resolve the commit's repository (the resolver failed); blocking rather than passing unchecked" >&2; exit 2; }
 if [[ -z "$TARGETS" ]]; then
   exit 0
 fi
@@ -93,6 +107,9 @@ fi
 MEMORY_DIR="${MEMORY_VAULT_PATH:-$HOME/Repositories/memory}"
 VAULT_COMMON=""
 
+TRAILER="Vault secret scan blocked this commit. Remove the value (store it in 1Password and reference it), or, if it is a false positive, add a one-line allowlist with a reason to .gitleaks.toml."
+
+ALIAS_BLOCKS=0
 VAULT_TOPS=()
 VAULT_DIRS=()
 VAULT_SPECS=()
@@ -102,7 +119,8 @@ while IFS=$'\t' read -r kind value spec; do
     continue
   fi
   if ! TOP=$(git -C "$value" rev-parse --show-toplevel 2>/dev/null) || [[ -z "$TOP" ]]; then
-    skip "$value is not in a git work tree"
+    # An ALIAS line is any git subcommand, not a commit: outside a work tree it is not worth a notice.
+    [[ "$kind" == ALIAS ]] || skip "$value is not in a git work tree"
     continue
   fi
   if [[ -z "$VAULT_COMMON" ]] && ! VAULT_COMMON=$(common_dir "$MEMORY_DIR"); then
@@ -111,6 +129,18 @@ while IFS=$'\t' read -r kind value spec; do
     exit 0
   fi
   if [[ "$(common_dir "$TOP" || true)" == "$VAULT_COMMON" ]]; then
+    if [[ "$kind" == ALIAS ]]; then
+      # A vault alias whose expansion commits is a commit these gates cannot see (LAB-2948, OD-B).
+      if ! V=$(alias_verdict "$value" "$spec"); then
+        echo "$TAG: BLOCKED — could not tell whether a git alias in $TOP commits (alias_verdict failed); blocking rather than passing unchecked" >&2
+        ALIAS_BLOCKS=$((ALIAS_BLOCKS + 1))
+      elif [[ "$V" == COMMITS$'\t'* ]]; then
+        IFS=$'\t' read -r _ AV_EXP AV_NAME <<<"$V"
+        echo "$TAG: BLOCKED — git alias '$AV_NAME' (= $AV_EXP) runs a commit the vault gates cannot see; run git commit directly" >&2
+        ALIAS_BLOCKS=$((ALIAS_BLOCKS + 1))
+      fi
+      continue
+    fi
     VAULT_TOPS+=("$TOP")
     VAULT_DIRS+=("$value")
     VAULT_SPECS+=("$spec")
@@ -118,11 +148,14 @@ while IFS=$'\t' read -r kind value spec; do
 done <<<"$TARGETS"
 
 if [[ ${#VAULT_TOPS[@]} -eq 0 ]]; then
+  [[ $ALIAS_BLOCKS -eq 0 ]] || { echo "$TRAILER" >&2; exit 2; }
   exit 0
 fi
 
+# From here on this is a vault commit: an abort (set -e, a failed cd or mktemp) blocks, never exits 1 (LAB-2948).
+WORK=""
+trap 'rc=$?; [ -z "$WORK" ] || rm -rf "$WORK"; if [ "$rc" -ne 0 ] && [ "$rc" -ne 2 ]; then echo "$TAG: BLOCKED — the gate aborted (exit $rc) while judging a vault commit; blocking rather than passing unchecked" >&2; exit 2; fi' EXIT
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/memory-gitleaks-check.XXXXXX")"
-trap 'rm -rf "$WORK"' EXIT
 
 # Every line goes to stderr: on exit 2 Claude Code hands the model stderr only (LAB-1996).
 BLOCK=0
@@ -143,6 +176,10 @@ for i in "${!VAULT_TOPS[@]}"; do
     if [[ "$kind" == SKIP ]]; then
       skip "$value"
       SKIPPED=1
+    elif [[ "$kind" == BLOCK ]]; then
+      # A skip on a --no-verify commit: no git hook will cover it (LAB-2948).
+      echo "$TAG: $TOP: BLOCKED — $value" >&2
+      BLOCK=1
     elif [[ "$kind" == FILE ]]; then
       printf '%s\0' "$value" >>"$LIST"
       COUNT=$((COUNT + 1))
@@ -181,8 +218,8 @@ for i in "${!VAULT_TOPS[@]}"; do
   fi
 done
 
-if [[ $BLOCK -eq 1 ]]; then
-  echo "Vault secret scan blocked this commit. Remove the value (store it in 1Password and reference it), or, if it is a false positive, add a one-line allowlist with a reason to .gitleaks.toml." >&2
+if [[ $BLOCK -eq 1 || $ALIAS_BLOCKS -gt 0 ]]; then
+  echo "$TRAILER" >&2
   exit 2
 fi
 exit 0

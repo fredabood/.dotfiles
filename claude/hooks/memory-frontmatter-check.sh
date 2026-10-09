@@ -6,11 +6,14 @@
 # `git commit` whose repo is the memory vault: its primary checkout or any worktree of it.
 
 set -euo pipefail
+# System tool dirs first, so a python3/git/bash planted earlier on PATH is never run (LAB-2948).
+PATH="/usr/bin:/bin:/usr/sbin:/sbin:${PATH:-}"; export PATH
 
 # Modern hook payload arrives as JSON on stdin (legacy TOOL_INPUT env was always
 # empty, making this gate a silent no-op — LAB-215, 2026-07-13).
 INPUT=$(cat)
-if [[ "$INPUT" != *git* || "$INPUT" != *commit* ]]; then
+# Not *commit* too: an alias such as `git ca` commits without the word in the payload (LAB-2948).
+if [[ "$INPUT" != *git* ]]; then
   exit 0
 fi
 
@@ -39,9 +42,10 @@ fi
 # hook exited 0 silently, and `git add … && git commit` is the most common way agents commit. So
 # the file set is now computed from the command: the index, plus every earlier `git add` in the
 # same command that targets the same repo, plus `commit -a`, `commit -i <paths>` and
-# `commit <paths>` (which commits only those paths). Content is read from the working tree.
+# `commit <paths>` (which commits only those paths). Content is read from the working tree and the
+# staged blob (LAB-2948).
 #
-# The resolver (resolve_targets, common_dir, commit_files) lives in hooks/lib/vault-hook-resolver.sh,
+# The resolver (resolve_targets, common_dir, commit_files, alias_verdict) lives in hooks/lib/vault-hook-resolver.sh,
 # shared with memory-gitleaks-check.sh and tested by claude/tests/vault-hook-resolver.test.sh
 # (LAB-2858). A missing, incomplete or failing lib blocks (exit 2): this gate cannot judge without it.
 # Python runs with -I, so a shlex.py or subprocess.py planted in the cwd or the repo root is never
@@ -55,9 +59,26 @@ fi
 # non-zero on a python3 failure, invalid parameters (3) or any git listing call that fails (4, e.g.
 # a corrupt index). A pathspec commit on an unborn HEAD is diffed against the empty tree instead.
 #
+# LAB-2948 closed the remaining fail-open paths:
+#   - a resolver failure (python3 missing, a crash) blocks; the payload reaches it on fd 3, so a
+#     1 MiB+ command no longer fails with E2BIG;
+#   - once the commit is known to be a vault commit, any abort (set -e, a failed cd or mktemp) is
+#     turned into exit 2 by an EXIT trap;
+#   - every vault target prints "<n> .md file(s) examined", or a ZERO-INPUT-OK reason, or a line
+#     saying a skipped part was not validated;
+#   - each note is validated from the working tree (a regular file) AND from its staged blob when that
+#     differs or the working tree has none, so a staged-then-deleted note is caught;
+#   - with --no-verify (-n, or -c core.hooksPath=…) every skip blocks, since no git hook will run;
+#   - update-index, read-tree or apply --cached/--index before a commit in the same repo, and
+#     commit-tree, block (they are not modelled);
+#   - a vault git alias whose expansion commits blocks, and every payload mentioning "git" is
+#     parsed;
+#   - PATH starts with the system tool dirs, and settings.base.json launches this hook with /bin/bash.
+#
 # Remaining limits, each a visible skip rather than a silent pass: interactive or file-driven
 # adds and commits (-p, -i, -e, --pathspec-from-file), and pathspecs using $, backticks or braces.
-# A partially staged file is validated from the working tree, not the staged blob.
+# Not covered: a commit or alias whose directory cannot be resolved, or one run with an explicit
+# --git-dir/--work-tree/GIT_DIR (a commit prints a skip; an alias prints nothing).
 #
 # If you change this file, prove it with claude/tests/memory-frontmatter-check.test.sh AND by
 # staging a frontmatter-less .md in a real vault worktree and watching the commit get BLOCKED —
@@ -81,14 +102,12 @@ trap 'echo "$TAG: BLOCKED — resolver lib at $LIB failed to load" >&2; exit 2' 
 # shellcheck source=lib/vault-hook-resolver.sh
 . "$LIB"
 trap - EXIT
-if [ "${VAULT_HOOK_RESOLVER_API:-}" != 1 ] || ! declare -F resolve_targets common_dir commit_files >/dev/null; then
+if [ "${VAULT_HOOK_RESOLVER_API:-}" != 1 ] || ! declare -F resolve_targets common_dir commit_files alias_verdict >/dev/null; then
   echo "$TAG: BLOCKED — resolver lib at $LIB is incomplete" >&2; exit 2
 fi
 
-TARGETS=$(resolve_targets "$INPUT") || {
-  skip "could not resolve the commit's repository (python3 failed)"
-  exit 0
-}
+# A resolver failure (python3 missing or crashing) blocks: without it no commit can be judged (LAB-2948).
+TARGETS=$(resolve_targets "$INPUT") || { echo "$TAG: BLOCKED — could not resolve the commit's repository (the resolver failed); blocking rather than passing unchecked" >&2; exit 2; }
 if [[ -z "$TARGETS" ]]; then
   exit 0
 fi
@@ -96,6 +115,18 @@ fi
 MEMORY_DIR="${MEMORY_VAULT_PATH:-$HOME/Repositories/memory}"
 VAULT_COMMON=""
 
+# fail_report: the closing lines of a block. Every line of a BLOCK goes to stderr: on exit 2 Claude
+# Code hands the model stderr only (LAB-1996).
+fail_report() {
+  {
+    echo ""
+    echo "Vault frontmatter validation failed ($ERRORS errors)."
+    echo "Run /obsidian-lint --fix to auto-repair, or fix manually."
+  } >&2
+}
+
+ERRORS=0
+ALIAS_BLOCKS=0
 VAULT_TOPS=()
 VAULT_DIRS=()
 VAULT_SPECS=()
@@ -105,7 +136,8 @@ while IFS=$'\t' read -r kind value spec; do
     continue
   fi
   if ! TOP=$(git -C "$value" rev-parse --show-toplevel 2>/dev/null) || [[ -z "$TOP" ]]; then
-    skip "$value is not in a git work tree"
+    # An ALIAS line is any git subcommand, not a commit: outside a work tree it is not worth a notice.
+    [[ "$kind" == ALIAS ]] || skip "$value is not in a git work tree"
     continue
   fi
   if [[ -z "$VAULT_COMMON" ]] && ! VAULT_COMMON=$(common_dir "$MEMORY_DIR"); then
@@ -114,6 +146,20 @@ while IFS=$'\t' read -r kind value spec; do
     exit 0
   fi
   if [[ "$(common_dir "$TOP" || true)" == "$VAULT_COMMON" ]]; then
+    if [[ "$kind" == ALIAS ]]; then
+      # A vault alias whose expansion commits is a commit these gates cannot see (LAB-2948, OD-B).
+      if ! V=$(alias_verdict "$value" "$spec"); then
+        echo "$TAG: BLOCKED — could not tell whether a git alias in $TOP commits (alias_verdict failed); blocking rather than passing unchecked" >&2
+        ALIAS_BLOCKS=$((ALIAS_BLOCKS + 1))
+        ERRORS=$((ERRORS + 1))
+      elif [[ "$V" == COMMITS$'\t'* ]]; then
+        IFS=$'\t' read -r _ AV_EXP AV_NAME <<<"$V"
+        echo "$TAG: BLOCKED — git alias '$AV_NAME' (= $AV_EXP) runs a commit the vault gates cannot see; run git commit directly" >&2
+        ALIAS_BLOCKS=$((ALIAS_BLOCKS + 1))
+        ERRORS=$((ERRORS + 1))
+      fi
+      continue
+    fi
     VAULT_TOPS+=("$TOP")
     VAULT_DIRS+=("$value")
     VAULT_SPECS+=("$spec")
@@ -121,58 +167,34 @@ while IFS=$'\t' read -r kind value spec; do
 done <<<"$TARGETS"
 
 if [[ ${#VAULT_TOPS[@]} -eq 0 ]]; then
+  [[ $ALIAS_BLOCKS -eq 0 ]] || { fail_report; exit 2; }
   exit 0
 fi
 
-# Every line of a BLOCK goes to stderr. On exit 2 Claude Code hands the model stderr only; when
-# this report went to stdout the agent saw "No stderr output" and could not tell what to fix
-# (LAB-1996 post-merge live control, 2026-09-12).
-ERRORS=0
-CHECKED=0
-for i in "${!VAULT_TOPS[@]}"; do
-TOP="${VAULT_TOPS[$i]}"
-cd "$TOP"
+# From here on this is a vault commit: an abort (set -e, a failed cd or mktemp) blocks, never exits 1 (LAB-2948).
+WORK=""
+trap 'rc=$?; [ -z "$WORK" ] || rm -rf "$WORK"; if [ "$rc" -ne 0 ] && [ "$rc" -ne 2 ]; then echo "$TAG: BLOCKED — the gate aborted (exit $rc) while judging a vault commit; blocking rather than passing unchecked" >&2; exit 2; fi' EXIT
+WORK="$(mktemp -d "${TMPDIR:-/tmp}/memory-frontmatter-check.XXXXXX")"
 
-# --no-renames + ACMT: a renamed-and-edited or typechanged note is validated as an addition (LAB-2858).
-if ! FILE_LINES=$(commit_files "$TOP" "${VAULT_DIRS[$i]}" "${VAULT_SPECS[$i]}" 1 no ACMT ".md"); then
-  # A vault commit whose file list is unknown is blocked, not passed unchecked (LAB-2858, OD1). This
-  # gate has no backstop: the vault's own git hooks run only the secret scan.
-  echo "ERROR: $TOP — could not compute the files this commit will contain (the resolver's commit_files failed; its reason, if any, is above); blocking rather than passing unchecked" >&2
-  ERRORS=$((ERRORS + 1))
-  CHECKED=1
-  continue
-fi
-STAGED_FILES=""
-while IFS=$'\t' read -r kind value; do
-  if [[ "$kind" == SKIP ]]; then
-    skip "$value"
-  elif [[ "$kind" == FILE ]]; then
-    STAGED_FILES+="$value"$'\n'
-  fi
-done <<<"$FILE_LINES"
-STAGED_FILES="${STAGED_FILES%$'\n'}"
-if [[ -z "$STAGED_FILES" ]]; then
-  continue
-fi
-CHECKED=1
-
-while IFS= read -r file; do
-  [[ -f "$file" ]] || continue
+# validate_note <name> <content path>: the frontmatter checks on one version of a note. Every error
+# names <name>, the top-relative path, whichever version was read (LAB-2948).
+validate_note() {
+  local name="$1" path="$2" FM CREATED field
 
   # Check frontmatter exists
-  if [[ "$(head -1 "$file")" != "---" ]]; then
-    echo "ERROR: $file — missing frontmatter (no opening ---)" >&2
+  if [[ "$(head -1 "$path")" != "---" ]]; then
+    echo "ERROR: $name — missing frontmatter (no opening ---)" >&2
     ERRORS=$((ERRORS + 1))
-    continue
+    return 0
   fi
 
   # Extract frontmatter block (lines between first and second ---)
-  FM=$(awk '/^---$/{n++; if(n==2) exit} n==1{print}' "$file")
+  FM=$(awk '/^---$/{n++; if(n==2) exit} n==1{print}' "$path")
 
   if [[ -z "$FM" ]]; then
-    echo "ERROR: $file — unclosed frontmatter block (missing closing ---)" >&2
+    echo "ERROR: $name — unclosed frontmatter block (missing closing ---)" >&2
     ERRORS=$((ERRORS + 1))
-    continue
+    return 0
   fi
 
   # Check required fields.
@@ -183,7 +205,7 @@ while IFS= read -r file; do
   # `!`, meaning a valid file would be reported as missing a required field.
   for field in title tags created; do
     if ! grep -q "^${field}:" <<<"$FM"; then
-      echo "ERROR: $file — missing required field: $field" >&2
+      echo "ERROR: $name — missing required field: $field" >&2
       ERRORS=$((ERRORS + 1))
     fi
   done
@@ -193,24 +215,90 @@ while IFS= read -r file; do
   # -q test below is the herestring form for the same reason as the loop above.
   CREATED=$(grep "^created:" <<<"$FM" | sed 's/created: *//' | sed 's/^["'"'"']//;s/["'"'"']$//')
   if [[ -n "$CREATED" ]] && ! grep -qE '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' <<<"$CREATED"; then
-    echo "ERROR: $file — created date not in YYYY-MM-DD format: $CREATED" >&2
+    echo "ERROR: $name — created date not in YYYY-MM-DD format: $CREATED" >&2
+    ERRORS=$((ERRORS + 1))
+  fi
+  return 0
+}
+
+# Every line of a BLOCK goes to stderr. On exit 2 Claude Code hands the model stderr only; when
+# this report went to stdout the agent saw "No stderr output" and could not tell what to fix
+# (LAB-1996 post-merge live control, 2026-09-12). ERRORS already counts any blocked alias.
+# Every vault target prints how many .md files it examined, or a ZERO-INPUT-OK reason; a silent
+# "nothing checked" exit is gone (testing.md rule 1; LAB-2948).
+TOTAL=0
+for i in "${!VAULT_TOPS[@]}"; do
+TOP="${VAULT_TOPS[$i]}"
+cd "$TOP"
+
+# --no-renames + ACMT: a renamed-and-edited or typechanged note is validated as an addition (LAB-2858).
+if ! FILE_LINES=$(commit_files "$TOP" "${VAULT_DIRS[$i]}" "${VAULT_SPECS[$i]}" 1 no ACMT ".md"); then
+  # A vault commit whose file list is unknown is blocked, not passed unchecked (LAB-2858, OD1). This
+  # gate has no backstop: the vault's own git hooks run only the secret scan.
+  echo "ERROR: $TOP — could not compute the files this commit will contain (the resolver's commit_files failed; its reason, if any, is above); blocking rather than passing unchecked" >&2
+  ERRORS=$((ERRORS + 1))
+  continue
+fi
+STAGED_FILES=""
+N=0
+SKIPPED=0
+while IFS=$'\t' read -r kind value; do
+  if [[ "$kind" == SKIP ]]; then
+    skip "$value"
+    SKIPPED=1
+  elif [[ "$kind" == BLOCK ]]; then
+    # A skip on a --no-verify commit: no git hook will cover it (LAB-2948).
+    echo "ERROR: $TOP — $value" >&2
+    ERRORS=$((ERRORS + 1))
+  elif [[ "$kind" == FILE ]]; then
+    STAGED_FILES+="$value"$'\n'
+    N=$((N + 1))
+  fi
+done <<<"$FILE_LINES"
+STAGED_FILES="${STAGED_FILES%$'\n'}"
+if [[ $N -eq 0 ]]; then
+  if [[ $SKIPPED -eq 1 ]]; then
+    echo "$TAG: $TOP: 0 .md file(s) examined — the skipped part above was not validated" >&2
+    continue
+  fi
+  # ZERO-INPUT-OK: this commit adds or changes no .md file (message-only amend, --allow-empty, deletion-only, or non-.md content only)
+  echo "$TAG: $TOP: 0 .md file(s) examined — ZERO-INPUT-OK: this commit adds or changes no .md file (message-only amend, --allow-empty, deletion-only, or non-.md content only)" >&2
+  continue
+fi
+
+while IFS= read -r file; do
+  # Both versions are validated (LAB-2948, owner decision OD-F): the working-tree file when it is a
+  # regular file, and the staged blob (`:0:`) whenever it differs or the working tree has none. A
+  # staged-then-deleted note, or a bad blob under a fixed but unstaged file, no longer passes.
+  WT=0
+  READ=0
+  if [[ -f "$file" && ! -L "$file" ]]; then
+    validate_note "$file" "$file"
+    WT=1
+    READ=1
+  fi
+  if git -C "$TOP" cat-file -e ":0:$file" 2>/dev/null; then
+    git -C "$TOP" show ":0:$file" >"$WORK/blob"
+    READ=1
+    if [[ $WT -eq 0 ]] || ! cmp -s "$WORK/blob" "$file"; then
+      validate_note "$file" "$WORK/blob"
+    fi
+  fi
+  if [[ $READ -eq 0 ]]; then
+    echo "ERROR: $file — listed for this commit but readable neither in the working tree nor the index" >&2
     ERRORS=$((ERRORS + 1))
   fi
 done <<< "$STAGED_FILES"
+echo "$TAG: $TOP: $N .md file(s) examined" >&2
+TOTAL=$((TOTAL + N))
 done
 
-if [[ $CHECKED -eq 0 ]]; then
-  exit 0
-fi
-
-if [[ $ERRORS -gt 0 ]]; then
-  {
-    echo ""
-    echo "Vault frontmatter validation failed ($ERRORS errors)."
-    echo "Run /obsidian-lint --fix to auto-repair, or fix manually."
-  } >&2
+if [[ $ERRORS -gt 0 || $ALIAS_BLOCKS -gt 0 ]]; then
+  fail_report
   exit 2
 fi
 
-echo "Vault frontmatter: all checks passed."
+if [[ $TOTAL -gt 0 ]]; then
+  echo "Vault frontmatter: all checks passed."
+fi
 exit 0

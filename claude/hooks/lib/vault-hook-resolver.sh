@@ -4,10 +4,10 @@
 # gate open.
 #
 # CONTRACT
-#   - Sourced only, never run. It defines three functions and, as its LAST line, sets
+#   - Sourced only, never run. It defines four functions and, as its LAST line, sets
 #     VAULT_HOOK_RESOLVER_API=1. There is no other top-level command: a failing top-level line under
 #     the hooks' `set -e` would exit 1 (allow) on bash 3.2, so the hooks load this file inside an
-#     EXIT trap that turns any exit into 2 and then check the sentinel and the three functions.
+#     EXIT trap that turns any exit into 2 and then check the sentinel and the four functions.
 #   - It never exits, never sets shell options, never cds and never shopts. It reads no hook
 #     globals: everything comes in as arguments.
 #   - Command text is parsed with shlex, never evaluated: a path containing $, a backtick or a glob
@@ -20,29 +20,48 @@
 #
 # FUNCTIONS
 #   resolve_targets <hook payload json>
+#       The payload reaches Python on fd 3, never through the environment or argv: a payload of
+#       1 MiB or more made the exec fail with E2BIG (LAB-2948).
 #       One line per `git commit` found: "DIR<TAB><abs path><TAB><json>" or "SKIP<TAB><reason>".
+#       Any other git subcommand in a known directory (not add, stage, commit, commit-tree,
+#       update-index, read-tree or apply) prints "ALIAS<TAB><abs path><TAB>{"name", "inline"}", where
+#       inline is the value of a `-c alias.<name>=…` on the same command line, else null. Every
+#       payload mentioning "git" is parsed, not only ones mentioning "commit" (LAB-2948).
 #       The json says what else the commit will pick up: -a, -i, pathspecs, and every earlier
-#       `git add` in the same command (LAB-2062).
+#       `git add` in the same command (LAB-2062). Its `plumbing` list names every earlier
+#       index-writing call (update-index, read-tree, apply --cached/--index) as {"cmd", "dir"} or
+#       {"cmd", "skip"}; a `git commit-tree` gets a DIR line whose plumbing ends with
+#       {"cmd": "commit-tree"}. commit_files refuses both in the committed repo (LAB-2948).
 #   common_dir <dir>
 #       The physical git common dir: equal for a checkout and every one of its worktrees, different
 #       for everything else (--show-toplevel would not do: it differs per worktree). rc 1 when <dir>
 #       is not in a git repository.
 #   commit_files <top> <commit dir> <json> <md_only 0|1> <renames yes|no> <diff filter> <label>
 #       The files the commit will contain, as "FILE<TAB><top-relative path>" or "SKIP<TAB><reason>"
-#       lines. md_only=1 keeps only .md files; renames=no lists a rename as an addition
+#       lines. When the json's no_verify is true (`-n`, `--no-verify`, or `git -c core.hooksPath=…`;
+#       a later `--verify` clears it), every SKIP is printed as "BLOCK<TAB><reason> (--no-verify: …)"
+#       instead, and the hooks block on it: the vault's git hook will not run to cover the gap
+#       (LAB-2948). md_only=1 keeps only .md files; renames=no lists a rename as an addition
 #       (--no-renames); the diff filter is git's --diff-filter; the label names a file in the skip
 #       text (".md" or "file"). Git runs with list argv, never a shell, and pathspecs go after `--`.
 #       Exit codes: 0 = the list is complete (SKIP lines name what it could not include); 3 = invalid
 #       parameters (a caller bug), before anything is printed; 4 = a git call that lists part of the
-#       commit failed (a corrupt index, an unreadable object), each reason on stderr, and stdout
+#       commit failed (a corrupt index, an unreadable object) or a plumbing entry targets the
+#       committed repo (it is not modelled), each reason on stderr, and stdout
 #       must then be discarded. Both hooks block on any non-zero exit ("could not compute the files
 #       this commit will contain"; LAB-2858, OD1). An unborn HEAD is not a failure: a pathspec
 #       commit there is diffed against the empty tree.
+#   alias_verdict <dir> <ALIAS json>
+#       Whether that subcommand is an alias that commits. The expansion is the json's inline value,
+#       else `git -C <dir> config --get alias.<name>` (rc 1 = no such alias: nothing is printed).
+#       Prints "COMMITS<TAB><expansion><TAB><name>" when the expansion contains the word commit,
+#       nothing otherwise. Exit 4 when the spec is unreadable or git config fails otherwise; the
+#       hooks block on any non-zero exit (LAB-2948).
 #
 # Tests: claude/tests/vault-hook-resolver.test.sh (the lib alone), plus both hook suites.
 
 resolve_targets() {
-  HOOK_PAYLOAD="$1" python3 -I - <<'PY'
+  python3 -I - 3<<<"$1" <<'PY'
 import json, os, re, shlex, sys
 
 class Unknown:
@@ -59,15 +78,19 @@ def emit(kind, value, extra=None):
 
 seen = []
 adds = []  # every `git add` seen so far in the command, in order
+# Every index-writing plumbing call seen so far (update-index, read-tree, apply --cached/--index).
+# The gates do not model what it stages, so a commit in the same repo after one blocks (LAB-2948).
+plumbing = []
 try:
-    payload = json.loads(os.environ.get("HOOK_PAYLOAD") or "")
+    payload = json.loads(os.fdopen(3, "r", encoding="utf-8", errors="surrogateescape").read() or "")
 except ValueError:
     emit("SKIP", "hook payload is not JSON")
     sys.exit(0)
 if not isinstance(payload, dict):
     sys.exit(0)
 cmd = (payload.get("tool_input") or {}).get("command") or ""
-if not isinstance(cmd, str) or "git" not in cmd or "commit" not in cmd:
+# Not "commit" too: an alias such as `git ca` can commit without the word appearing (LAB-2948).
+if not isinstance(cmd, str) or "git" not in cmd:
     sys.exit(0)
 cwd = payload.get("cwd") or ""
 start = cwd if isinstance(cwd, str) and os.path.isabs(cwd) else Unknown("no cwd in the hook payload")
@@ -118,12 +141,21 @@ def segment(words, cur):
     git_dir_env = any(w.startswith(("GIT_DIR=", "GIT_WORK_TREE=")) for w in words[:k])
     args = words[k + 1:]
     target, j = cur, 0
+    hooks_off = False  # `-c core.hooksPath=…` points git away from the vault's hooks, like --no-verify
+    inline = {}  # `-c alias.<name>=<value>` given on this command line
     while j < len(args):
         a = args[j]
         if a == "-C":
             target = resolve(target, args[j + 1]) if j + 1 < len(args) else Unknown("git -C with no path")
             j += 2
         elif a == "-c":
+            if j + 1 < len(args):
+                kv = args[j + 1]
+                if kv.lower().startswith("core.hookspath="):
+                    hooks_off = True
+                if kv.lower().startswith("alias.") and "=" in kv:
+                    name, _, value = kv[len("alias."):].partition("=")
+                    inline[name] = value
             j += 2
         elif a.startswith(("--git-dir", "--work-tree")):
             git_dir_env = True
@@ -145,6 +177,13 @@ def segment(words, cur):
             adds.append(add)
     # `git rm` stages no content, and `git mv` moves an index entry without staging worktree
     # edits, so neither adds a file the commit could get wrong. They are deliberately not counted.
+    elif sub in ("update-index", "read-tree") or (sub == "apply" and ("--cached" in rest or "--index" in rest)):
+        if git_dir_env:
+            plumbing.append({"cmd": sub, "skip": "git %s with an explicit --git-dir/--work-tree/GIT_DIR" % sub})
+        elif isinstance(target, Unknown):
+            plumbing.append({"cmd": sub, "skip": "git %s in an unresolvable directory (%s)" % (sub, target.reason)})
+        else:
+            plumbing.append({"cmd": sub, "dir": target})
     elif sub == "commit":
         if git_dir_env:
             emit("SKIP", "git commit with an explicit --git-dir/--work-tree/GIT_DIR")
@@ -152,8 +191,23 @@ def segment(words, cur):
             emit("SKIP", target.reason)
         else:
             spec = parse_commit(rest)
+            spec["no_verify"] = spec["no_verify"] or hooks_off
             spec["adds"] = list(adds)
+            spec["plumbing"] = list(plumbing)
             emit("DIR", target, json.dumps(spec))
+    elif sub == "commit-tree":
+        # commit-tree writes a commit object without running any hook; commit_files refuses it.
+        if git_dir_env:
+            emit("SKIP", "git commit-tree with an explicit --git-dir/--work-tree/GIT_DIR")
+        elif isinstance(target, Unknown):
+            emit("SKIP", target.reason)
+        else:
+            emit("DIR", target, json.dumps({"all": False, "include": False, "specs": [], "skips": [],
+                                            "no_verify": False, "adds": list(adds),
+                                            "plumbing": list(plumbing) + [{"cmd": "commit-tree", "dir": target}]}))
+    elif sub is not None and sub != "apply" and not git_dir_env and not isinstance(target, Unknown):
+        # Any other subcommand may be an alias that commits; the hooks ask alias_verdict (LAB-2948).
+        emit("ALIAS", target, json.dumps({"name": sub, "inline": inline.get(sub)}))
     return cur
 
 def expands(spec):
@@ -202,7 +256,7 @@ COMMIT_LONG_VALUE = {"message", "file", "reuse-message", "reedit-message", "auth
                      "template", "fixup", "squash", "cleanup", "trailer"}
 
 def parse_commit(rest):
-    spec = {"all": False, "include": False, "specs": [], "skips": []}
+    spec = {"all": False, "include": False, "specs": [], "skips": [], "no_verify": False}
     k, after = 0, False
     while k < len(rest):
         a = rest[k]
@@ -217,6 +271,10 @@ def parse_commit(rest):
                 spec["all"] = True
             elif name == "include":
                 spec["include"] = True
+            elif name == "no-verify":
+                spec["no_verify"] = True
+            elif name == "verify":
+                spec["no_verify"] = False
             elif name in ("patch", "interactive", "pathspec-from-file"):
                 spec["skips"].append("interactive or file-driven git commit (--%s)" % name)
             elif name in COMMIT_LONG_VALUE and not eq:
@@ -229,6 +287,8 @@ def parse_commit(rest):
                     spec["include"] = True
                 elif ch == "p":
                     spec["skips"].append("interactive git commit (-p)")
+                elif ch == "n":
+                    spec["no_verify"] = True
                 elif ch in COMMIT_SHORT_VALUE:
                     if n + 2 == len(a):
                         k += 1
@@ -260,8 +320,9 @@ for tok in tokens:
     words.append(tok)
 segment(words, cur)
 
-# A commit inside one quoted token (bash -c "...", eval "...") is not inspected. Say so.
-if not seen and any(" " in t and re.search(r"\bgit\b.*\bcommit\b", t) for t in tokens):
+# A commit inside one quoted token (bash -c "...", eval "...") is not inspected. Say so. ALIAS lines
+# do not count: a `git status` before a `bash -c "git commit"` must not hide it.
+if not any(l.startswith(("DIR\t", "SKIP\t")) for l in seen) and any(" " in t and re.search(r"\bgit\b.*\bcommit\b", t) for t in tokens):
     emit("SKIP", "a git commit inside a quoted string (bash -c, eval) was not inspected")
 PY
 }
@@ -288,8 +349,14 @@ if (os.environ.get("CF_MD_ONLY") not in ("0", "1")
 top, cdir = os.environ["CF_TOP"], os.environ["CF_DIR"]
 seen = []
 failures = []  # a git listing that failed: the list is incomplete, so the caller must block (exit 4)
+# A --no-verify commit (or -c core.hooksPath=…) skips the vault's git hook, the only other check of
+# what a skip leaves out, so every SKIP for it becomes a BLOCK line (LAB-2948).
+NO_VERIFY = False
 
 def say(kind, value):
+    if kind == "SKIP" and NO_VERIFY:
+        kind = "BLOCK"
+        value += " (--no-verify: the vault's git hook will not run, so this part would go unexamined)"
     line = kind + "\t" + value
     if line not in seen:
         seen.append(line)
@@ -330,6 +397,7 @@ try:
     spec = json.loads(os.environ["CF_SPEC"] or "{}")
 except ValueError:
     spec = {"skips": ["could not read the parsed commit"]}
+NO_VERIFY = bool(spec.get("no_verify"))
 for reason in spec.get("skips", []):
     say("SKIP", reason)
 
@@ -368,10 +436,53 @@ for add in spec.get("adds", []):
             others += ("--exclude-standard",)
         files(names(add["dir"], *others + ("--",) + tuple(paths)), "could not list untracked git add paths")
 
+# Index-writing plumbing earlier in the same command, and commit-tree itself, are not modelled: in the
+# committed repo they make the list incomplete, so the caller blocks (exit 4; LAB-2948, OD-C).
+for p in spec.get("plumbing", []):
+    if "skip" in p:
+        say("SKIP", p["skip"])
+        continue
+    if toplevel(p["dir"]) != real_top:
+        continue
+    if p["cmd"] == "commit-tree":
+        reason = "git commit-tree writes a commit without running any hook and is not modelled; use git commit"
+    else:
+        reason = ("git %s in the same command writes the index, which the vault gates do not model; "
+                  "run it in its own call, then git commit" % p["cmd"])
+    if reason not in failures:
+        failures.append(reason)
+
 if failures:
     for reason in failures:
         sys.stderr.write("vault-hook-resolver: commit_files: " + reason + "\n")
     sys.exit(4)
+PY
+}
+
+alias_verdict() {
+  AV_DIR="$1" AV_SPEC="$2" python3 -I - <<'PY'
+import json, os, re, subprocess, sys
+
+try:
+    spec = json.loads(os.environ.get("AV_SPEC") or "")
+    name = spec["name"]
+except (ValueError, KeyError, TypeError):
+    sys.stderr.write("vault-hook-resolver: alias_verdict: could not read the alias spec\n")
+    sys.exit(4)
+expansion = spec.get("inline")
+if expansion is None:
+    r = subprocess.run(["git", "-c", "core.fsmonitor=false", "-C", os.environ.get("AV_DIR") or ".",
+                        "config", "--get", "alias." + name],
+                       stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    if r.returncode == 1:
+        sys.exit(0)  # no such alias: a builtin or an unknown command, not a commit
+    if r.returncode != 0:
+        sys.stderr.write("vault-hook-resolver: alias_verdict: git config failed for alias.%s\n" % name)
+        sys.exit(4)
+    expansion = r.stdout.decode("utf-8", "surrogateescape").strip()
+if re.search(r"\bcommit\b", expansion):
+    flat = lambda s: s.replace("\n", " ").replace("\t", " ")
+    print("COMMITS\t" + flat(expansion) + "\t" + flat(name))
 PY
 }
 
