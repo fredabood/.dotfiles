@@ -215,7 +215,7 @@ t_status() { setup; stage "$WT" bad.md "$BAD"; run_hook "$WT" "git status"; sile
 check "git status -> silent" t_status
 t_log_grep() { setup; stage "$WT" bad.md "$BAD"; run_hook "$WT" "git log --grep commit"; silent_pass; }
 check "git log --grep commit -> silent" t_log_grep
-t_commit_tree() { setup; stage "$WT" bad.md "$BAD"; run_hook "$WT" "git commit-tree HEAD^{tree}"; silent_pass; }
+t_commit_tree() { setup; stage "$WT" bad.md "$BAD"; run_hook "$WT" "git commit-tree HEAD^{tree}"; [ "$RC" -eq 2 ] && grep -q commit-tree <<<"$ERR"; }
 check "git commit-tree -> silent" t_commit_tree
 t_not_bash() { setup; OUT=$(bash "$HOOK" <<<'{"tool_name":"Read","tool_input":{"file_path":"/x"}}' 2>&1); RC=$?; [ "$RC" -eq 0 ] && [ -z "$OUT" ]; }
 check "payload with no command -> silent" t_not_bash
@@ -398,6 +398,12 @@ t_f_wtonly() { setup; put "$WT" good.md "$GOOD"; run_hook "$WT" "git add good.md
 check "F-WTONLY control: git add good.md && git commit, good.md untracked -> rc 0 (item 7)" t_f_wtonly
 t_f_nv1() { setup; put "$WT" bad.md "$BAD"; run_hook "$WT" "git add -p && git commit --no-verify -m x"; [ "$RC" -eq 2 ] && grep -q -- '--no-verify' <<<"$ERR"; }
 check "F-NV1 git add -p && git commit --no-verify, nothing staged -> rc 2, naming --no-verify (item 1)" t_f_nv1
+t_f_pl1() { setup; put "$WT" bad.md "$BAD"; run_hook "$WT" "git update-index --add bad.md && git commit -m x"; [ "$RC" -eq 2 ] && grep -q update-index <<<"$ERR"; }
+check "F-PL1 git update-index --add bad.md && git commit -> rc 2, naming update-index (item 3)" t_f_pl1
+t_f_pl3() { setup; run_hook "$WT" "git read-tree HEAD && git commit -m x"; [ "$RC" -eq 2 ] && grep -q read-tree <<<"$ERR"; }
+check "F-PL3 git read-tree HEAD && git commit -> rc 2, naming read-tree (item 3)" t_f_pl3
+t_f_pl0() { setup; put "$OTHER" x.md "$BAD"; run_hook "$OTHER" "git -C '$OTHER' update-index --add x.md && git -C '$WT' commit -m x"; [ "$RC" -eq 0 ]; }
+check "F-PL0 control: update-index in another repo, then a vault commit -> rc 0 (item 3)" t_f_pl0
 
 printf '\n%d passed, %d failed\n' "$pass" "$failed"
 printf 'SUITE_RESULT pass=%d fail=%d skip=0\n' "$pass" "$failed"

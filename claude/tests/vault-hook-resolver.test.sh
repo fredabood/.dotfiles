@@ -125,6 +125,17 @@ t_rt8() {
         && rt8 "git -c core.hooksPath=/dev/null commit -m x" True && rt8 "git commit -m x" False
 }
 check "RT8 no_verify: --no-verify, -n, -anm, -c core.hooksPath= -> true; -m -n, --no-verify --verify, plain -> false" t_rt8
+# RT9: index-writing plumbing before a commit is recorded, and commit-tree gets a DIR line (LAB-2948, item 3).
+t_rt9() {
+    setup
+    resolve "$OTHER" "$WT" "git update-index --add a.md && git commit -m x"
+    [ "$RC" -eq 0 ] && [ "$(line_count)" -eq 1 ] \
+        && [ "$(json_field '[(p["cmd"], p["dir"]) for p in d["plumbing"]]')" = "[('update-index', '$WT')]" ] || return 1
+    resolve "$OTHER" "$OTHER" "git -C '$WT' commit-tree HEAD^{tree} -m x"
+    [ "$RC" -eq 0 ] && [ "$(line_count)" -eq 1 ] && [[ "$OUT" == "DIR${TAB}${WT}${TAB}{"* ]] \
+        && [ "$(json_field 'd["plumbing"][-1]["cmd"]')" = commit-tree ]
+}
+check "RT9 update-index && commit -> spec.plumbing [update-index in <wt>]; commit-tree -> a DIR line ending in commit-tree" t_rt9
 
 echo "common_dir"
 t_cd1() {
@@ -225,6 +236,16 @@ t_cf9() {
     [ "$RC" -eq 0 ] && [ "$OUT" = "SKIP${TAB}r1" ]
 }
 check "CF9 a no_verify spec with skips -> BLOCK lines, rc 0; the same spec without no_verify -> SKIP lines" t_cf9
+# CF10: a plumbing entry in the committed repo makes the list incomplete -> exit 4 (LAB-2948, item 3).
+t_cf10() {
+    setup
+    lib_run "$WT" commit_files "$WT" "$WT" '{"plumbing": [{"cmd": "update-index", "dir": "'"$WT"'"}]}' 1 no ACMT ".md" 2>"$T/cf10.err"
+    [ "$RC" -eq 4 ] && grep -q 'commit_files: git update-index in the same command writes the index' "$T/cf10.err" || return 1
+    # Control: the same entry in another repo is not this commit's business.
+    lib_run "$WT" commit_files "$WT" "$WT" '{"plumbing": [{"cmd": "update-index", "dir": "'"$OTHER"'"}]}' 1 no ACMT ".md"
+    [ "$RC" -eq 0 ]
+}
+check "CF10 a plumbing entry in the committed repo -> rc 4 with the reason on stderr; in another repo -> rc 0" t_cf10
 
 echo "the lib's own red test"
 # ST1: the same cases against a stub that defines the three functions as no-ops and sets the

@@ -24,7 +24,10 @@
 #       1 MiB or more made the exec fail with E2BIG (LAB-2948).
 #       One line per `git commit` found: "DIR<TAB><abs path><TAB><json>" or "SKIP<TAB><reason>".
 #       The json says what else the commit will pick up: -a, -i, pathspecs, and every earlier
-#       `git add` in the same command (LAB-2062).
+#       `git add` in the same command (LAB-2062). Its `plumbing` list names every earlier
+#       index-writing call (update-index, read-tree, apply --cached/--index) as {"cmd", "dir"} or
+#       {"cmd", "skip"}; a `git commit-tree` gets a DIR line whose plumbing ends with
+#       {"cmd": "commit-tree"}. commit_files refuses both in the committed repo (LAB-2948).
 #   common_dir <dir>
 #       The physical git common dir: equal for a checkout and every one of its worktrees, different
 #       for everything else (--show-toplevel would not do: it differs per worktree). rc 1 when <dir>
@@ -39,7 +42,8 @@
 #       text (".md" or "file"). Git runs with list argv, never a shell, and pathspecs go after `--`.
 #       Exit codes: 0 = the list is complete (SKIP lines name what it could not include); 3 = invalid
 #       parameters (a caller bug), before anything is printed; 4 = a git call that lists part of the
-#       commit failed (a corrupt index, an unreadable object), each reason on stderr, and stdout
+#       commit failed (a corrupt index, an unreadable object) or a plumbing entry targets the
+#       committed repo (it is not modelled), each reason on stderr, and stdout
 #       must then be discarded. Both hooks block on any non-zero exit ("could not compute the files
 #       this commit will contain"; LAB-2858, OD1). An unborn HEAD is not a failure: a pathspec
 #       commit there is diffed against the empty tree.
@@ -64,6 +68,9 @@ def emit(kind, value, extra=None):
 
 seen = []
 adds = []  # every `git add` seen so far in the command, in order
+# Every index-writing plumbing call seen so far (update-index, read-tree, apply --cached/--index).
+# The gates do not model what it stages, so a commit in the same repo after one blocks (LAB-2948).
+plumbing = []
 try:
     payload = json.loads(os.fdopen(3, "r", encoding="utf-8", errors="surrogateescape").read() or "")
 except ValueError:
@@ -153,6 +160,13 @@ def segment(words, cur):
             adds.append(add)
     # `git rm` stages no content, and `git mv` moves an index entry without staging worktree
     # edits, so neither adds a file the commit could get wrong. They are deliberately not counted.
+    elif sub in ("update-index", "read-tree") or (sub == "apply" and ("--cached" in rest or "--index" in rest)):
+        if git_dir_env:
+            plumbing.append({"cmd": sub, "skip": "git %s with an explicit --git-dir/--work-tree/GIT_DIR" % sub})
+        elif isinstance(target, Unknown):
+            plumbing.append({"cmd": sub, "skip": "git %s in an unresolvable directory (%s)" % (sub, target.reason)})
+        else:
+            plumbing.append({"cmd": sub, "dir": target})
     elif sub == "commit":
         if git_dir_env:
             emit("SKIP", "git commit with an explicit --git-dir/--work-tree/GIT_DIR")
@@ -162,7 +176,18 @@ def segment(words, cur):
             spec = parse_commit(rest)
             spec["no_verify"] = spec["no_verify"] or hooks_off
             spec["adds"] = list(adds)
+            spec["plumbing"] = list(plumbing)
             emit("DIR", target, json.dumps(spec))
+    elif sub == "commit-tree":
+        # commit-tree writes a commit object without running any hook; commit_files refuses it.
+        if git_dir_env:
+            emit("SKIP", "git commit-tree with an explicit --git-dir/--work-tree/GIT_DIR")
+        elif isinstance(target, Unknown):
+            emit("SKIP", target.reason)
+        else:
+            emit("DIR", target, json.dumps({"all": False, "include": False, "specs": [], "skips": [],
+                                            "no_verify": False, "adds": list(adds),
+                                            "plumbing": list(plumbing) + [{"cmd": "commit-tree", "dir": target}]}))
     return cur
 
 def expands(spec):
@@ -389,6 +414,22 @@ for add in spec.get("adds", []):
         if not add["force"]:
             others += ("--exclude-standard",)
         files(names(add["dir"], *others + ("--",) + tuple(paths)), "could not list untracked git add paths")
+
+# Index-writing plumbing earlier in the same command, and commit-tree itself, are not modelled: in the
+# committed repo they make the list incomplete, so the caller blocks (exit 4; LAB-2948, OD-C).
+for p in spec.get("plumbing", []):
+    if "skip" in p:
+        say("SKIP", p["skip"])
+        continue
+    if toplevel(p["dir"]) != real_top:
+        continue
+    if p["cmd"] == "commit-tree":
+        reason = "git commit-tree writes a commit without running any hook and is not modelled; use git commit"
+    else:
+        reason = ("git %s in the same command writes the index, which the vault gates do not model; "
+                  "run it in its own call, then git commit" % p["cmd"])
+    if reason not in failures:
+        failures.append(reason)
 
 if failures:
     for reason in failures:

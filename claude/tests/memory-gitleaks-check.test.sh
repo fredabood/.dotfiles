@@ -368,6 +368,12 @@ t_g_nv1() { setup; put "$WT" leak.md "$LEAK"; run_hook "$WT" "git add -p && git 
 check "G-NV1 git add -p && git commit --no-verify, nothing staged -> rc 2, naming --no-verify (item 1)" t_g_nv1
 t_g_nv2() { setup; put "$WT" leak.md "$LEAK"; run_hook "$WT" "git add -p && git commit -n -m x"; [ "$RC" -eq 2 ] && grep -q -- '--no-verify' <<<"$ERR"; }
 check "G-NV2 git add -p && git commit -n, nothing staged -> rc 2, naming --no-verify (item 1)" t_g_nv2
+t_g_pl1() { setup; put "$WT" leak.md "$LEAK"; run_hook "$WT" "git update-index --add leak.md && git commit -m x"; [ "$RC" -eq 2 ] && grep -q update-index <<<"$ERR"; }
+check "G-PL1 git update-index --add leak.md && git commit -> rc 2, naming update-index (item 3)" t_g_pl1
+t_g_pl2() { setup; put "$WT" p.diff ""; run_hook "$WT" "git apply --cached p.diff && git commit -m x"; [ "$RC" -eq 2 ] && grep -q 'git apply' <<<"$ERR"; }
+check "G-PL2 git apply --cached p.diff && git commit -> rc 2, naming git apply (item 3)" t_g_pl2
+t_g_ct() { setup; run_hook "$WT" "git commit-tree HEAD^{tree} -m x"; [ "$RC" -eq 2 ] && grep -q commit-tree <<<"$ERR"; }
+check "G-CT git commit-tree HEAD^{tree} -m x -> rc 2, naming commit-tree (item 3)" t_g_ct
 
 printf '\nSUITE_RESULT pass=%d fail=%d skip=%d\n' "$pass" "$failed" "$skipped"
 [ "$failed" -eq 0 ] && [ "$pass" -gt 0 ] && [ "$glpass" -gt 0 ]
