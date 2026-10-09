@@ -6,7 +6,8 @@
 # Runs against a throwaway HOME and temp repos. The harness is copied from
 # memory-frontmatter-check.test.sh, not imported (testing.md: copy the harness, don't import one).
 #   Run: bash claude/tests/memory-gitleaks-check.test.sh
-#   HOOK=<path> and MEMORY_GITLEAKS_CHECK_UNDER_TEST=<scan script> point it at a modified copy.
+#   HOOK=<path> points it at a modified copy of the hook. A modified scan goes in a mklayout copy
+#   (hooks/, hooks/lib/, scripts/): the hook reads no scanner override from the environment (LAB-2948).
 #
 # This file is in a PUBLIC repo whose pre-commit hook runs gitleaks, so no secret and no placeholder
 # is written literally: the planted token is generated at runtime, and the placeholder strings are
@@ -21,8 +22,7 @@ HOOK="${HOOK:-$PKG/hooks/memory-gitleaks-check.sh}"
 # The package the hook under test belongs to: mklayout copies from it, so HOOK=<an older copy's
 # hooks/memory-gitleaks-check.sh> runs the layout cases against that copy too (red runs, LAB-2948).
 SRC="$(cd "$(dirname "$HOOK")/.." && pwd)"
-SCAN="${MEMORY_GITLEAKS_CHECK_UNDER_TEST:-$PKG/scripts/memory-gitleaks-scan.sh}"
-export MEMORY_GITLEAKS_CHECK_UNDER_TEST="$SCAN"
+SCAN="$PKG/scripts/memory-gitleaks-scan.sh"
 # Physical path: git reports /private/var/... on macOS, and the assertions compare paths.
 T="$(cd "$(mktemp -d "${TMPDIR:-/tmp}/gitleaks-check-test.XXXXXX")" && pwd -P)"
 trap 'rm -rf "$T"' EXIT
@@ -111,6 +111,15 @@ run_scan() {
     local p; for p in "$@"; do printf '%s\0' "$p" >> "$T/list"; done
     OUT=$(bash "$SCAN" "$top" "$config" "$T/list" 2>"$T/stderr"); RC=$?
     ERR=$(cat "$T/stderr")
+}
+
+# mklayout <dir> <hook-name> [lib-source|none]: a copy of the hook layout (hooks/, hooks/lib/, scripts/).
+# The scan script is copied too, else the layout would exit 2 for the wrong reason.
+mklayout() {
+    mkdir -p "$1/hooks/lib" "$1/scripts"
+    cp "$SRC/hooks/$2" "$1/hooks/"
+    cp "$SRC/scripts/memory-gitleaks-scan.sh" "$1/scripts/"
+    [ "${3:-}" = none ] || cp "${3:-$SRC/hooks/lib/vault-hook-resolver.sh}" "$1/hooks/lib/"
 }
 
 count_line() { grep -Eq "memory-gitleaks-check: .*: [1-9][0-9]* staged path\(s\) examined" <<<"$ERR"; }
@@ -211,10 +220,12 @@ check "K1 MEMORY_GITLEAKS_CHECK=off -> allowed, with a DISABLED line" t_k1
 
 echo "-c is load-bearing (mutation)"
 t_m1() {
+    # The modified scan goes in a layout copy: the hook takes no scanner from the environment (LAB-2948).
     setup; stage "$WT" ok.md "$PLACEHOLDERS"
-    sed 's/ -c "\$CONFIG"//' "$SCAN" > "$T/scan-no-c.sh"
-    grep -q -- '-c "\$CONFIG"' "$T/scan-no-c.sh" && return 1
-    MEMORY_GITLEAKS_CHECK_UNDER_TEST="$T/scan-no-c.sh" run_hook "$WT" "git commit -m x"
+    mklayout "$T/m1" memory-gitleaks-check.sh
+    sed 's/ -c "\$CONFIG"//' "$SCAN" > "$T/m1/scripts/memory-gitleaks-scan.sh"
+    grep -q -- '-c "\$CONFIG"' "$T/m1/scripts/memory-gitleaks-scan.sh" && return 1
+    HOOK="$T/m1/hooks/memory-gitleaks-check.sh" run_hook "$WT" "git commit -m x"
     [ "$RC" -ne 0 ]
 }
 gl_check "M1 deleting -c from the check turns the placeholder case red" t_m1
@@ -265,14 +276,7 @@ t_g_plant2() {
 gl_check "G-PLANT2 subprocess.py at the vault root, process cwd = vault root, token staged -> blocked" t_g_plant2
 
 echo "the resolver lib fails closed (LAB-2858)"
-# mklayout <dir> <hook-name> [lib-source|none]: a copy of the hook layout (hooks/, hooks/lib/, scripts/).
-# The scan script is copied too, else the layout would exit 2 for the wrong reason.
-mklayout() {
-    mkdir -p "$1/hooks/lib" "$1/scripts"
-    cp "$SRC/hooks/$2" "$1/hooks/"
-    cp "$SRC/scripts/memory-gitleaks-scan.sh" "$1/scripts/"
-    [ "${3:-}" = none ] || cp "${3:-$SRC/hooks/lib/vault-hook-resolver.sh}" "$1/hooks/lib/"
-}
+# mklayout is defined with the harness above (M1 uses it too).
 GL_HOOK="memory-gitleaks-check.sh"
 REAL_LIB="$PKG/hooks/lib/vault-hook-resolver.sh"
 t_g_l0() {
@@ -389,6 +393,11 @@ t_g_al2() {
     run_hook "$WT" "git ca"; [ "$RC" -eq 2 ] && grep -q "git alias 'ca'" <<<"$ERR"
 }
 check "G-AL2 a configured vault alias 'git ca' that commits (no 'commit' in the payload) -> rc 2 (item 2)" t_g_al2
+t_g_ut1() {
+    setup; stage "$WT" leak.md "$LEAK"; printf '#!/bin/sh\nexit 0\n' > "$T/stub-scan.sh"
+    MEMORY_GITLEAKS_CHECK_UNDER_TEST="$T/stub-scan.sh" run_hook "$WT" "git commit -m x"; blocked leak.md
+}
+gl_check "G-UT1 MEMORY_GITLEAKS_CHECK_UNDER_TEST pointing at an exit-0 stub, token staged -> still blocked (item 8)" t_g_ut1
 
 printf '\nSUITE_RESULT pass=%d fail=%d skip=%d\n' "$pass" "$failed" "$skipped"
 [ "$failed" -eq 0 ] && [ "$pass" -gt 0 ] && [ "$glpass" -gt 0 ]

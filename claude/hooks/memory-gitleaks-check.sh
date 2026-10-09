@@ -67,7 +67,9 @@ skip() {
 }
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
-SCAN="${MEMORY_GITLEAKS_CHECK_UNDER_TEST:-$HERE/../scripts/memory-gitleaks-scan.sh}"
+# No environment override: a production hook must not take its scanner from the environment
+# (LAB-2948, owner decision OD-G). Tests point a layout copy at a modified scan instead.
+SCAN="$HERE/../scripts/memory-gitleaks-scan.sh"
 LIB="$HERE/lib/vault-hook-resolver.sh"
 # The shared resolver (resolve_targets, common_dir, commit_files; LAB-2858). Every way it can fail to
 # load blocks, because this hook cannot judge a commit without it.
