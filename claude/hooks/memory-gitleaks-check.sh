@@ -48,6 +48,8 @@
 # must be BLOCKED) — never by observing that the hook ran without error.
 
 set -euo pipefail
+# System tool dirs first, so a python3/git/bash planted earlier on PATH is never run (LAB-2948).
+PATH="/usr/bin:/bin:/usr/sbin:/sbin:${PATH:-}"; export PATH
 
 TAG="memory-gitleaks-check"
 INPUT=$(cat)

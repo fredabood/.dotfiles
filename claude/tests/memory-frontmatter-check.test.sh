@@ -423,6 +423,23 @@ t_f_al0() { setup; git -C "$VAULT" config alias.s 'status -s'; stage "$WT" bad.m
 check "F-AL0 control: a vault alias 'git s' = status -s -> silent (item 2)" t_f_al0
 t_f_al3() { setup; git -C "$OTHER" config alias.ca '!git add -A && git commit -av'; stage "$OTHER" bad.md "$BAD"; run_hook "$OTHER" "git ca"; silent_pass; }
 check "F-AL3 control: the committing alias is set in another repo and run there -> silent (item 2)" t_f_al3
+# run_hook_path <PATH> <cwd> <command>: run_hook with PATH set for the hook only. The payload is built
+# first, with the real python3, since a planted one would print nothing.
+run_hook_path() {
+    local payload
+    payload=$(python3 -c '
+import json, sys
+print(json.dumps({"hook_event_name": "PreToolUse", "tool_name": "Bash",
+                  "tool_input": {"command": sys.argv[2]}, "cwd": sys.argv[1]}))' "$2" "$3")
+    OUT=$(PATH="$1" bash "$HOOK" <<<"$payload" 2>"$T/stderr"); RC=$?
+    ERR=$(cat "$T/stderr")
+}
+t_f_path1() {
+    setup; mkdir -p "$T/evil$n"
+    local tool; for tool in python3 git; do printf '#!/bin/sh\nexit 0\n' > "$T/evil$n/$tool"; chmod 755 "$T/evil$n/$tool"; done
+    stage "$WT" bad.md "$BAD"; run_hook_path "$T/evil$n:$PATH" "$WT" "git commit -m x"; blocked bad.md
+}
+check "F-PATH1 python3 and git that exit 0 planted first on PATH, bad .md staged -> blocked (item 9)" t_f_path1
 
 printf '\n%d passed, %d failed\n' "$pass" "$failed"
 printf 'SUITE_RESULT pass=%d fail=%d skip=0\n' "$pass" "$failed"

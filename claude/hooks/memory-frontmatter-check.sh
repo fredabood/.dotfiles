@@ -6,6 +6,8 @@
 # `git commit` whose repo is the memory vault: its primary checkout or any worktree of it.
 
 set -euo pipefail
+# System tool dirs first, so a python3/git/bash planted earlier on PATH is never run (LAB-2948).
+PATH="/usr/bin:/bin:/usr/sbin:/sbin:${PATH:-}"; export PATH
 
 # Modern hook payload arrives as JSON on stdin (legacy TOOL_INPUT env was always
 # empty, making this gate a silent no-op — LAB-215, 2026-07-13).

@@ -324,6 +324,21 @@ t_s2() {
         }' "$LIB"
 }
 check "S2 outside functions: only comments, blanks and VAULT_HOOK_RESOLVER_API=1 as the last line" t_s2
+# S3: settings.base.json launches both vault gates with /bin/bash, so a bash planted earlier on PATH
+# never runs them (LAB-2948, item 9). Fewer than two gate commands found is a FAIL.
+t_s3() {
+    python3 - "$PKG/settings.base.json" <<'PY'
+import json, sys
+s = json.load(open(sys.argv[1]))
+cmds = [h.get("command", "") for e in s["hooks"]["PreToolUse"] for h in e.get("hooks", [])
+        if "memory-frontmatter-check.sh" in h.get("command", "") or "memory-gitleaks-check.sh" in h.get("command", "")]
+bad = [c for c in cmds if not c.startswith("/bin/bash ")]
+if len(cmds) < 2 or bad:
+    print("    gate commands: %r" % cmds)
+    sys.exit(1)
+PY
+}
+check "S3 both vault gate commands in settings.base.json start with '/bin/bash '" t_s3
 
 printf '\nSUITE_RESULT pass=%d fail=%d skip=0\n' "$pass" "$failed"
 [ "$failed" -eq 0 ] && [ "$pass" -gt 0 ]

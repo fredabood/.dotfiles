@@ -56,11 +56,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$HOME/.claude/hooks/memory-frontmatter-check.sh"
+            "command": "/bin/bash $HOME/.claude/hooks/memory-frontmatter-check.sh"
           },
           {
             "type": "command",
-            "command": "$HOME/.claude/hooks/memory-gitleaks-check.sh",
+            "command": "/bin/bash $HOME/.claude/hooks/memory-gitleaks-check.sh",
             "timeout": 60
           }
         ]

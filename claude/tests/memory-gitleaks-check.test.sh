@@ -398,6 +398,23 @@ t_g_ut1() {
     MEMORY_GITLEAKS_CHECK_UNDER_TEST="$T/stub-scan.sh" run_hook "$WT" "git commit -m x"; blocked leak.md
 }
 gl_check "G-UT1 MEMORY_GITLEAKS_CHECK_UNDER_TEST pointing at an exit-0 stub, token staged -> still blocked (item 8)" t_g_ut1
+# run_hook_path <PATH> <cwd> <command>: run_hook with PATH set for the hook only. The payload is built
+# first, with the real python3, since a planted one would print nothing.
+run_hook_path() {
+    local payload
+    payload=$(python3 -c '
+import json, sys
+print(json.dumps({"hook_event_name": "PreToolUse", "tool_name": "Bash",
+                  "tool_input": {"command": sys.argv[2]}, "cwd": sys.argv[1]}))' "$2" "$3")
+    OUT=$(PATH="$1" bash "$HOOK" <<<"$payload" 2>"$T/stderr"); RC=$?
+    ERR=$(cat "$T/stderr")
+}
+t_g_path1() {
+    setup; mkdir -p "$T/evil$n"
+    local tool; for tool in python3 git; do printf '#!/bin/sh\nexit 0\n' > "$T/evil$n/$tool"; chmod 755 "$T/evil$n/$tool"; done
+    stage "$WT" leak.md "$LEAK"; run_hook_path "$T/evil$n:$PATH" "$WT" "git commit -m x"; blocked leak.md
+}
+gl_check "G-PATH1 python3 and git that exit 0 planted first on PATH, token staged -> blocked (item 9)" t_g_path1
 
 printf '\nSUITE_RESULT pass=%d fail=%d skip=%d\n' "$pass" "$failed" "$skipped"
 [ "$failed" -eq 0 ] && [ "$pass" -gt 0 ] && [ "$glpass" -gt 0 ]
