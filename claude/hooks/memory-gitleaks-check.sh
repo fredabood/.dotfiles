@@ -26,9 +26,14 @@
 # resolver lib missing, incomplete or failing to load, or — for a vault commit — the list of files
 # the commit will contain could not be computed: commit_files failed in python3, got invalid
 # parameters, or a git listing call failed, such as on a corrupt index; LAB-2858). A pathspec
-# commit on an unborn HEAD is diffed against the empty tree, not blocked. The lib refusals come
-# before the vault is identified, so they block any Bash call whose payload mentions both git and
-# commit.
+# commit on an unborn HEAD is diffed against the empty tree, not blocked. LAB-2948 added these
+# blocks: resolve_targets failing (python3 missing or crashing); any abort after the commit is known
+# to be a vault commit (set -e, a failed mktemp: an EXIT trap turns it into 2); a skip on a
+# --no-verify commit (-n, or -c core.hooksPath=…), since no git hook will run; update-index,
+# read-tree or apply --cached/--index before the commit in the same repo, and commit-tree; and a
+# vault git alias whose expansion commits. The lib refusals come before the vault is identified, so
+# they block any Bash call whose payload mentions git (the prefilter no longer also needs
+# "commit", because an alias such as `git ca` commits without the word).
 #
 # KILL SWITCH (human only): MEMORY_GITLEAKS_CHECK=off disables the gate and prints a DISABLED line
 # on stderr for every commit it waves through.
@@ -41,7 +46,13 @@
 #     vault's own git hooks, claude/scripts/memory-gitleaks-commit-check.sh (LAB-2857); vault-sync's
 #     planned auto-commit is to call that script explicitly (fredabood/homelab#2548).
 #   - Interactive or file-driven adds and commits, and pathspecs using $, backticks or braces, are
-#     a visible "skipped" line, as in the frontmatter hook.
+#     a visible "skipped" line, as in the frontmatter hook (a block with --no-verify).
+#   - Not covered: a commit or alias whose directory cannot be resolved, or one run with an explicit
+#     --git-dir/--work-tree/GIT_DIR (a commit prints a skip; an alias prints nothing).
+#   - PATH starts with the system tool dirs (LAB-2948), so python3, git and bash come from
+#     /usr/bin and /bin; gitleaks is not there and still resolves from the rest of PATH, so a
+#     gitleaks planted earlier on PATH is not covered.
+#   - No environment variable selects the scan script (LAB-2948 retired the test override).
 #
 # If you change this file, prove it with claude/tests/memory-gitleaks-check.test.sh AND the live
 # probe in fredabood/homelab#2457 (a runtime-generated token staged in a throwaway vault worktree

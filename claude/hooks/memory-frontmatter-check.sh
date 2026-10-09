@@ -42,9 +42,10 @@ fi
 # hook exited 0 silently, and `git add … && git commit` is the most common way agents commit. So
 # the file set is now computed from the command: the index, plus every earlier `git add` in the
 # same command that targets the same repo, plus `commit -a`, `commit -i <paths>` and
-# `commit <paths>` (which commits only those paths). Content is read from the working tree.
+# `commit <paths>` (which commits only those paths). Content is read from the working tree and the
+# staged blob (LAB-2948).
 #
-# The resolver (resolve_targets, common_dir, commit_files) lives in hooks/lib/vault-hook-resolver.sh,
+# The resolver (resolve_targets, common_dir, commit_files, alias_verdict) lives in hooks/lib/vault-hook-resolver.sh,
 # shared with memory-gitleaks-check.sh and tested by claude/tests/vault-hook-resolver.test.sh
 # (LAB-2858). A missing, incomplete or failing lib blocks (exit 2): this gate cannot judge without it.
 # Python runs with -I, so a shlex.py or subprocess.py planted in the cwd or the repo root is never
@@ -58,9 +59,26 @@ fi
 # non-zero on a python3 failure, invalid parameters (3) or any git listing call that fails (4, e.g.
 # a corrupt index). A pathspec commit on an unborn HEAD is diffed against the empty tree instead.
 #
+# LAB-2948 closed the remaining fail-open paths:
+#   - a resolver failure (python3 missing, a crash) blocks; the payload reaches it on fd 3, so a
+#     1 MiB+ command no longer fails with E2BIG;
+#   - once the commit is known to be a vault commit, any abort (set -e, a failed cd or mktemp) is
+#     turned into exit 2 by an EXIT trap;
+#   - every vault target prints "<n> .md file(s) examined", or a ZERO-INPUT-OK reason, or a line
+#     saying a skipped part was not validated;
+#   - each note is validated from the working tree (a regular file) AND from its staged blob when that
+#     differs or the working tree has none, so a staged-then-deleted note is caught;
+#   - with --no-verify (-n, or -c core.hooksPath=…) every skip blocks, since no git hook will run;
+#   - update-index, read-tree or apply --cached/--index before a commit in the same repo, and
+#     commit-tree, block (they are not modelled);
+#   - a vault git alias whose expansion commits blocks, and every payload mentioning "git" is
+#     parsed;
+#   - PATH starts with the system tool dirs, and settings.base.json launches this hook with /bin/bash.
+#
 # Remaining limits, each a visible skip rather than a silent pass: interactive or file-driven
 # adds and commits (-p, -i, -e, --pathspec-from-file), and pathspecs using $, backticks or braces.
-# A partially staged file is validated from the working tree, not the staged blob.
+# Not covered: a commit or alias whose directory cannot be resolved, or one run with an explicit
+# --git-dir/--work-tree/GIT_DIR (a commit prints a skip; an alias prints nothing).
 #
 # If you change this file, prove it with claude/tests/memory-frontmatter-check.test.sh AND by
 # staging a frontmatter-less .md in a real vault worktree and watching the commit get BLOCKED —
